@@ -13,6 +13,15 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+      آسوده برای کار کردن به‌عنوان اپ پیامک به سخت‌افزار تلفن نیاز دارد، ولی
+      `required="false"` است تا روی دستگاهی بدون سیم‌کارت هم نصب شود و پیامک‌های
+      ذخیره‌شده را فقط-خواندنی نشان بدهد (همان رفتار D47 وقتی اپ پیش‌فرض نیست).
+    -->
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
+
     <application
         android:name=".app.AsudehApplication"
         android:allowBackup="true"

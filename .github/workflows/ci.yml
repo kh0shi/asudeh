@@ -68,6 +68,12 @@ jobs:
       - name: lint
         run: ./gradlew --no-daemon :app:lintDebug
 
+      - name: گزارش کامل lint
+        if: failure()
+        run: |
+          report=app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt
+          [ -f "$report" ] && cat "$report" || echo "گزارش lint ساخته نشد"
+
       - name: حجم APK زیر ۱۰ مگابایت
         run: |
           apk=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
