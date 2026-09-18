@@ -59,7 +59,7 @@ class SmsDeliverReceiver : BroadcastReceiver() {
             notifier = AsudehNotifier(context.applicationContext) { threadId ->
                 conversationIntent(context.applicationContext, threadId)
             },
-            classify = repository.classifier::classify,
+            classify = { input -> repository.classifier.classify(input) },
             isKnownContact = { address -> Contacts.isKnown(context.applicationContext, address) },
             userRules = { repository.currentUserRules() },
             onError = { stage, error -> Log.w(TAG, "مرحلهٔ $stage شکست خورد", error) },
