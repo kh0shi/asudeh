@@ -1,13 +1,17 @@
 package ir.asudehapp.sms.telephony
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import ir.asudehapp.sms.classifier.receive.ClassifiedMessage
 import ir.asudehapp.sms.classifier.receive.Notifier
 import ir.asudehapp.sms.model.Category
@@ -57,8 +61,10 @@ class AsudehNotifier(
     private val openConversation: (Long) -> Intent?,
 ) : Notifier {
 
+    @SuppressLint("MissingPermission")
     override suspend fun notify(message: ClassifiedMessage) {
         if (message.placement.notification == NotificationBehavior.NONE) return
+        if (!canNotify()) return
         NotificationChannels.ensure(context)
 
         val manager = NotificationManagerCompat.from(context)
@@ -102,6 +108,12 @@ class AsudehNotifier(
         }
 
         runCatching { manager.notify(message.providerId.toInt(), builder.build()) }
+    }
+
+    private fun canNotify(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
     }
 
     private fun channelFor(message: ClassifiedMessage): String = when {

@@ -7,6 +7,7 @@ import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.data.ThreadSummary
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.Origin
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -72,11 +73,14 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private var conversationJob: Job? = null
+
     fun openConversation(threadId: Long, folder: Folder) {
         viewModelScope.launch {
             repository.markThreadRead(threadId, folder)
         }
-        viewModelScope.launch {
+        conversationJob?.cancel()
+        conversationJob = viewModelScope.launch {
             repository.conversation(threadId).collect { messages ->
                 val address = messages.firstOrNull()?.address.orEmpty()
                 _conversation.value = ConversationUiState(

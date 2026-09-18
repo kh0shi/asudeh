@@ -64,10 +64,11 @@ fun AsudehApp(
 
     BackHandler(enabled = destination != Destination.Home) { destination = Destination.Home }
 
+    val conversation by model.conversation.collectAsState()
     val title = when (val current = destination) {
         Destination.Home -> Texts.APP_NAME
         is Destination.FolderView -> Texts.folderName(current.folder)
-        is Destination.Conversation -> Texts.sender(model.conversation.collectAsState().value.address)
+        is Destination.Conversation -> Texts.sender(conversation.address)
     }
 
     Scaffold(

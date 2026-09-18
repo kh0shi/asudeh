@@ -49,7 +49,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # بستهٔ قدیمی `tools` دیگر در مخزن گوگل نیست و پیش‌فرض این action را
+      # می‌شکند. خود runner اندروید SDK را دارد، پس فقط مجوزها و متغیرها لازم است.
       - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
 
       - uses: gradle/actions/setup-gradle@v4
 

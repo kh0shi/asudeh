@@ -9,9 +9,10 @@ import android.util.Log
 import ir.asudehapp.sms.classifier.receive.RawSms
 import ir.asudehapp.sms.classifier.receive.ReceivePipeline
 import ir.asudehapp.sms.data.AsudehRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * دریافت پیامک به‌عنوان اپ پیش‌فرض (`SMS_DELIVER`).
@@ -36,17 +37,18 @@ class SmsDeliverReceiver : BroadcastReceiver() {
         val raw = parts.toRawSms(intent)
         val pending = goAsync()
 
-        // `goAsync` به ما چند ثانیه وقت می‌دهد؛ `ReceivePipeline` خودش سقف زمانی
-        // طبقه‌بندی را رعایت می‌کند (D23).
-        runCatching {
-            runBlocking {
-                withContext(Dispatchers.Default) {
-                    pipelineFor(context).onReceive(raw)
-                }
+        // `goAsync` به ما چند ثانیه وقت می‌دهد و نخ اصلی آزاد می‌ماند؛
+        // `ReceivePipeline` خودش سقف زمانی طبقه‌بندی را رعایت می‌کند (D23).
+        val applicationContext = context.applicationContext
+        scope.launch {
+            try {
+                pipelineFor(applicationContext).onReceive(raw)
+            } catch (failure: Throwable) {
+                Log.e(TAG, "خطا در مسیر دریافت پیامک", failure)
+            } finally {
+                pending.finish()
             }
-        }.onFailure { Log.e(TAG, "خطا در مسیر دریافت پیامک", it) }
-
-        pending.finish()
+        }
     }
 
     private fun pipelineFor(context: Context): ReceivePipeline {
@@ -80,6 +82,8 @@ class SmsDeliverReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "AsudehSmsReceiver"
+
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
         /**
          * توسط `:app` پر می‌شود تا لمس اعلان همان گفتگو را باز کند، بدون اینکه

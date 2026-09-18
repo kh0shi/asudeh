@@ -37,6 +37,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    lint {
+        warningsAsErrors = false
+        abortOnError = true
+    }
 }
 
 dependencies {
@@ -74,48 +79,41 @@ val allowedPermissions = setOf(
     "android.permission.RECEIVE_BOOT_COMPLETED",
 )
 
-abstract class CheckManifestPermissions : DefaultTask() {
-
-    @get:org.gradle.api.tasks.InputFile
-    abstract val mergedManifest: org.gradle.api.file.RegularFileProperty
-
-    @get:org.gradle.api.tasks.Input
-    abstract val allowed: org.gradle.api.provider.SetProperty<String>
-
-    @org.gradle.api.tasks.TaskAction
-    fun check() {
-        val text = mergedManifest.get().asFile.readText()
-        val declared = Regex("""uses-permission[^>]*android:name="([^"]+)"""")
-            .findAll(text)
-            .map { it.groupValues[1] }
-            .toSortedSet()
-
-        val problems = mutableListOf<String>()
-        if ("android.permission.INTERNET" in declared) {
-            problems += "manifest ادغام‌شده مجوز INTERNET دارد. وعدهٔ NoNet (ADR-0002) شکسته می‌شود."
-        }
-        val unexpected = declared - allowed.get()
-        if (unexpected.isNotEmpty()) {
-            problems += "مجوزهای تأییدنشده در manifest ادغام‌شده: ${unexpected.joinToString()}"
-        }
-        if (problems.isNotEmpty()) {
-            throw GradleException(problems.joinToString(separator = "\n"))
-        }
-        logger.lifecycle("NoNet: مجوز INTERNET وجود ندارد. مجوزهای اعلام‌شده: ${declared.joinToString()}")
-    }
-}
-
 androidComponents {
     onVariants { variant ->
-        val task = tasks.register(
+        val mergedManifest = variant.artifacts.get(SingleArtifact.MERGED_MANIFEST)
+        val checkTask = tasks.register(
             "check${variant.name.replaceFirstChar(Char::uppercase)}Permissions",
-            CheckManifestPermissions::class.java,
         ) {
             group = "verification"
             description = "بررسی نبود مجوز INTERNET در manifest ادغام‌شده (ADR-0002)"
-            mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
-            allowed.set(allowedPermissions)
+            inputs.file(mergedManifest)
+            doLast {
+                val text = mergedManifest.get().asFile.readText()
+                val declared = Regex("""uses-permission[^>]*android:name="([^"]+)"""")
+                    .findAll(text)
+                    .map { it.groupValues[1] }
+                    .toSortedSet()
+
+                val problems = mutableListOf<String>()
+                if ("android.permission.INTERNET" in declared) {
+                    problems += "manifest ادغام‌شده مجوز INTERNET دارد. " +
+                        "وعدهٔ NoNet (ADR-0002) شکسته می‌شود."
+                }
+                val unexpected = declared - allowedPermissions
+                if (unexpected.isNotEmpty()) {
+                    problems += "مجوزهای تأییدنشده در manifest ادغام‌شده: " +
+                        unexpected.joinToString()
+                }
+                if (problems.isNotEmpty()) {
+                    throw GradleException(problems.joinToString(separator = "\n"))
+                }
+                logger.lifecycle(
+                    "NoNet: مجوز INTERNET وجود ندارد. " +
+                        "مجوزهای اعلام‌شده: ${declared.joinToString()}",
+                )
+            }
         }
-        tasks.named("check").configure { dependsOn(task) }
+        tasks.named("check").configure { dependsOn(checkTask) }
     }
 }
