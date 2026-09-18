@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ماژول‌های خالص Kotlin: مدل، فارسی و طبقه‌بند. اینجا معیارهای طبقه‌بند و
+  # قاعدهٔ «اول ذخیره» آزموده می‌شوند (D64).
+  core:
+    name: آزمون‌های هسته
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: اجرای آزمون‌های واحد
+        run: ./gradlew --no-daemon :core:model:test :core:persian:test :core:classifier:test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: core-test-reports
+          path: core/*/build/reports/tests/
+
+  # ساخت اپ اندرویدی و بررسی‌های اجباری D62.
+  android:
+    name: ساخت اپ و بررسی NoNet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: ساخت نسخهٔ debug
+        run: ./gradlew --no-daemon :app:assembleDebug
+
+      # ADR-0002: بررسی روی manifest ادغام‌شده انجام می‌شود، چون ممکن است یک
+      # کتابخانه بی‌صدا مجوز INTERNET را اضافه کند.
+      - name: بررسی نبود مجوز INTERNET
+        run: ./gradlew --no-daemon :app:checkDebugPermissions
+
+      - name: lint
+        run: ./gradlew --no-daemon :app:lintDebug
+
+      - name: حجم APK زیر ۱۰ مگابایت
+        run: |
+          apk=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
+          size=$(stat -c%s "$apk")
+          echo "حجم APK: $((size / 1024 / 1024)) مگابایت"
+          if [ "$size" -gt 10485760 ]; then
+            echo "حجم APK از بودجهٔ ۱۰ مگابایت (اصل ۷) بیشتر است"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: android-reports
+          path: app/build/reports/
