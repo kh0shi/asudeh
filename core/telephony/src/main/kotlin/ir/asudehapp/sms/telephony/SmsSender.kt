@@ -1,5 +1,6 @@
 package ir.asudehapp.sms.telephony
 
+import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
 import android.provider.Telephony
@@ -11,6 +12,8 @@ import kotlinx.coroutines.withContext
 /** ارسال پیامک، و نوشتن نسخهٔ ارسالی در Telephony Provider سیستم. */
 class SmsSender(private val context: Context) {
 
+    // مجوز SEND_SMS برای اپ پیامک پیش‌فرض خودکار داده می‌شود.
+    @SuppressLint("MissingPermission")
     suspend fun send(address: String, body: String, subscriptionId: Int = -1) =
         withContext(Dispatchers.IO) {
             val manager = smsManager(subscriptionId)

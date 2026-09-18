@@ -77,6 +77,9 @@ val allowedPermissions = setOf(
     "android.permission.READ_CONTACTS",
     "android.permission.POST_NOTIFICATIONS",
     "android.permission.RECEIVE_BOOT_COMPLETED",
+    // مجوز امضایی خودِ اپ که androidx.core به manifest اضافه می‌کند، برای
+    // گیرنده‌های ثبت‌شده در زمان اجرا. چیزی بیرون از اپ به آن دسترسی ندارد.
+    "ir.asudehapp.sms.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
 )
 
 androidComponents {
