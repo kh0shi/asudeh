@@ -1,57 +1,107 @@
 package ir.asudehapp.sms.telephony
 
 import android.annotation.SuppressLint
-import android.content.ContentValues
+import android.app.PendingIntent
 import android.content.Context
-import android.provider.Telephony
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.telephony.SmsManager
+import ir.asudehapp.sms.data.AsudehRepository
+import ir.asudehapp.sms.data.MessageEntity
+import ir.asudehapp.sms.data.SendStatus
 import ir.asudehapp.sms.model.Addresses
+import ir.asudehapp.sms.model.Folder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** ارسال پیامک، و نوشتن نسخهٔ ارسالی در Telephony Provider سیستم. */
-class SmsSender(private val context: Context) {
+/**
+ * ارسال پیامک.
+ *
+ * `SaveFirst` برای ارسال هم برقرار است: پیامک **پیش از** ارسال در provider
+ * (`OUTBOX`) و ایندکس نوشته می‌شود، و نتیجهٔ ارسال بعداً از [SmsSentReceiver]
+ * می‌رسد. ارسال ناموفق هرگز بی‌صدا نیست: در گفتگو «ارسال نشد» دیده می‌شود و
+ * اعلان هم دارد.
+ */
+class SmsSender(
+    private val context: Context,
+    private val repository: AsudehRepository,
+) {
 
-    // مجوز SEND_SMS برای اپ پیامک پیش‌فرض خودکار داده می‌شود.
-    @SuppressLint("MissingPermission")
-    suspend fun send(address: String, body: String, subscriptionId: Int = -1) =
-        withContext(Dispatchers.IO) {
-            val manager = smsManager(subscriptionId)
-            val parts = manager.divideMessage(body)
-            if (parts.size > 1) {
-                manager.sendMultipartTextMessage(address, null, parts, null, null)
-            } else {
-                manager.sendTextMessage(address, null, body, null, null)
-            }
-            writeSent(address, body, subscriptionId)
-        }
+    /** خروجی، پیامک ثبت‌شده است. اگر نوشتن در provider ممکن نباشد خطا می‌دهد. */
+    suspend fun send(
+        address: String,
+        body: String,
+        subscriptionId: Int = -1,
+        folder: Folder = Folder.INBOX,
+    ): MessageEntity {
+        val message = repository.recordOutgoing(address, body, subscriptionId, folder)
+        transmit(message)
+        return message
+    }
+
+    /** «دوباره بفرست» برای پیامکی که ارسالش ناموفق بود. */
+    suspend fun resend(message: MessageEntity) {
+        repository.setSendStatus(message.providerId, SendStatus.PENDING)
+        transmit(message)
+    }
 
     /**
      * `Unsub11`: ارسال «۱۱» به سرشمارهٔ تبلیغاتی، **همیشه با تأیید صریح کاربر**
-     * و فقط برای خطوط `AdLine` (D28). تصمیم نمایش دکمه با رابط کاربری است؛
-     * این تابع فقط همان یک شرط ساختاری را دوباره بررسی می‌کند.
+     * و فقط برای خطوط `AdLine` (D28). پیامک ارسالی در همان گفتگو در
+     * `PromoFolder` دیده می‌شود.
      */
-    suspend fun unsubscribe(address: String, subscriptionId: Int = -1) {
+    suspend fun unsubscribe(address: String, subscriptionId: Int = -1): MessageEntity {
         require(Addresses.isAdLine(address)) { "لغو۱۱ فقط برای خطوط انبوه معنی دارد" }
-        send(address, UNSUBSCRIBE_BODY, subscriptionId)
+        return send(address, UNSUBSCRIBE_BODY, subscriptionId, Folder.PROMO)
     }
 
-    private fun smsManager(subscriptionId: Int): SmsManager {
-        val base = context.getSystemService(SmsManager::class.java)
-        return if (subscriptionId >= 0) base.createForSubscriptionId(subscriptionId) else base
-    }
-
-    private fun writeSent(address: String, body: String, subscriptionId: Int) {
-        val values = ContentValues().apply {
-            put(Telephony.Sms.ADDRESS, address)
-            put(Telephony.Sms.BODY, body)
-            put(Telephony.Sms.DATE, System.currentTimeMillis())
-            put(Telephony.Sms.READ, 1)
-            put(Telephony.Sms.SEEN, 1)
-            put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_SENT)
-            if (subscriptionId >= 0) put(Telephony.Sms.SUBSCRIPTION_ID, subscriptionId)
+    // مجوز SEND_SMS برای اپ پیامک پیش‌فرض خودکار داده می‌شود.
+    @SuppressLint("MissingPermission")
+    private suspend fun transmit(message: MessageEntity) = withContext(Dispatchers.IO) {
+        try {
+            val manager = smsManager(message.subId)
+            val parts = manager.divideMessage(message.body)
+            val sentIntents = ArrayList(parts.indices.map { sentIntent(message.providerId, it) })
+            if (parts.size > 1) {
+                manager.sendMultipartTextMessage(message.address, null, parts, sentIntents, null)
+            } else {
+                manager.sendTextMessage(message.address, null, message.body, sentIntents[0], null)
+            }
+        } catch (failure: Exception) {
+            // مثلاً اپ پیش‌فرض نیست، یا سیم‌کارت در دسترس نیست.
+            repository.setSendStatus(message.providerId, SendStatus.FAILED)
+            context.telephonyHost.notifier.notifySendFailed(message)
         }
-        runCatching { context.contentResolver.insert(Telephony.Sms.Sent.CONTENT_URI, values) }
+    }
+
+    private fun sentIntent(providerId: Long, part: Int): PendingIntent {
+        // هر تکه یک `data` جدا دارد تا PendingIntentها روی هم نوشته نشوند.
+        val intent = Intent(context, SmsSentReceiver::class.java)
+            .setAction(SmsSentReceiver.ACTION_SENT)
+            .setData(Uri.parse("asudeh-sent://sms/$providerId/$part"))
+            .putExtra(SmsSentReceiver.EXTRA_PROVIDER_ID, providerId)
+        return PendingIntent.getBroadcast(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun smsManager(subscriptionId: Int): SmsManager {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val base = context.getSystemService(SmsManager::class.java)
+                ?: error("SmsManager در دسترس نیست")
+            return if (subscriptionId >= 0) base.createForSubscriptionId(subscriptionId) else base
+        }
+        // پیش از اندروید ۱۲، `getSystemService` برای SmsManager null برمی‌گرداند.
+        return if (subscriptionId >= 0) {
+            SmsManager.getSmsManagerForSubscriptionId(subscriptionId)
+        } else {
+            SmsManager.getDefault()
+        }
     }
 
     companion object {

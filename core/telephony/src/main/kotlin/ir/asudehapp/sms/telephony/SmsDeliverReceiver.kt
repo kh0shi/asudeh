@@ -8,7 +8,6 @@ import android.telephony.SmsMessage
 import android.util.Log
 import ir.asudehapp.sms.classifier.receive.RawSms
 import ir.asudehapp.sms.classifier.receive.ReceivePipeline
-import ir.asudehapp.sms.data.AsudehRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,7 +41,7 @@ class SmsDeliverReceiver : BroadcastReceiver() {
         val applicationContext = context.applicationContext
         scope.launch {
             try {
-                pipelineFor(applicationContext).onReceive(raw)
+                pipelineFor(applicationContext, applicationContext.telephonyHost).onReceive(raw)
             } catch (failure: Throwable) {
                 Log.e(TAG, "خطا در مسیر دریافت پیامک", failure)
             } finally {
@@ -51,16 +50,14 @@ class SmsDeliverReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun pipelineFor(context: Context): ReceivePipeline {
-        val repository = AsudehRepository(context.applicationContext)
+    private fun pipelineFor(context: Context, host: TelephonyHost): ReceivePipeline {
+        val repository = host.repository
         return ReceivePipeline(
             store = repository.store,
             index = repository.index,
-            notifier = AsudehNotifier(context.applicationContext) { threadId ->
-                conversationIntent(context.applicationContext, threadId)
-            },
+            notifier = host.notifier,
             classify = { input -> repository.classifier.classify(input) },
-            isKnownContact = { address -> Contacts.isKnown(context.applicationContext, address) },
+            isKnownContact = { address -> Contacts.isKnown(context, address) },
             userRules = { repository.currentUserRules() },
             onError = { stage, error -> Log.w(TAG, "مرحلهٔ $stage شکست خورد", error) },
         )
@@ -84,11 +81,5 @@ class SmsDeliverReceiver : BroadcastReceiver() {
         private const val TAG = "AsudehSmsReceiver"
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-        /**
-         * توسط `:app` پر می‌شود تا لمس اعلان همان گفتگو را باز کند، بدون اینکه
-         * این ماژول به کلاس‌های `:app` وابسته شود.
-         */
-        var conversationIntent: (Context, Long) -> Intent? = { _, _ -> null }
     }
 }

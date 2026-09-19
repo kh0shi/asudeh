@@ -60,10 +60,13 @@ jobs:
       - name: ساخت نسخهٔ debug
         run: ./gradlew --no-daemon :app:assembleDebug
 
-      # ADR-0002: بررسی روی manifest ادغام‌شده انجام می‌شود، چون ممکن است یک
-      # کتابخانه بی‌صدا مجوز INTERNET را اضافه کند.
+      # ADR-0002: بررسی روی manifest ادغام‌شدهٔ **هر دو** نسخه انجام می‌شود، چون
+      # ممکن است یک کتابخانه، حتی فقط در release، بی‌صدا مجوز INTERNET را اضافه کند.
       - name: بررسی نبود مجوز INTERNET
-        run: ./gradlew --no-daemon :app:checkDebugPermissions
+        run: ./gradlew --no-daemon :app:checkDebugPermissions :app:checkReleasePermissions
+
+      - name: آزمون‌های واحد لایهٔ داده و تلفن
+        run: ./gradlew --no-daemon :core:data:testDebugUnitTest :core:telephony:testDebugUnitTest
 
       - name: lint
         run: ./gradlew --no-daemon :app:lintDebug

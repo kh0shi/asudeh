@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -14,6 +15,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import ir.asudehapp.sms.classifier.receive.ClassifiedMessage
 import ir.asudehapp.sms.classifier.receive.Notifier
+import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.model.Category
 import ir.asudehapp.sms.model.NotificationBehavior
 
@@ -58,7 +60,7 @@ object NotificationChannels {
  */
 class AsudehNotifier(
     private val context: Context,
-    private val openConversation: (Long) -> Intent?,
+    private val openConversation: (Long) -> Intent,
 ) : Notifier {
 
     @SuppressLint("MissingPermission")
@@ -95,20 +97,64 @@ class AsudehNotifier(
             builder.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
         }
 
-        openConversation(message.threadId)?.let { intent ->
-            builder.setContentIntent(
-                android.app.PendingIntent.getActivity(
-                    context,
-                    message.threadId.toInt(),
-                    intent,
-                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or
-                        android.app.PendingIntent.FLAG_IMMUTABLE,
-                ),
-            )
-        }
-
-        runCatching { manager.notify(message.providerId.toInt(), builder.build()) }
+        builder.setContentIntent(contentIntent(message.threadId))
+        runCatching { manager.notify(notificationId(message.providerId), builder.build()) }
     }
+
+    /** ارسال ناموفق هرگز بی‌صدا نیست. */
+    @SuppressLint("MissingPermission")
+    fun notifySendFailed(message: MessageEntity) {
+        if (!canNotify()) return
+        NotificationChannels.ensure(context)
+        val notification = NotificationCompat.Builder(context, NotificationChannels.PERSONAL)
+            .setSmallIcon(android.R.drawable.stat_notify_error)
+            .setContentTitle("پیامک ارسال نشد")
+            .setContentText("به ${message.address}. برای ارسال دوباره، گفتگو را باز کنید.")
+            .setContentIntent(contentIntent(message.threadId))
+            .setAutoCancel(true)
+            .build()
+        runCatching {
+            NotificationManagerCompat.from(context)
+                .notify(notificationId(message.providerId) xor SEND_FAILED_SALT, notification)
+        }
+    }
+
+    /**
+     * MMS هنوز نمایش داده نمی‌شود (D26)، ولی کاربر باید بداند که رسیده است.
+     * [saved] یعنی اعلان MMS در provider نوشته شد.
+     */
+    @SuppressLint("MissingPermission")
+    fun notifyMms(from: String?, saved: Boolean) {
+        if (!canNotify()) return
+        NotificationChannels.ensure(context)
+        val sender = from?.takeIf { it.isNotBlank() } ?: "فرستندهٔ ناشناس"
+        val text = if (saved) {
+            "آسوده هنوز پیام چندرسانه‌ای را نمایش نمی‌دهد. پیام در حافظهٔ پیامک گوشی ثبت شد."
+        } else {
+            "آسوده هنوز پیام چندرسانه‌ای را نمایش نمی‌دهد و نتوانست آن را ثبت کند."
+        }
+        val notification = NotificationCompat.Builder(context, NotificationChannels.PERSONAL)
+            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setContentTitle("پیام چندرسانه‌ای (MMS) از $sender")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setAutoCancel(true)
+            .build()
+        runCatching {
+            NotificationManagerCompat.from(context)
+                .notify((System.currentTimeMillis() and 0x7FFFFFFF).toInt(), notification)
+        }
+    }
+
+    private fun contentIntent(threadId: Long): PendingIntent = PendingIntent.getActivity(
+        context,
+        notificationId(threadId),
+        openConversation(threadId),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    /** شناسهٔ اعلان از شناسهٔ ۶۴بیتی، بدون اینکه دو پیامک روی هم بیفتند. */
+    private fun notificationId(id: Long): Int = (id xor (id ushr 32)).toInt()
 
     private fun canNotify(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
@@ -126,5 +172,6 @@ class AsudehNotifier(
 
     private companion object {
         const val MAX_PREVIEW = 200
+        const val SEND_FAILED_SALT = 0x5E1D
     }
 }

@@ -13,6 +13,9 @@ import ir.asudehapp.sms.model.ReasonCode
  * ایندکس محلی. **منبع حقیقت، Telephony Provider سیستم است** (D19 ب) و این
  * جدول کپی خواندنی است؛ پاک شدنش با بازسازی جبران می‌شود و هیچ پیامکی از بین
  * نمی‌رود (ADR-0003).
+ *
+ * `providerId` منفی یعنی نوشتن در provider شکست خورده و پیامک فعلاً فقط اینجاست.
+ * همگام‌سازی بعدی دوباره آن را در provider می‌نویسد.
  */
 @Entity(
     tableName = "message",
@@ -20,7 +23,8 @@ import ir.asudehapp.sms.model.ReasonCode
     indices = [
         Index(value = ["threadId", "folder", "dateReceived"]),
         Index(value = ["folder", "dateReceived"]),
-        Index(value = ["address"]),
+        Index(value = ["normalizedAddress"]),
+        Index(value = ["pendingClassify"]),
     ],
 )
 data class MessageEntity(
@@ -28,7 +32,14 @@ data class MessageEntity(
     val kind: String,
     val providerId: Long,
     val threadId: Long,
+    /** سرشماره همان‌طور که در provider هست؛ برای نمایش. */
     val address: String,
+    /**
+     * سرشمارهٔ یکسان‌شده با `Addresses.normalize`. همهٔ کوئری‌های «پیامک‌های این
+     * فرستنده» روی این ستون‌اند، تا `+98912…` و `0912…` و `Irancell` و
+     * `irancell` یک فرستنده شمرده شوند (ADR-0006).
+     */
+    val normalizedAddress: String,
     val body: String,
     /** زمان ارسال، از PDU. */
     val date: Long,
@@ -46,7 +57,9 @@ data class MessageEntity(
     val origin: Origin,
     val read: Boolean,
     val outgoing: Boolean,
-    /** طبقه‌بندی ناتمام مانده است؛ در شروع بعدی اپ دوباره انجام می‌شود (D23). */
+    /** وضعیت ارسال، فقط برای پیامک ارسالی. ارسال ناموفق هرگز بی‌صدا نیست. */
+    val sendStatus: SendStatus = SendStatus.NONE,
+    /** طبقه‌بندی ناتمام مانده است؛ در همگام‌سازی بعدی دوباره انجام می‌شود (D23). */
     val pendingClassify: Boolean,
     /** نشانهٔ `Suspect`: نوار هشدار و لینک غیرفعال (D46). */
     val risk: Boolean,
@@ -57,6 +70,18 @@ data class MessageEntity(
         const val KIND_SMS: String = "SMS"
         const val KIND_MMS: String = "MMS"
     }
+}
+
+enum class SendStatus {
+    /** پیامک دریافتی. */
+    NONE,
+
+    /** در صف ارسال. */
+    PENDING,
+    SENT,
+
+    /** ارسال نشد؛ در گفتگو با دکمهٔ «دوباره بفرست» دیده می‌شود. */
+    FAILED,
 }
 
 enum class SenderRuleKind { ALLOW, BLOCK }

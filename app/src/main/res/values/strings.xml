@@ -1,4 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  متن‌های رابط (D12). ارقام در کد فارسی می‌شوند (D50)، پس اینجا با %d می‌آیند.
+  ترجمهٔ انگلیسی در values-en قرار می‌گیرد.
+-->
 <resources>
     <string name="app_name">آسوده</string>
+
+    <string name="folder_inbox">صندوق</string>
+    <string name="folder_promo">تبلیغات</string>
+    <string name="folder_scam">کلاهبرداری</string>
+
+    <string name="become_default">آسوده را اپ پیامک اصلی کن</string>
+    <string name="not_default_title">آسوده هنوز اپ پیامک پیش‌فرض نیست</string>
+    <string name="not_default_body">تا وقتی پیش‌فرض نشود، پیامک‌های تازه به آسوده نمی‌رسند و نمی‌توانید پیامک بفرستید. پیامک‌های موجود را می‌توانید همین‌جا ببینید.</string>
+    <string name="syncing">در حال بررسی پیامک‌ها…</string>
+    <string name="sync_failed">خواندن پیامک‌های گوشی ممکن نشد. اجازهٔ دسترسی به پیامک‌ها را بدهید.</string>
+
+    <string name="empty_inbox">پیامکی نیست</string>
+    <string name="empty_promo">هیچ تبلیغی پنهان نشده است</string>
+    <string name="empty_scam">پیامک کلاهبرداری‌ای پیدا نشده است</string>
+    <string name="unknown_sender">فرستندهٔ ناشناس</string>
+
+    <string name="why_here">چرا اینجاست؟</string>
+    <string name="rescue">این تبلیغ نیست</string>
+    <string name="block">همیشه تبلیغ</string>
+    <string name="unsub">لغو با «۱۱»</string>
+    <string name="cancel">بی‌خیال</string>
+    <string name="yes">بله</string>
+    <string name="only_this">فقط همین</string>
+    <string name="rescue_follow_up">پیامک‌های بعدی این فرستنده هم همیشه در صندوق بیاید؟</string>
+    <string name="mixed_sender">این فرستنده هم پیامک مهم می‌فرستد و هم تبلیغ.</string>
+    <string name="scam_rescue_hint">برای برگرداندن این پیامک، روی آن بزنید و دلیلش را ببینید.</string>
+
+    <string name="suspect_warning">مراقب باشید: این پیامک نشانه‌های کلاهبرداری دارد</string>
+    <string name="links_disabled">لینک‌های این پیامک تا تأیید شما باز نمی‌شوند.</string>
+    <string name="show_on_doubt">پیامکی که آسوده دربارهٔ آن مطمئن نباشد، در صندوق می‌ماند. ترجیح می‌دهیم یک تبلیغ رد شود تا یک پیامک مهم پنهان شود.</string>
+
+    <!-- D45: خالی کردن پوشه، دو مرحله و با نمایش تعداد. -->
+    <string name="empty_folder">خالی کردن پوشه</string>
+    <plurals name="empty_folder_step1">
+        <item quantity="one">%1$d پیامک در «%2$s» هست. همه پاک شوند؟</item>
+        <item quantity="other">%1$d پیامک در «%2$s» هست. همه پاک شوند؟</item>
+    </plurals>
+    <plurals name="empty_folder_step2">
+        <item quantity="one">%1$d پیامک برای همیشه از گوشی پاک می‌شود و برنمی‌گردد. مطمئن هستید؟</item>
+        <item quantity="other">%1$d پیامک برای همیشه از گوشی پاک می‌شود و برنمی‌گردد. مطمئن هستید؟</item>
+    </plurals>
+    <string name="empty_folder_nothing">این پوشه خالی است.</string>
+    <string name="continue_">ادامه</string>
+    <string name="confirm_delete">برای همیشه پاک کن</string>
+
+    <plurals name="new_count">
+        <item quantity="one">%d جدید</item>
+        <item quantity="other">%d جدید</item>
+    </plurals>
+    <plurals name="hidden_promo_run">
+        <item quantity="one">%d پیامک تبلیغاتی</item>
+        <item quantity="other">%d پیامک تبلیغاتی</item>
+    </plurals>
+    <plurals name="hidden_scam_run">
+        <item quantity="one">%d پیامک مشکوک به کلاهبرداری</item>
+        <item quantity="other">%d پیامک مشکوک به کلاهبرداری</item>
+    </plurals>
+
+    <!-- ارسال -->
+    <string name="compose_hint">پیامک</string>
+    <string name="send">بفرست</string>
+    <string name="send_not_default">برای فرستادن پیامک، آسوده باید اپ پیامک پیش‌فرض باشد.</string>
+    <string name="send_failed">ارسال نشد</string>
+    <string name="send_pending">در حال ارسال…</string>
+    <string name="resend">دوباره بفرست</string>
+    <string name="send_error">پیامک ثبت نشد و فرستاده نشد.</string>
+
+    <!-- «چرا اینجاست؟» (D44) -->
+    <string name="reason_ad_line">از خط تبلیغاتی %1$s و شامل «%2$s» است.</string>
+    <string name="reason_promo_words">شامل «%1$s» است.</string>
+    <string name="reason_blocked">شما گفته‌اید تبلیغ‌های %1$s همیشه پنهان شود.</string>
+    <string name="reason_allowed">شما %1$s را به فهرست سفید اضافه کرده‌اید.</string>
+    <string name="reason_otp">رمز یکبار مصرف است، پس همیشه در صندوق می‌ماند.</string>
+    <string name="reason_bank">پیامک بانکی است، پس همیشه در صندوق می‌ماند.</string>
+    <string name="reason_service">پیامک خدماتی است و بی‌صدا اعلان می‌شود.</string>
+    <string name="reason_personal">از یک شمارهٔ موبایل آمده، پس خودکار پنهان نمی‌شود.</string>
+    <string name="reason_contact">از یکی از مخاطب‌های شماست، پس خودکار پنهان نمی‌شود.</string>
+    <string name="reason_sender_spoof">خود را «%1$s» معرفی کرده، ولی سرشماره‌اش رسمی نیست.</string>
+    <string name="reason_domain_spoof">لینک «%1$s» شبیه دامنهٔ رسمی «%2$s» است ولی خودش نیست.</string>
+    <string name="reason_suspicious_link">لینک «%1$s» مشکوک است.</string>
+    <string name="reason_classifier_failed">بررسی این پیامک کامل نشد، پس در صندوق مانده است.</string>
+    <string name="reason_suggest_move">این پیامک پیش از آسوده رسیده بود، پس بدون اجازهٔ شما جابه‌جا نشده است.</string>
 </resources>

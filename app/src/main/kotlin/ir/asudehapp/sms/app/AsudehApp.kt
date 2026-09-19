@@ -24,7 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,8 +31,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.ThreadSummary
 import ir.asudehapp.sms.model.Folder
 
@@ -43,30 +44,14 @@ fun AsudehApp(
     model: AsudehViewModel,
     isDefaultApp: Boolean,
     onBecomeDefault: () -> Unit,
-    initialThreadId: Long = 0,
 ) {
-    var destination by remember {
-        mutableStateOf<Destination>(
-            if (initialThreadId > 0) {
-                Destination.Conversation(initialThreadId, Folder.INBOX)
-            } else {
-                Destination.Home
-            },
-        )
-    }
+    val destination by model.destination.collectAsState()
 
-    LaunchedEffect(Unit) { model.sync() }
-    LaunchedEffect(destination) {
-        (destination as? Destination.Conversation)?.let {
-            model.openConversation(it.threadId, it.folder)
-        }
-    }
-
-    BackHandler(enabled = destination != Destination.Home) { destination = Destination.Home }
+    BackHandler(enabled = destination != Destination.Home) { model.back() }
 
     val conversation by model.conversation.collectAsState()
     val title = when (val current = destination) {
-        Destination.Home -> Texts.APP_NAME
+        Destination.Home -> stringResource(R.string.app_name)
         is Destination.FolderView -> Texts.folderName(current.folder)
         is Destination.Conversation -> Texts.sender(conversation.address)
     }
@@ -77,8 +62,8 @@ fun AsudehApp(
                 title = { Text(title) },
                 navigationIcon = {
                     if (destination != Destination.Home) {
-                        TextButton(onClick = { destination = Destination.Home }) {
-                            Text(Texts.INBOX)
+                        TextButton(onClick = { model.back() }) {
+                            Text(stringResource(R.string.folder_inbox))
                         }
                     }
                 },
@@ -91,22 +76,31 @@ fun AsudehApp(
                     model = model,
                     isDefaultApp = isDefaultApp,
                     onBecomeDefault = onBecomeDefault,
-                    onOpenFolder = { destination = Destination.FolderView(it) },
-                    onOpenThread = { destination = Destination.Conversation(it, Folder.INBOX) },
+                    onOpenFolder = { model.navigate(Destination.FolderView(it)) },
+                    onOpenThread = {
+                        model.navigate(Destination.Conversation(it, Folder.INBOX))
+                    },
                 )
 
                 is Destination.FolderView -> FolderScreen(
                     model = model,
                     folder = current.folder,
-                    onOpenThread = { destination = Destination.Conversation(it, current.folder) },
+                    isDefaultApp = isDefaultApp,
+                    onOpenThread = {
+                        model.navigate(Destination.Conversation(it, current.folder))
+                    },
                 )
 
-                is Destination.Conversation -> ConversationScreen(model = model)
+                is Destination.Conversation -> ConversationScreen(
+                    model = model,
+                    isDefaultApp = isDefaultApp,
+                )
             }
         }
     }
 
     RescueFollowUpDialog(model)
+    EmptyFolderDialog(model)
 }
 
 @Composable
@@ -117,11 +111,11 @@ private fun RescueFollowUpDialog(model: AsudehViewModel) {
     // برای `MixedSender` پاسخ برجسته «فقط همین» است (ADR-0006 بند ۱).
     AlertDialog(
         onDismissRequest = { model.answerRescueFollowUp(alwaysAllow = false) },
-        title = { Text(Texts.RESCUE_FOLLOW_UP) },
+        title = { Text(stringResource(R.string.rescue_follow_up)) },
         text = {
             Text(
                 if (followUp.mixedSender) {
-                    "این فرستنده هم پیامک مهم می‌فرستد و هم تبلیغ."
+                    stringResource(R.string.mixed_sender)
                 } else {
                     Texts.sender(followUp.address)
                 },
@@ -129,13 +123,67 @@ private fun RescueFollowUpDialog(model: AsudehViewModel) {
         },
         confirmButton = {
             TextButton(onClick = { model.answerRescueFollowUp(alwaysAllow = !followUp.mixedSender) }) {
-                Text(if (followUp.mixedSender) Texts.ONLY_THIS else Texts.YES)
+                Text(stringResource(if (followUp.mixedSender) R.string.only_this else R.string.yes))
             }
         },
         dismissButton = {
             TextButton(onClick = { model.answerRescueFollowUp(alwaysAllow = followUp.mixedSender) }) {
-                Text(if (followUp.mixedSender) Texts.YES else Texts.ONLY_THIS)
+                Text(stringResource(if (followUp.mixedSender) R.string.yes else R.string.only_this))
             }
+        },
+    )
+}
+
+/**
+ * «خالی کردن پوشه» (D45): تنها حذف گروهی اپ، با دو مرحلهٔ تأیید و نمایش تعداد
+ * در هر دو مرحله (ADR-0003 بند ۳).
+ */
+@Composable
+private fun EmptyFolderDialog(model: AsudehViewModel) {
+    val pending by model.emptyFolder.collectAsState()
+    val request = pending ?: return
+
+    if (request.count == 0) {
+        AlertDialog(
+            onDismissRequest = model::cancelEmptyFolder,
+            title = { Text(stringResource(R.string.empty_folder)) },
+            text = { Text(stringResource(R.string.empty_folder_nothing)) },
+            confirmButton = {
+                TextButton(onClick = model::cancelEmptyFolder) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+        return
+    }
+
+    AlertDialog(
+        onDismissRequest = model::cancelEmptyFolder,
+        title = { Text(stringResource(R.string.empty_folder)) },
+        text = {
+            Text(
+                if (request.confirmed) {
+                    Texts.count(R.plurals.empty_folder_step2, request.count)
+                } else {
+                    Texts.count(
+                        R.plurals.empty_folder_step1,
+                        request.count,
+                        Texts.folderName(request.folder),
+                    )
+                },
+            )
+        },
+        confirmButton = {
+            if (request.confirmed) {
+                TextButton(onClick = model::emptyFolderConfirmed) {
+                    Text(stringResource(R.string.confirm_delete))
+                }
+            } else {
+                TextButton(onClick = model::confirmEmptyFolderFirstStep) {
+                    Text(stringResource(R.string.continue_))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = model::cancelEmptyFolder) { Text(stringResource(R.string.cancel)) }
         },
     )
 }
@@ -152,15 +200,16 @@ private fun HomeScreen(
     val promoUnread by model.promoUnread.collectAsState()
     val scamCount by model.scamCount.collectAsState()
     val syncing by model.syncing.collectAsState()
+    val syncFailed by model.syncFailed.collectAsState()
 
     LazyColumn(Modifier.fillMaxSize()) {
         if (!isDefaultApp) {
             item { DefaultAppCard(onBecomeDefault) }
         }
-        if (syncing) {
+        if (syncing || syncFailed) {
             item {
                 Text(
-                    Texts.SYNCING,
+                    stringResource(if (syncing) R.string.syncing else R.string.sync_failed),
                     Modifier.fillMaxWidth().padding(16.dp),
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -170,8 +219,8 @@ private fun HomeScreen(
         // یک ردیف ثابت بالای فهرست، بدون تب و بدون منوی کشویی (D42 الف).
         item {
             FolderRow(
-                title = Texts.PROMO_FOLDER,
-                trailing = if (promoUnread > 0) Texts.newCount(promoUnread) else "",
+                title = stringResource(R.string.folder_promo),
+                trailing = if (promoUnread > 0) Texts.count(R.plurals.new_count, promoUnread) else "",
                 onClick = { onOpenFolder(Folder.PROMO) },
             )
         }
@@ -179,8 +228,8 @@ private fun HomeScreen(
         if (scamCount > 0) {
             item {
                 FolderRow(
-                    title = Texts.SCAM_FOLDER,
-                    trailing = Texts.newCount(scamCount),
+                    title = stringResource(R.string.folder_scam),
+                    trailing = Texts.count(R.plurals.new_count, scamCount),
                     onClick = { onOpenFolder(Folder.SCAM) },
                 )
             }
@@ -188,7 +237,7 @@ private fun HomeScreen(
         item { HorizontalDivider() }
 
         if (threads.isEmpty()) {
-            item { EmptyState(Texts.EMPTY_INBOX) }
+            item { EmptyState(stringResource(R.string.empty_inbox)) }
         }
         items(threads, key = { it.threadId }) { thread ->
             ThreadRow(thread) { onOpenThread(thread.threadId) }
@@ -200,6 +249,7 @@ private fun HomeScreen(
 private fun FolderScreen(
     model: AsudehViewModel,
     folder: Folder,
+    isDefaultApp: Boolean,
     onOpenThread: (Long) -> Unit,
 ) {
     val threads by when (folder) {
@@ -208,21 +258,27 @@ private fun FolderScreen(
         Folder.INBOX -> model.inboxThreads
     }.collectAsState()
 
-    var confirmingEmpty by remember { mutableStateOf(false) }
-
     Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            TextButton(onClick = { confirmingEmpty = true }) { Text(Texts.EMPTY_FOLDER) }
+        // «خالی کردن پوشه» فقط در `PromoFolder` است (D45)، و حذف از provider فقط
+        // برای اپ پیش‌فرض ممکن است.
+        if (isDefaultApp && folder == Folder.PROMO) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = { model.requestEmptyFolder(folder) }) {
+                    Text(stringResource(R.string.empty_folder))
+                }
+            }
+            HorizontalDivider()
         }
-        HorizontalDivider()
         LazyColumn(Modifier.fillMaxSize()) {
             if (threads.isEmpty()) {
                 item {
                     EmptyState(
-                        if (folder == Folder.SCAM) Texts.EMPTY_SCAM else Texts.EMPTY_PROMO,
+                        stringResource(
+                            if (folder == Folder.SCAM) R.string.empty_scam else R.string.empty_promo,
+                        ),
                     )
                 }
             }
@@ -230,26 +286,6 @@ private fun FolderScreen(
                 ThreadRow(thread) { onOpenThread(thread.threadId) }
             }
         }
-    }
-
-    if (confirmingEmpty) {
-        // تنها حذف گروهی اپ، با تأیید دومرحله‌ای (D45، ADR-0003 بند ۳).
-        AlertDialog(
-            onDismissRequest = { confirmingEmpty = false },
-            title = { Text(Texts.EMPTY_FOLDER) },
-            text = { Text(Texts.EMPTY_FOLDER_CONFIRM) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmingEmpty = false
-                        model.emptyFolder(folder)
-                    },
-                ) { Text(Texts.CONFIRM_DELETE) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmingEmpty = false }) { Text(Texts.CANCEL) }
-            },
-        )
     }
 }
 
@@ -262,9 +298,9 @@ private fun DefaultAppCard(onBecomeDefault: () -> Unit) {
         ),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(Texts.NOT_DEFAULT_TITLE, style = MaterialTheme.typography.titleMedium)
-            Text(Texts.NOT_DEFAULT_BODY, style = MaterialTheme.typography.bodyMedium)
-            TextButton(onClick = onBecomeDefault) { Text(Texts.BECOME_DEFAULT) }
+            Text(stringResource(R.string.not_default_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.not_default_body), style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = onBecomeDefault) { Text(stringResource(R.string.become_default)) }
         }
     }
 }
@@ -325,7 +361,7 @@ private fun ThreadRow(thread: ThreadSummary, onClick: () -> Unit) {
                         .padding(horizontal = 8.dp, vertical = 2.dp),
                 ) {
                     Text(
-                        Texts.newCount(thread.unread),
+                        Texts.count(R.plurals.new_count, thread.unread),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onPrimary,
                     )

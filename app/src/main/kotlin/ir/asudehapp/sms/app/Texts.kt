@@ -1,5 +1,11 @@
 package ir.asudehapp.sms.app
 
+import androidx.annotation.PluralsRes
+import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.ReasonCode
@@ -8,93 +14,59 @@ import ir.asudehapp.sms.persian.PersianText
 import java.util.Calendar
 
 /**
- * متن‌های فارسی رابط.
- *
- * فعلاً اینجا و نه در `strings.xml` نگه داشته می‌شوند؛ ترجمهٔ انگلیسی (D12)
- * هنوز انجام نشده و وقتی انجام شود همین‌ها به منابع منتقل می‌شوند.
+ * کمک‌کننده‌های متن رابط. خود متن‌ها در `strings.xml` هستند (D12)؛ اینجا فقط
+ * ارقام فارسی (D50) و ساختن جمله از روی `ReasonCode` انجام می‌شود.
  */
 object Texts {
-    const val APP_NAME = "آسوده"
-    const val TAGLINE = "پیامک، بدون تبلیغ"
-    const val INBOX = "صندوق"
-    const val PROMO_FOLDER = "تبلیغات"
-    const val SCAM_FOLDER = "کلاهبرداری"
-    const val BECOME_DEFAULT = "آسوده را اپ پیامک اصلی کن"
-    const val NOT_DEFAULT_TITLE = "آسوده هنوز اپ پیامک پیش‌فرض نیست"
-    const val NOT_DEFAULT_BODY =
-        "تا وقتی پیش‌فرض نشود، پیامک‌های تازه به آسوده نمی‌رسند. " +
-            "پیامک‌های موجود را می‌توانید همین‌جا ببینید."
-    const val EMPTY_INBOX = "پیامکی نیست"
-    const val EMPTY_PROMO = "هیچ تبلیغی پنهان نشده است"
-    const val EMPTY_SCAM = "پیامک کلاهبرداری‌ای پیدا نشده است"
-    const val UNKNOWN_SENDER = "فرستندهٔ ناشناس"
-    const val WHY_HERE = "چرا اینجاست؟"
-    const val RESCUE = "این تبلیغ نیست"
-    const val BLOCK = "همیشه تبلیغ"
-    const val UNSUB = "لغو با «۱۱»"
-    const val MARK_ALL_READ = "همه خوانده شد"
-    const val EMPTY_FOLDER = "خالی کردن پوشه"
-    const val EMPTY_FOLDER_CONFIRM = "خالی کردن پوشه، پیامک‌ها را برای همیشه پاک می‌کند."
-    const val CANCEL = "بی‌خیال"
-    const val CONFIRM_DELETE = "پاک کن"
-    const val SUSPECT_WARNING = "مراقب باشید: این پیامک نشانه‌های کلاهبرداری دارد"
-    const val LINKS_DISABLED = "لینک‌های این پیامک تا تأیید شما باز نمی‌شوند."
-    const val RESCUE_FOLLOW_UP = "پیامک‌های بعدی این فرستنده هم همیشه در صندوق بیاید؟"
-    const val YES = "بله"
-    const val ONLY_THIS = "فقط همین"
-    const val SHOW_ON_DOUBT =
-        "پیامکی که آسوده دربارهٔ آن مطمئن نباشد، در صندوق می‌ماند. " +
-            "ترجیح می‌دهیم یک تبلیغ رد شود تا یک پیامک مهم پنهان شود."
-    const val SYNCING = "در حال بررسی پیامک‌های قدیمی…"
 
-    fun folderName(folder: Folder): String = when (folder) {
-        Folder.INBOX -> INBOX
-        Folder.PROMO -> PROMO_FOLDER
-        Folder.SCAM -> SCAM_FOLDER
-    }
+    /**
+     * آرگومان‌ها دست نمی‌خورند: نام دامنه یا کلیدواژه‌ای که در «چرا اینجاست؟»
+     * نشان داده می‌شود باید همان باشد که در پیامک آمده است.
+     */
+    @Composable
+    fun text(@StringRes id: Int, vararg args: Any): String = stringResource(id, *args)
 
-    /** نوار جمع‌شدهٔ `HiddenRun` داخل یک گفتگو (D43). */
-    fun hiddenRun(count: Int): String =
-        PersianText.persianDigits("$count پیامک تبلیغاتی")
+    @Composable
+    fun count(@PluralsRes id: Int, count: Int, vararg args: Any): String =
+        PersianText.persianDigits(pluralStringResource(id, count, count, *args))
 
-    fun newCount(count: Int): String = PersianText.persianDigits("$count جدید")
+    @Composable
+    fun folderName(folder: Folder): String = stringResource(
+        when (folder) {
+            Folder.INBOX -> R.string.folder_inbox
+            Folder.PROMO -> R.string.folder_promo
+            Folder.SCAM -> R.string.folder_scam
+        },
+    )
 
+    @Composable
     fun sender(address: String): String =
-        address.ifBlank { UNKNOWN_SENDER }.let(PersianText::persianDigits)
+        PersianText.persianDigits(address.ifBlank { stringResource(R.string.unknown_sender) })
 
     /**
      * یک جملهٔ انسانی برای «چرا اینجاست؟» (D44). ساختن متن از روی `ReasonCode`
      * انجام می‌شود، تا `:core:classifier` به منابع اندروید وابسته نشود.
      */
+    @Composable
     fun reason(message: MessageEntity): String {
         val args = message.reasonArgs.split('|').filter { it.isNotBlank() }
         fun arg(index: Int): String = args.getOrElse(index) { "…" }
+        val sender = sender(message.address)
         return when (message.reasonCode) {
-            ReasonCode.AD_LINE_AND_PROMO_WORDS ->
-                "از خط تبلیغاتی ${sender(message.address)} و شامل «${arg(0)}» است."
-
-            ReasonCode.PROMO_WORDS -> "شامل «${arg(0)}» است."
-            ReasonCode.BLOCKED_BY_USER ->
-                "شما گفته‌اید تبلیغ‌های ${sender(message.address)} همیشه پنهان شود."
-
-            ReasonCode.ALLOWED_BY_USER ->
-                "شما ${sender(message.address)} را به فهرست سفید اضافه کرده‌اید."
-
-            ReasonCode.OTP_PATTERN -> "رمز یکبار مصرف است، پس همیشه در صندوق می‌ماند."
-            ReasonCode.BANK_PATTERN -> "پیامک بانکی است، پس همیشه در صندوق می‌ماند."
-            ReasonCode.SERVICE_PATTERN -> "پیامک خدماتی است و بی‌صدا اعلان می‌شود."
-            ReasonCode.PERSONAL_NUMBER -> "از یک شمارهٔ موبایل آمده، پس خودکار پنهان نمی‌شود."
-            ReasonCode.KNOWN_CONTACT -> "از یکی از مخاطب‌های شماست، پس خودکار پنهان نمی‌شود."
-            ReasonCode.SENDER_SPOOF ->
-                "خود را «${arg(0)}» معرفی کرده، ولی سرشماره‌اش رسمی نیست."
-
-            ReasonCode.DOMAIN_SPOOF ->
-                "لینک «${arg(1)}» شبیه دامنهٔ رسمی «${arg(2)}» است ولی خودش نیست."
-
-            ReasonCode.SUSPICIOUS_LINK -> "لینک «${arg(0)}» مشکوک است."
-            ReasonCode.NOT_SURE -> SHOW_ON_DOUBT
-            ReasonCode.CLASSIFIER_FAILED ->
-                "بررسی این پیامک کامل نشد، پس در صندوق مانده است."
+            ReasonCode.AD_LINE_AND_PROMO_WORDS -> text(R.string.reason_ad_line, sender, arg(0))
+            ReasonCode.PROMO_WORDS -> text(R.string.reason_promo_words, arg(0))
+            ReasonCode.BLOCKED_BY_USER -> text(R.string.reason_blocked, sender)
+            ReasonCode.ALLOWED_BY_USER -> text(R.string.reason_allowed, sender)
+            ReasonCode.OTP_PATTERN -> text(R.string.reason_otp)
+            ReasonCode.BANK_PATTERN -> text(R.string.reason_bank)
+            ReasonCode.SERVICE_PATTERN -> text(R.string.reason_service)
+            ReasonCode.PERSONAL_NUMBER -> text(R.string.reason_personal)
+            ReasonCode.KNOWN_CONTACT -> text(R.string.reason_contact)
+            ReasonCode.SENDER_SPOOF -> text(R.string.reason_sender_spoof, arg(0))
+            ReasonCode.DOMAIN_SPOOF -> text(R.string.reason_domain_spoof, arg(1), arg(2))
+            ReasonCode.SUSPICIOUS_LINK -> text(R.string.reason_suspicious_link, arg(0))
+            ReasonCode.NOT_SURE -> text(R.string.show_on_doubt)
+            ReasonCode.CLASSIFIER_FAILED -> text(R.string.reason_classifier_failed)
         }
     }
 

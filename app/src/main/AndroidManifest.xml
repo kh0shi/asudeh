@@ -84,5 +84,10 @@
                 <data android:scheme="mmsto" />
             </intent-filter>
         </service>
+
+        <!-- نتیجهٔ ارسال هر تکهٔ پیامک؛ فقط PendingIntent خود اپ به آن می‌رسد. -->
+        <receiver
+            android:name="ir.asudehapp.sms.telephony.SmsSentReceiver"
+            android:exported="false" />
     </application>
 </manifest>

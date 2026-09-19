@@ -38,6 +38,56 @@ class TelephonyProviderStore(private val context: Context) : TelephonyStore {
         StoredMessage(providerId = providerId, threadId = threadIdOf(providerId))
     }
 
+    /**
+     * نوشتن پیامک ارسالی **پیش از** ارسال، در `OUTBOX` (`SaveFirst` برای ارسال).
+     * نتیجهٔ ارسال بعداً با [setSendResult] ثبت می‌شود.
+     */
+    suspend fun saveOutgoing(
+        address: String,
+        body: String,
+        subscriptionId: Int,
+        now: Long,
+    ): StoredMessage = withContext(Dispatchers.IO) {
+        val values = ContentValues().apply {
+            put(Telephony.Sms.ADDRESS, address)
+            put(Telephony.Sms.BODY, body)
+            put(Telephony.Sms.DATE, now)
+            put(Telephony.Sms.DATE_SENT, now)
+            put(Telephony.Sms.READ, 1)
+            put(Telephony.Sms.SEEN, 1)
+            put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_OUTBOX)
+            if (subscriptionId >= 0) put(Telephony.Sms.SUBSCRIPTION_ID, subscriptionId)
+        }
+        val uri = context.contentResolver.insert(Telephony.Sms.Outbox.CONTENT_URI, values)
+            ?: error("نوشتن پیامک ارسالی در Telephony Provider ناموفق بود")
+        val providerId = ContentUris.parseId(uri)
+        StoredMessage(providerId = providerId, threadId = threadIdOf(providerId))
+    }
+
+    /** ثبت نتیجهٔ ارسال: `SENT`، `FAILED` یا دوباره `OUTBOX` برای «دوباره بفرست». */
+    suspend fun setSendResult(providerId: Long, status: SendStatus) = withContext(Dispatchers.IO) {
+        val type = when (status) {
+            SendStatus.SENT -> Telephony.Sms.MESSAGE_TYPE_SENT
+            SendStatus.FAILED -> Telephony.Sms.MESSAGE_TYPE_FAILED
+            SendStatus.PENDING -> Telephony.Sms.MESSAGE_TYPE_OUTBOX
+            SendStatus.NONE -> return@withContext
+        }
+        val values = ContentValues().apply { put(Telephony.Sms.TYPE, type) }
+        val uri = ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, providerId)
+        // «ناموفق» با رسیدن تکهٔ بعدیِ یک پیامک چندتکه «ارسال‌شده» نمی‌شود.
+        val keepFailure = if (status == SendStatus.SENT) {
+            "${Telephony.Sms.TYPE} != ${Telephony.Sms.MESSAGE_TYPE_FAILED}"
+        } else {
+            null
+        }
+        runCatching { context.contentResolver.update(uri, values, keepFailure, null) }
+    }
+
+    /** شناسهٔ گفتگوی یک سرشماره؛ اگر نباشد، ساخته می‌شود. */
+    suspend fun threadIdFor(address: String): Long = withContext(Dispatchers.IO) {
+        Telephony.Threads.getOrCreateThreadId(context, address)
+    }
+
     private fun threadIdOf(providerId: Long): Long = context.contentResolver.query(
         Telephony.Sms.CONTENT_URI,
         arrayOf(Telephony.Sms.THREAD_ID),
@@ -47,34 +97,46 @@ class TelephonyProviderStore(private val context: Context) : TelephonyStore {
     )?.use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else 0L } ?: 0L
 
     /**
-     * خواندن پیامک‌های موجود، برای `HistorySweep` و همگام‌سازی افزایشی (D21).
-     * `sinceId` صفر یعنی بازسازی کامل.
+     * شناسهٔ همهٔ پیامک‌های provider (به‌جز پیش‌نویس‌ها)، برای همگام‌سازی (D21).
+     * اگر خواندن ممکن نباشد خطا می‌دهد، نه فهرست خالی؛ فهرست خالی یعنی «همهٔ
+     * پیامک‌ها پاک شده‌اند».
      */
-    suspend fun readAll(sinceId: Long = 0): List<ProviderSms> = withContext(Dispatchers.IO) {
-        val projection = arrayOf(
-            Telephony.Sms._ID,
-            Telephony.Sms.THREAD_ID,
-            Telephony.Sms.ADDRESS,
-            Telephony.Sms.BODY,
-            Telephony.Sms.DATE,
-            Telephony.Sms.DATE_SENT,
-            Telephony.Sms.READ,
-            Telephony.Sms.TYPE,
-            Telephony.Sms.SUBSCRIPTION_ID,
-        )
-        context.contentResolver.query(
+    suspend fun readIds(): List<Long> = withContext(Dispatchers.IO) {
+        val cursor = context.contentResolver.query(
             Telephony.Sms.CONTENT_URI,
-            projection,
-            "${Telephony.Sms._ID} > ?",
-            arrayOf(sinceId.toString()),
-            "${Telephony.Sms._ID} ASC",
-        )?.use { cursor -> cursor.readMessages() } ?: emptyList()
+            arrayOf(Telephony.Sms._ID),
+            "${Telephony.Sms.TYPE} != ?",
+            arrayOf(Telephony.Sms.MESSAGE_TYPE_DRAFT.toString()),
+            null,
+        ) ?: error("Telephony Provider در دسترس نیست")
+        cursor.use {
+            val out = ArrayList<Long>(it.count)
+            while (it.moveToNext()) out += it.getLong(0)
+            out
+        }
+    }
+
+    /** خواندن پیامک‌ها با شناسه، دسته‌دسته تا از سقف آرگومان‌های SQLite رد نشویم. */
+    suspend fun readByIds(ids: List<Long>): List<ProviderSms> = withContext(Dispatchers.IO) {
+        val out = ArrayList<ProviderSms>(ids.size)
+        for (chunk in ids.chunked(CHUNK)) {
+            val placeholders = chunk.joinToString(",") { "?" }
+            context.contentResolver.query(
+                Telephony.Sms.CONTENT_URI,
+                PROJECTION,
+                "${Telephony.Sms._ID} IN ($placeholders)",
+                chunk.map(Long::toString).toTypedArray(),
+                "${Telephony.Sms._ID} ASC",
+            )?.use { cursor -> out += cursor.readMessages() }
+        }
+        out
     }
 
     private fun Cursor.readMessages(): List<ProviderSms> {
         val out = ArrayList<ProviderSms>(count)
         while (moveToNext()) {
             val type = getInt(getColumnIndexOrThrow(Telephony.Sms.TYPE))
+            if (type == Telephony.Sms.MESSAGE_TYPE_DRAFT) continue
             out += ProviderSms(
                 id = getLong(getColumnIndexOrThrow(Telephony.Sms._ID)),
                 threadId = getLong(getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)),
@@ -83,12 +145,20 @@ class TelephonyProviderStore(private val context: Context) : TelephonyStore {
                 date = getLong(getColumnIndexOrThrow(Telephony.Sms.DATE)),
                 dateSent = getLong(getColumnIndexOrThrow(Telephony.Sms.DATE_SENT)),
                 read = getInt(getColumnIndexOrThrow(Telephony.Sms.READ)) == 1,
-                outgoing = type == Telephony.Sms.MESSAGE_TYPE_SENT ||
-                    type == Telephony.Sms.MESSAGE_TYPE_OUTBOX,
+                // هر نوعی جز «دریافتی» پیامک خود کاربر است: ارسالی، صف، ناموفق.
+                outgoing = type != Telephony.Sms.MESSAGE_TYPE_INBOX,
+                sendStatus = sendStatusOf(type),
                 subId = getInt(getColumnIndexOrThrow(Telephony.Sms.SUBSCRIPTION_ID)),
             )
         }
         return out
+    }
+
+    private fun sendStatusOf(type: Int): SendStatus = when (type) {
+        Telephony.Sms.MESSAGE_TYPE_SENT -> SendStatus.SENT
+        Telephony.Sms.MESSAGE_TYPE_FAILED -> SendStatus.FAILED
+        Telephony.Sms.MESSAGE_TYPE_OUTBOX, Telephony.Sms.MESSAGE_TYPE_QUEUED -> SendStatus.PENDING
+        else -> SendStatus.NONE
     }
 
     /** خواندن پیامک به‌عنوان «خوانده‌شده» در سیستم، تا با ایندکس محلی یکی بماند. */
@@ -104,9 +174,34 @@ class TelephonyProviderStore(private val context: Context) : TelephonyStore {
         }
     }
 
+    /**
+     * حذف از provider. فقط با اقدام صریح کاربر صدا زده می‌شود (ADR-0003 بند ۳).
+     * خروجی، شناسه‌هایی است که واقعاً حذف شدند.
+     */
+    suspend fun delete(providerIds: List<Long>): List<Long> = withContext(Dispatchers.IO) {
+        providerIds.filter { id ->
+            val uri = ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, id)
+            runCatching { context.contentResolver.delete(uri, null, null) > 0 }.getOrDefault(false)
+        }
+    }
+
     companion object {
         /** برخلاف Fossify، پیامک بدون آدرس فرستنده دور ریخته نمی‌شود (D24). */
         const val UNKNOWN_SENDER: String = "نامشخص"
+
+        private const val CHUNK = 500
+
+        private val PROJECTION = arrayOf(
+            Telephony.Sms._ID,
+            Telephony.Sms.THREAD_ID,
+            Telephony.Sms.ADDRESS,
+            Telephony.Sms.BODY,
+            Telephony.Sms.DATE,
+            Telephony.Sms.DATE_SENT,
+            Telephony.Sms.READ,
+            Telephony.Sms.TYPE,
+            Telephony.Sms.SUBSCRIPTION_ID,
+        )
     }
 }
 
@@ -119,5 +214,6 @@ data class ProviderSms(
     val dateSent: Long,
     val read: Boolean,
     val outgoing: Boolean,
+    val sendStatus: SendStatus,
     val subId: Int,
 )

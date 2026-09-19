@@ -6,6 +6,7 @@ import ir.asudehapp.sms.classifier.CompiledRulePack
 import ir.asudehapp.sms.classifier.Router
 import ir.asudehapp.sms.classifier.receive.ClassifiedMessage
 import ir.asudehapp.sms.classifier.receive.MessageIndex
+import ir.asudehapp.sms.classifier.receive.RawSms
 import ir.asudehapp.sms.model.Addresses
 import ir.asudehapp.sms.model.Category
 import ir.asudehapp.sms.model.Confidence
@@ -38,6 +39,7 @@ fun ClassifiedMessage.toEntity(rulesVersion: String): MessageEntity = MessageEnt
     providerId = providerId,
     threadId = threadId,
     address = raw.address.ifBlank { TelephonyProviderStore.UNKNOWN_SENDER },
+    normalizedAddress = Addresses.normalize(raw.address.ifBlank { TelephonyProviderStore.UNKNOWN_SENDER }),
     body = raw.body,
     date = raw.sentAt,
     dateReceived = raw.receivedAt,
@@ -62,14 +64,15 @@ fun ClassifiedMessage.toEntity(rulesVersion: String): MessageEntity = MessageEnt
  */
 class AsudehRepository(
     context: Context,
-    private val database: AsudehDatabase = AsudehDatabase.get(context),
+    private val indexDatabase: IndexDatabase = IndexDatabase.get(context),
+    private val rulesDatabase: RulesDatabase = RulesDatabase.get(context),
     val rules: CompiledRulePack = CompiledRulePack.bundled(),
 ) {
     val store: TelephonyProviderStore = TelephonyProviderStore(context)
     val classifier: Classifier = Classifier(rules)
 
-    private val dao: MessageDao get() = database.messages()
-    private val ruleDao: SenderRuleDao get() = database.senderRules()
+    private val dao: MessageDao get() = indexDatabase.messages()
+    private val ruleDao: SenderRuleDao get() = rulesDatabase.senderRules()
 
     val index: MessageIndex get() = RoomMessageIndex(dao, rules.pack.version)
 
@@ -80,6 +83,8 @@ class AsudehRepository(
     fun unreadCount(folder: Folder): Flow<Int> = dao.observeUnreadCount(folder)
 
     fun count(folder: Folder): Flow<Int> = dao.observeCount(folder)
+
+    suspend fun countNow(folder: Folder): Int = dao.count(folder)
 
     fun userRules(): Flow<UserRules> = ruleDao.observeAll().map { it.toUserRules() }
 
@@ -134,7 +139,8 @@ class AsudehRepository(
     /**
      * دوباره جا دادن پیامک‌های یک سرشماره، بعد از اینکه کاربر قاعده‌ای عوض کرده
      * است. برگرداندن به `Inbox` همیشه انجام می‌شود، چون این جهت امن است (D36).
-     * پنهان کردن فقط وقتی انجام می‌شود که خود کاربر `Block` کرده باشد.
+     * پنهان کردن فقط وقتی انجام می‌شود که خود کاربر `Block` کرده باشد؛ همین
+     * اقدام صریح، تأیید کاربر است و برای همین `Router` با `LIVE` صدا زده می‌شود.
      */
     suspend fun reclassifyFrom(address: String) = withContext(Dispatchers.Default) {
         val userRules = currentUserRules()
@@ -143,7 +149,7 @@ class AsudehRepository(
             if (message.outgoing) continue
             val input = MessageInput(message.address, message.body)
             val verdict = classifier.classify(input)
-            val placement = Router.route(verdict, input, userRules, Origin.EXTERNAL)
+            val placement = Router.route(verdict, input, userRules, Origin.LIVE)
             val target = when {
                 placement.folder == Folder.INBOX -> Folder.INBOX
                 userRules.isBlocked(normalized) -> placement.folder
@@ -156,19 +162,86 @@ class AsudehRepository(
     }
 
     /**
-     * `HistorySweep` و همگام‌سازی افزایشی (D21). پیامک‌های قدیمی طبقه‌بندی
-     * می‌شوند ولی **بدون تأیید کاربر جابه‌جا نمی‌شوند** (اصل ۸)؛ `Router` این را
-     * از روی `origin` رعایت می‌کند.
+     * همگام‌سازی با provider (D21، D22)، که `HistorySweep` اولین اجرا هم هست.
+     *
+     * 1. پیامک‌هایی که نوشتنشان در provider شکست خورده بود دوباره نوشته می‌شوند.
+     * 2. هر پیامکی که در provider هست و در ایندکس نیست اضافه می‌شود، هر قدر هم
+     *    قدیمی باشد ([SyncPlan]). این پیامک‌ها طبقه‌بندی می‌شوند ولی **بدون تأیید
+     *    کاربر جابه‌جا نمی‌شوند** (اصل ۸)؛ `Router` این را از روی `origin` رعایت
+     *    می‌کند.
+     * 3. پیامک‌هایی که بیرون از اپ پاک شده‌اند از ایندکس برداشته می‌شوند.
+     * 4. پیامک‌هایی که طبقه‌بندی‌شان در زمان دریافت تمام نشده بود، دوباره
+     *    طبقه‌بندی می‌شوند؛ این هم آن‌ها را جابه‌جا نمی‌کند (D23).
      *
      * خروجی، تعداد پیامک‌هایی است که تازه به ایندکس اضافه شده‌اند.
      */
-    suspend fun sync(origin: Origin = Origin.SWEEP): Int = withContext(Dispatchers.Default) {
+    suspend fun sync(): Int = withContext(Dispatchers.Default) {
+        retryUnsaved()
+
+        // ترتیب مهم است: اول ایندکس، بعد provider (توضیح در `SyncPlan`).
+        val indexed = dao.providerIds(MessageEntity.KIND_SMS)
+        val plan = SyncPlan.of(indexed, store.readIds())
+        val origin = if (plan.firstRun) Origin.SWEEP else Origin.EXTERNAL
+
         val userRules = currentUserRules()
-        val since = dao.lastProviderId(MessageEntity.KIND_SMS) ?: 0L
-        val fresh = store.readAll(sinceId = since)
-        val entities = fresh.map { sms -> sms.toEntity(userRules, origin) }
-        dao.upsertAll(entities)
-        entities.size
+        var added = 0
+        for (chunk in plan.missing.chunked(SYNC_CHUNK)) {
+            val entities = store.readByIds(chunk).map { sms -> sms.toEntity(userRules, origin) }
+            dao.insertMissing(entities)
+            added += entities.size
+        }
+        for (chunk in plan.vanished.chunked(SYNC_CHUNK)) {
+            dao.deleteAll(MessageEntity.KIND_SMS, chunk)
+        }
+
+        reclassifyPending(userRules)
+        added
+    }
+
+    /** پیامکی که در زمان دریافت در provider نوشته نشد، حالا نوشته می‌شود (`SaveFirst`). */
+    private suspend fun retryUnsaved() {
+        for (message in dao.unsaved(MessageEntity.KIND_SMS)) {
+            if (message.outgoing) continue
+            val stored = runCatching {
+                store.saveIncoming(
+                    RawSms(
+                        address = message.address,
+                        body = message.body,
+                        sentAt = message.date,
+                        receivedAt = message.dateReceived,
+                        subscriptionId = message.subId,
+                    ),
+                )
+            }.getOrNull() ?: continue
+            dao.upsert(message.copy(providerId = stored.providerId, threadId = stored.threadId))
+            dao.delete(message.kind, message.providerId)
+        }
+    }
+
+    /**
+     * طبقه‌بندی دوبارهٔ پیامک‌هایی که در زمان دریافت از سقف زمانی گذشتند (D23).
+     * پیامک سر جایش (`Inbox`) می‌ماند و اگر تبلیغ باشد فقط پیشنهاد جابه‌جایی
+     * می‌گیرد، چون کاربر احتمالاً آن را آنجا دیده است.
+     */
+    private suspend fun reclassifyPending(userRules: UserRules) {
+        for (message in dao.pendingClassify()) {
+            if (message.outgoing) continue
+            val input = MessageInput(message.address, message.body)
+            val verdict = runCatching { classifier.classify(input) }.getOrNull() ?: continue
+            val placement = Router.route(verdict, input, userRules, Origin.SWEEP)
+            dao.upsert(
+                message.copy(
+                    category = verdict.category,
+                    confidence = verdict.confidence,
+                    reasonCode = placement.reason.code,
+                    reasonArgs = placement.reason.args.joinToString(ARG_SEPARATOR),
+                    rulesVersion = rules.pack.version,
+                    pendingClassify = false,
+                    risk = verdict.risk,
+                    suggestMove = placement.suggestMove,
+                ),
+            )
+        }
     }
 
     private fun ProviderSms.toEntity(userRules: UserRules, origin: Origin): MessageEntity {
@@ -180,6 +253,7 @@ class AsudehRepository(
             providerId = id,
             threadId = threadId,
             address = address,
+            normalizedAddress = Addresses.normalize(address),
             body = body,
             date = if (dateSent > 0) dateSent else date,
             dateReceived = date,
@@ -193,18 +267,84 @@ class AsudehRepository(
             origin = origin,
             read = read,
             outgoing = outgoing,
+            sendStatus = sendStatus,
             pendingClassify = false,
             risk = verdict?.risk ?: false,
             suggestMove = placement?.suggestMove ?: false,
         )
     }
 
+    /** شناسهٔ گفتگو برای سرشماره‌ای که کاربر می‌خواهد به آن پیامک بدهد. */
+    suspend fun threadIdFor(address: String): Long = store.threadIdFor(address)
+
     /**
-     * تنها حذف گروهی اپ، و همیشه با اقدام صریح کاربر و تأیید دومرحله‌ای (D45).
-     * اپ هرگز به ابتکار خودش پیامکی را حذف نمی‌کند (ADR-0003 بند ۳).
+     * پیامک ارسالی، پیش از ارسال، هم در provider و هم در ایندکس نوشته می‌شود
+     * (`SaveFirst`). خروجی، شناسهٔ آن در provider است.
      */
-    suspend fun emptyFolderAfterExplicitConfirmation(folder: Folder) {
-        dao.clearFolder(folder)
+    suspend fun recordOutgoing(
+        address: String,
+        body: String,
+        subscriptionId: Int,
+        folder: Folder,
+    ): MessageEntity {
+        val now = System.currentTimeMillis()
+        val stored = store.saveOutgoing(address, body, subscriptionId, now)
+        val entity = MessageEntity(
+            kind = MessageEntity.KIND_SMS,
+            providerId = stored.providerId,
+            threadId = stored.threadId,
+            address = address,
+            normalizedAddress = Addresses.normalize(address),
+            body = body,
+            date = now,
+            dateReceived = now,
+            subId = subscriptionId,
+            folder = folder,
+            category = Category.PERSONAL,
+            confidence = Confidence.LOW,
+            reasonCode = ReasonCode.NOT_SURE,
+            reasonArgs = "",
+            rulesVersion = rules.pack.version,
+            origin = Origin.LIVE,
+            read = true,
+            outgoing = true,
+            sendStatus = SendStatus.PENDING,
+            pendingClassify = false,
+            risk = false,
+            suggestMove = false,
+        )
+        dao.upsert(entity)
+        return entity
+    }
+
+    suspend fun findSms(providerId: Long): MessageEntity? = dao.find(MessageEntity.KIND_SMS, providerId)
+
+    /** نتیجهٔ ارسال، هم در provider و هم در ایندکس. */
+    suspend fun setSendStatus(providerId: Long, status: SendStatus) {
+        store.setSendResult(providerId, status)
+        dao.setSendStatus(providerId, status)
+    }
+
+    /**
+     * «خالی کردن پوشه»: تنها حذف گروهی اپ، و فقط بعد از تأیید دومرحلهٔ کاربر
+     * با نمایش تعداد (D45). اپ هرگز به ابتکار خودش پیامکی را حذف نمی‌کند
+     * (ADR-0003 بند ۳). حذف واقعی است، از provider؛ فقط پیامک‌هایی که واقعاً از
+     * provider حذف شدند از ایندکس هم برداشته می‌شوند.
+     *
+     * خروجی، تعداد پیامک‌های حذف‌شده است.
+     */
+    suspend fun emptyFolderAfterExplicitConfirmation(folder: Folder): Int {
+        require(folder == Folder.PROMO) { "فقط پوشهٔ تبلیغات گروهی خالی می‌شود (D45)" }
+        val ids = dao.providerIdsInFolder(MessageEntity.KIND_SMS, folder)
+        val deleted = store.delete(ids)
+        for (chunk in deleted.chunked(SYNC_CHUNK)) {
+            dao.deleteAll(MessageEntity.KIND_SMS, chunk)
+        }
+        return deleted.size
+    }
+
+    private companion object {
+        const val SYNC_CHUNK = 500
     }
 }
 

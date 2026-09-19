@@ -8,10 +8,14 @@ import ir.asudehapp.sms.model.NotificationBehavior
 import ir.asudehapp.sms.model.Origin
 import ir.asudehapp.sms.model.UserRules
 import ir.asudehapp.sms.model.Verdict
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -61,6 +65,8 @@ class ReceivePipelineTest {
         classify = { steps += "classify"; classify(it) },
         userRules = { rules },
         onError = { stage, _ -> errors += stage },
+        // طبقه‌بندی هم‌زمان در همین نخ اجرا می‌شود تا زمان مجازی `runTest` درست بماند.
+        classifyScope = CoroutineScope(Dispatchers.Unconfined),
     )
 
     private val promo = RawSms(
@@ -150,6 +156,41 @@ class ReceivePipelineTest {
             assertFalse(message.stored)
             assertEquals(1, notified.size)
             assertTrue("saveIncoming" in errors)
+        }
+
+    @Test
+    fun `a classifier that ignores cancellation cannot hold the receiver past the limit`() =
+        runBlocking {
+            val receiver = ReceivePipeline(
+                store = store,
+                index = index,
+                notifier = notifier,
+                // کار CPU که به لغو واکنش نشان نمی‌دهد، مثل یک regex کند.
+                classify = { Thread.sleep(3_000); Verdict.unclassified() },
+                classifyTimeoutMillis = 100,
+            )
+            val started = System.nanoTime()
+            val message = receiver.onReceive(promo)
+            val elapsedMillis = (System.nanoTime() - started) / 1_000_000
+
+            assertTrue("مسیر دریافت $elapsedMillis میلی‌ثانیه منتظر ماند", elapsedMillis < 1_500)
+            assertTrue(message.pendingClassify)
+            assertEquals(Folder.INBOX, message.placement.folder)
+        }
+
+    @Test
+    fun `two messages that could not be written to the provider keep separate identities`() =
+        runTest {
+            val brokenStore = object : TelephonyStore {
+                override suspend fun saveIncoming(raw: RawSms): StoredMessage = error("پر است")
+            }
+            val first = pipeline(store = brokenStore).onReceive(promo)
+            val second = pipeline(store = brokenStore).onReceive(promo)
+
+            assertTrue(first.providerId < 0)
+            assertTrue(second.providerId < 0)
+            assertNotEquals(first.providerId, second.providerId)
+            assertNotEquals(first.threadId, second.threadId)
         }
 
     @Test

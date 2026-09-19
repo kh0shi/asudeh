@@ -11,8 +11,13 @@ import ir.asudehapp.sms.model.ReasonCode
 import ir.asudehapp.sms.model.UserRules
 import ir.asudehapp.sms.model.Verdict
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicLong
 
 /** پیامک خام، همان‌طور که از PDU بیرون آمده است. */
 data class RawSms(
@@ -81,6 +86,12 @@ class ReceivePipeline(
     private val userRules: suspend () -> UserRules = { UserRules.EMPTY },
     private val classifyTimeoutMillis: Long = DEFAULT_CLASSIFY_TIMEOUT_MILLIS,
     private val onError: (String, Throwable) -> Unit = { _, _ -> },
+    /**
+     * طبقه‌بندی بیرون از ساختار coroutine مسیر دریافت اجرا می‌شود. کار CPU (مثلاً
+     * یک regex کند) به لغو واکنش نشان نمی‌دهد؛ این‌طور با گذشتن سقف زمانی، مسیر
+     * دریافت منتظر آن نمی‌ماند و پیامک بی‌درنگ در `Inbox` نشان داده می‌شود.
+     */
+    private val classifyScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
 
     suspend fun onReceive(raw: RawSms, origin: Origin = Origin.LIVE): ClassifiedMessage {
@@ -92,7 +103,10 @@ class ReceivePipeline(
             if (failure is CancellationException) throw failure
             stored = false
             onError("saveIncoming", failure)
-            StoredMessage(providerId = -1L, threadId = -1L)
+            // شناسهٔ موقت منفی و یکتا، تا دو پیامکِ نوشته‌نشده روی هم نوشته نشوند.
+            // همگام‌سازی بعدی دوباره آن را در provider می‌نویسد.
+            val temporary = temporaryId(raw)
+            StoredMessage(providerId = temporary, threadId = temporary)
         }
 
         // ۲. طبقه‌بندی، با سقف زمانی. خطا یا دیرکرد یعنی پیامک در `Inbox` می‌ماند.
@@ -101,14 +115,18 @@ class ReceivePipeline(
         var placement = fallbackPlacement()
         try {
             withTimeout(classifyTimeoutMillis) {
-                val input = MessageInput(
-                    address = raw.address,
-                    body = raw.body,
-                    isKnownContact = isKnownContact(raw.address),
-                )
-                val computed = classify(input)
+                val work = classifyScope.async {
+                    val input = MessageInput(
+                        address = raw.address,
+                        body = raw.body,
+                        isKnownContact = isKnownContact(raw.address),
+                    )
+                    val computed = classify(input)
+                    computed to Router.route(computed, input, userRules(), origin)
+                }
+                val (computed, routed) = work.await()
                 verdict = computed
-                placement = Router.route(computed, input, userRules(), origin)
+                placement = routed
             }
         } catch (timeout: TimeoutCancellationException) {
             pendingClassify = true
@@ -168,5 +186,11 @@ class ReceivePipeline(
     companion object {
         /** سقف زمانی طبقه‌بندی داخل `SMS_DELIVER` (D23). */
         const val DEFAULT_CLASSIFY_TIMEOUT_MILLIS: Long = 2_000
+
+        private val sequence = AtomicLong(0)
+
+        /** شناسهٔ منفی و یکتا برای پیامکی که هنوز در provider نوشته نشده است. */
+        fun temporaryId(raw: RawSms): Long =
+            -(raw.receivedAt.coerceAtLeast(1) * 1_000 + sequence.incrementAndGet() % 1_000)
     }
 }
