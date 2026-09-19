@@ -95,6 +95,15 @@ class ReceivePipelineTest {
     }
 
     @Test
+    fun `group mms is never hidden, even when it looks like advertising`() = runTest {
+        val group = promo.copy(isMms = true, recipients = listOf("30001234", "09121111111"))
+        val result = pipeline().onReceive(group)
+        assertEquals(Folder.INBOX, result.placement.folder)
+        assertEquals(NotificationBehavior.ALERT, result.placement.notification)
+        assertTrue(notified.isNotEmpty())
+    }
+
+    @Test
     fun `a message the app did not receive live is never moved on its own`() = runTest {
         val message = pipeline().onReceive(promo, origin = Origin.EXTERNAL)
         assertEquals(Folder.INBOX, message.placement.folder)

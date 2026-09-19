@@ -110,4 +110,103 @@
     <string name="reason_suspicious_link">لینک «%1$s» مشکوک است.</string>
     <string name="reason_classifier_failed">بررسی این پیامک کامل نشد، پس در صندوق مانده است.</string>
     <string name="reason_suggest_move">این پیامک پیش از آسوده رسیده بود، پس بدون اجازهٔ شما جابه‌جا نشده است.</string>
+
+    <string name="list_separator">، </string>
+    <string name="back">بازگشت</string>
+    <string name="more">بیشتر</string>
+
+    <!-- صفحهٔ اصلی و فهرست گفتگوها -->
+    <string name="search">جستجو</string>
+    <string name="settings">تنظیمات</string>
+    <string name="new_conversation">گفتگوی تازه</string>
+    <string name="pin">سنجاق کن</string>
+    <string name="unpin">برداشتن سنجاق</string>
+    <string name="pinned">سنجاق‌شده</string>
+    <string name="mark_unread">علامت خوانده‌نشده</string>
+    <string name="mark_read">خوانده شد</string>
+    <string name="mark_all_read">همه خوانده شد</string>
+    <string name="draft_prefix">پیش‌نویس: %1$s</string>
+    <string name="snippet_image">🖼 تصویر</string>
+    <string name="snippet_attachment">📎 پیوست</string>
+
+    <!-- گفتگوی تازه -->
+    <string name="new_conversation_hint">شماره یا شماره‌ها، جدا با ویرگول</string>
+    <string name="pick_contact">انتخاب از مخاطب‌ها</string>
+    <string name="start_conversation">شروع گفتگو</string>
+    <string name="new_conversation_group_hint">با بیش از یک گیرنده، پیام به‌صورت گروهی (MMS) فرستاده می‌شود و ممکن است هزینهٔ بیشتری داشته باشد.</string>
+
+    <!-- جستجو (D20) -->
+    <string name="search_hint">جستجو در همهٔ پیامک‌ها</string>
+    <string name="search_empty">چیزی پیدا نشد</string>
+    <string name="search_in_folder">در «%1$s»</string>
+
+    <!-- گفتگو -->
+    <string name="attach_image">افزودن تصویر</string>
+    <string name="attachment_preparing">در حال آماده کردن تصویر…</string>
+    <string name="attachment_failed">این تصویر را نمی‌شود فرستاد.</string>
+    <string name="remove_attachment">برداشتن</string>
+    <string name="mms_download">دریافت پیام چندرسانه‌ای</string>
+    <string name="mms_pending">پیام چندرسانه‌ای هنوز دریافت نشده است.</string>
+    <string name="mms_download_requested">دریافت شروع شد.</string>
+    <string name="mms_download_failed">دریافت ممکن نشد. داده یا شبکهٔ تلفن همراه را بررسی کنید.</string>
+    <string name="open_attachment">باز کردن پیوست</string>
+    <string name="no_app_for_attachment">اپی برای باز کردن این پیوست نیست.</string>
+    <string name="delivered">تحویل شد</string>
+    <string name="sim_label">سیم %1$d</string>
+    <string name="send_from_sim">ارسال از %1$s</string>
+    <string name="choose_sim">انتخاب سیم‌کارت</string>
+    <!-- D28 -->
+    <string name="unsub_confirm_title">لغو با «۱۱»</string>
+    <string name="unsub_confirm_body">یک پیامک «۱۱» به %1$s فرستاده می‌شود. ممکن است هزینهٔ یک پیامک عادی داشته باشد.</string>
+    <string name="unsub_send">بفرست</string>
+
+    <!-- تنظیمات (D52) -->
+    <string name="settings_digest">خلاصهٔ پیامک‌های پنهان</string>
+    <string name="digest_daily">هر روز ساعت ۲۱</string>
+    <string name="digest_weekly">هر هفته، جمعه ساعت ۲۱</string>
+    <string name="digest_off">خاموش</string>
+    <string name="settings_digits">ارقام فارسی</string>
+    <string name="settings_digits_hint">متن خود پیامک‌ها هرگز تغییر نمی‌کند.</string>
+    <string name="settings_theme">تم</string>
+    <string name="theme_system">مثل گوشی</string>
+    <string name="theme_light">روشن</string>
+    <string name="theme_dark">تیره</string>
+    <string name="settings_rules">قواعد من</string>
+    <string name="settings_rules_hint">فرستنده‌هایی که همیشه در صندوق یا همیشه در تبلیغات هستند</string>
+    <string name="settings_sending">ارسال</string>
+    <string name="settings_delivery">گزارش تحویل</string>
+    <string name="settings_delivery_hint">وقتی پیامک به گیرنده رسید، «تحویل شد» نشان داده شود.</string>
+    <string name="settings_backup">پشتیبان</string>
+    <string name="backup_export">ساختن فایل پشتیبان</string>
+    <string name="backup_import">بازگردانی از فایل</string>
+    <string name="backup_hint">پیامک‌ها، قواعد من و تنظیمات در فایلی که خودتان انتخاب می‌کنید. آسوده این فایل را به هیچ جا نمی‌فرستد. پیام‌های چندرسانه‌ای هنوز در پشتیبان نیستند.</string>
+    <plurals name="backup_exported">
+        <item quantity="one">پشتیبان ساخته شد: %d پیامک.</item>
+        <item quantity="other">پشتیبان ساخته شد: %d پیامک.</item>
+    </plurals>
+    <string name="backup_imported">%1$s پیامک بازگردانده شد؛ %2$s پیامک از قبل در گوشی بود.</string>
+    <string name="backup_imported_corrupt">%1$s خط خراب نادیده گرفته شد.</string>
+    <string name="backup_failed">پشتیبان کار نکرد.</string>
+    <string name="backup_not_a_backup">این فایل پشتیبان آسوده نیست.</string>
+    <string name="backup_newer">این پشتیبان را نسخهٔ تازه‌تری از آسوده ساخته است. آسوده را به‌روز کنید.</string>
+    <string name="backup_not_default">برای بازگردانی پیامک‌ها، آسوده باید اپ پیامک پیش‌فرض باشد.</string>
+    <string name="settings_advanced">پیشرفته</string>
+    <string name="settings_dynamic_color">رنگ پویای اندروید</string>
+    <string name="settings_show_reason">نمایش دلیل روی همهٔ پیامک‌ها</string>
+    <string name="settings_about">درباره</string>
+    <string name="about_version">نسخهٔ آسوده: %1$s</string>
+    <string name="about_rules">نسخهٔ قواعد: %1$s</string>
+    <string name="about_promise">آسوده متن‌باز است (GPL-3.0) و مجوز اینترنت ندارد. هیچ داده‌ای از گوشی بیرون نمی‌رود.</string>
+
+    <!-- قواعد من (D45، اصل ۵) -->
+    <string name="rules_empty">هنوز قاعده‌ای نگذاشته‌اید. با «این تبلیغ نیست» یا «همیشه تبلیغ» روی یک پیامک، قاعده اینجا دیده می‌شود.</string>
+    <string name="rule_allow">همیشه در صندوق</string>
+    <string name="rule_block">همیشه تبلیغ</string>
+    <string name="rule_forget">فراموش کن</string>
+
+    <!-- D58 -->
+    <string name="crash_title">آسوده دفعهٔ قبل بسته شد</string>
+    <string name="crash_body">گزارش را می‌فرستید؟ در گزارش هیچ متن پیامک یا شماره‌ای نیست؛ متن کامل آن را پایین می‌بینید.</string>
+    <string name="crash_send">ارسال گزارش</string>
+    <string name="crash_dismiss">نه</string>
 </resources>

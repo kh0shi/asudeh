@@ -63,10 +63,16 @@ class SmsSender(
             val manager = smsManager(message.subId)
             val parts = manager.divideMessage(message.body)
             val sentIntents = ArrayList(parts.indices.map { sentIntent(message.providerId, it) })
-            if (parts.size > 1) {
-                manager.sendMultipartTextMessage(message.address, null, parts, sentIntents, null)
+            // گزارش تحویل خاموش به‌طور پیش‌فرض است (D53)؛ فقط برای تکهٔ آخر خواسته می‌شود.
+            val deliveryIntents = if (context.telephonyHost.settings.deliveryReports) {
+                ArrayList(parts.indices.map { if (it == parts.lastIndex) deliveryIntent(message.providerId) else null })
             } else {
-                manager.sendTextMessage(message.address, null, message.body, sentIntents[0], null)
+                null
+            }
+            if (parts.size > 1) {
+                manager.sendMultipartTextMessage(message.address, null, parts, sentIntents, deliveryIntents)
+            } else {
+                manager.sendTextMessage(message.address, null, message.body, sentIntents[0], deliveryIntents?.get(0))
             }
         } catch (failure: Exception) {
             // مثلاً اپ پیش‌فرض نیست، یا سیم‌کارت در دسترس نیست.
@@ -89,22 +95,35 @@ class SmsSender(
         )
     }
 
-    @Suppress("DEPRECATION")
-    private fun smsManager(subscriptionId: Int): SmsManager {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val base = context.getSystemService(SmsManager::class.java)
-                ?: error("SmsManager در دسترس نیست")
-            return if (subscriptionId >= 0) base.createForSubscriptionId(subscriptionId) else base
-        }
-        // پیش از اندروید ۱۲، `getSystemService` برای SmsManager null برمی‌گرداند.
-        return if (subscriptionId >= 0) {
-            SmsManager.getSmsManagerForSubscriptionId(subscriptionId)
-        } else {
-            SmsManager.getDefault()
-        }
+    private fun deliveryIntent(providerId: Long): PendingIntent {
+        val intent = Intent(context, SmsSentReceiver::class.java)
+            .setAction(SmsSentReceiver.ACTION_DELIVERED)
+            .setData(Uri.parse("asudeh-delivered://sms/$providerId"))
+            .putExtra(SmsSentReceiver.EXTRA_PROVIDER_ID, providerId)
+        // گزارش تحویل PDU را در extra می‌آورد، پس PendingIntent باید mutable باشد.
+        val mutable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+        return PendingIntent.getBroadcast(context, 0, intent, mutable or PendingIntent.FLAG_UPDATE_CURRENT)
     }
+
+    private fun smsManager(subscriptionId: Int): SmsManager = smsManagerFor(context, subscriptionId)
 
     companion object {
         const val UNSUBSCRIBE_BODY: String = "11"
+
+        /** `SmsManager` یک سیم‌کارت؛ روی اندروید ۸ تا ۱۱ هم درست گرفته می‌شود. */
+        @Suppress("DEPRECATION")
+        fun smsManagerFor(context: Context, subscriptionId: Int): SmsManager {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val base = context.getSystemService(SmsManager::class.java)
+                    ?: error("SmsManager در دسترس نیست")
+                return if (subscriptionId >= 0) base.createForSubscriptionId(subscriptionId) else base
+            }
+            // پیش از اندروید ۱۲، `getSystemService` برای SmsManager null برمی‌گرداند.
+            return if (subscriptionId >= 0) {
+                SmsManager.getSmsManagerForSubscriptionId(subscriptionId)
+            } else {
+                SmsManager.getDefault()
+            }
+        }
     }
 }

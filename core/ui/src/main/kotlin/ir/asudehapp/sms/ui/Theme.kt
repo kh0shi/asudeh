@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 
 /**
@@ -33,20 +34,61 @@ object AsudehColors {
     val WarningContainer = Color(0xFFFFF3CD)
 }
 
+/*
+ * همهٔ نقش‌های رنگی از رنگ برند ساخته می‌شوند؛ وگرنه Material 3 برای نقش‌هایی
+ * که تعریف نشده‌اند (مثل حباب پیام ارسالی یا دکمهٔ «گفتگوی تازه») رنگ بنفش
+ * پیش‌فرض خودش را می‌گذارد.
+ */
 private val LightScheme = lightColorScheme(
     primary = AsudehColors.Calm,
     onPrimary = Color.White,
+    primaryContainer = Color(0xFFB8EBDC),
+    onPrimaryContainer = Color(0xFF00201A),
     secondary = Color(0xFF4F6360),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFD2E8E2),
+    onSecondaryContainer = Color(0xFF0C1F1C),
+    tertiary = Color(0xFF7A5A2E),
+    tertiaryContainer = Color(0xFFFFDDB3),
     background = AsudehColors.Sand,
-    surface = Color.White,
+    onBackground = Color(0xFF1A1C1A),
+    surface = AsudehColors.Sand,
+    onSurface = Color(0xFF1A1C1A),
+    surfaceVariant = Color(0xFFE3E6DF),
+    onSurfaceVariant = Color(0xFF424844),
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF7F4EE),
+    surfaceContainer = Color(0xFFF0EDE6),
+    surfaceContainerHigh = Color(0xFFEAE7E0),
+    surfaceContainerHighest = Color(0xFFE4E1DA),
+    outline = Color(0xFF727873),
+    outlineVariant = Color(0xFFC2C8C2),
 )
 
 private val DarkScheme = darkColorScheme(
     primary = AsudehColors.CalmDark,
     onPrimary = Color(0xFF00382C),
+    primaryContainer = Color(0xFF1F5146),
+    onPrimaryContainer = Color(0xFFB8EBDC),
     secondary = Color(0xFFB6CCC7),
+    onSecondary = Color(0xFF213531),
+    secondaryContainer = Color(0xFF374B47),
+    onSecondaryContainer = Color(0xFFD2E8E2),
+    tertiary = Color(0xFFEBC08C),
+    tertiaryContainer = Color(0xFF5F4318),
     background = Color(0xFF12140F),
-    surface = Color(0xFF1A1C19),
+    onBackground = Color(0xFFE2E3DE),
+    surface = Color(0xFF12140F),
+    onSurface = Color(0xFFE2E3DE),
+    surfaceVariant = Color(0xFF3F4945),
+    onSurfaceVariant = Color(0xFFBFC9C4),
+    surfaceContainerLowest = Color(0xFF0D0F0B),
+    surfaceContainerLow = Color(0xFF1A1C19),
+    surfaceContainer = Color(0xFF1E201D),
+    surfaceContainerHigh = Color(0xFF282A27),
+    surfaceContainerHighest = Color(0xFF333532),
+    outline = Color(0xFF89938E),
+    outlineVariant = Color(0xFF3F4945),
 )
 
 /**
@@ -65,7 +107,12 @@ val Vazirmatn: FontFamily = FontFamily(
     },
 )
 
-private fun TextStyle.inVazirmatn(): TextStyle = copy(fontFamily = Vazirmatn)
+/**
+ * جهت هر متن از اولین حرف قوی خودش می‌آید (D50)، نه از جهت رابط. پیش‌فرض
+ * Compose جهت رابط است؛ آن‌وقت متن انگلیسی پیامک راست‌به‌چپ چیده می‌شد، و در
+ * پنجره‌های popup که جهت گوشی را می‌گیرند، متن فارسی چپ‌به‌راست.
+ */
+private fun TextStyle.inVazirmatn(): TextStyle = copy(fontFamily = Vazirmatn, textDirection = TextDirection.Content)
 
 private val AsudehTypography: Typography = Typography().run {
     copy(

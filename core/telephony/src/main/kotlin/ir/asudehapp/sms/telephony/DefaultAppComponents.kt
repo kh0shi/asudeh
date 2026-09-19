@@ -60,10 +60,9 @@ class HeadlessSmsSendService : Service() {
 }
 
 /**
- * MMS در MVP جزو دامنه است (D26) ولی هنوز نمایش و دریافت کامل ندارد. وقتی آسوده
- * پیش‌فرض است، اعلان MMS فقط به همین گیرنده می‌رسد و سیستم خودش آن را ذخیره
- * نمی‌کند؛ پس این گیرنده دست‌کم اعلان را در provider می‌نویسد و به کاربر خبر
- * می‌دهد، تا MMS **بی‌صدا** گم نشود (`SilentLoss`).
+ * رسیدن اعلان MMS (D26). ترتیب همان `SaveFirst` است: اول اعلان در provider و
+ * ایندکس نوشته می‌شود، بعد دریافت خود پیام از سیستم خواسته می‌شود. اگر دریافت
+ * شکست بخورد، پیام در گفتگو با دکمهٔ «دریافت» می‌ماند و بی‌صدا گم نمی‌شود.
  */
 class MmsDeliverReceiver : BroadcastReceiver() {
 
@@ -77,11 +76,44 @@ class MmsDeliverReceiver : BroadcastReceiver() {
         scope.launch {
             try {
                 val now = System.currentTimeMillis()
-                val notification = MmsNotification.parse(pdu, nowSeconds = now / 1_000)
-                val saved = notification != null && runCatching {
-                    MmsInboxStore(applicationContext).saveNotification(notification, subscriptionId, now)
-                }.onFailure { Log.e(TAG, "نوشتن اعلان MMS ناموفق بود", it) }.isSuccess
-                host.notifier.notifyMms(notification?.from, saved)
+                val notification = MmsNotification.parse(pdu, nowSeconds = now / 1_000) ?: return@launch
+                val mms = host.repository.mms
+                // اعلان تکراری: همان پیام قبلاً ثبت شده است.
+                if (mms.findByTransaction(notification.transactionId) != null) return@launch
+
+                val stored = runCatching {
+                    mms.saveNotification(
+                        from = notification.from,
+                        transactionId = notification.transactionId,
+                        contentLocation = notification.contentLocation,
+                        subject = notification.subject,
+                        messageSize = notification.messageSize,
+                        expirySeconds = notification.expirySeconds,
+                        mmsVersion = notification.mmsVersion,
+                        subscriptionId = subscriptionId,
+                        now = now,
+                    )
+                }.onFailure { Log.e(TAG, "نوشتن اعلان MMS ناموفق بود", it) }.getOrNull()
+                if (stored == null) {
+                    host.notifier.notifyMmsProblem(notification.from, 0L, saved = false)
+                    return@launch
+                }
+                runCatching {
+                    host.repository.recordMmsNotification(
+                        stored,
+                        notification.from.orEmpty(),
+                        notification.subject,
+                        subscriptionId,
+                        now,
+                    )
+                }.onFailure { Log.w(TAG, "ایندکس اعلان MMS ناموفق بود", it) }
+
+                runCatching {
+                    MmsDownloader.download(applicationContext, stored.providerId, notification.contentLocation, subscriptionId)
+                }.onFailure {
+                    Log.w(TAG, "درخواست دریافت MMS ممکن نشد", it)
+                    host.notifier.notifyMmsProblem(notification.from, stored.threadId, saved = true)
+                }
             } catch (failure: Throwable) {
                 Log.e(TAG, "خطا در دریافت MMS", failure)
             } finally {

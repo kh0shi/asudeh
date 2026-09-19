@@ -3,8 +3,8 @@ package ir.asudehapp.sms.app
 import android.content.Context
 
 /**
- * چند پرچم کوچک رابط. قواعد کاربر در `rules.db` هستند، نه اینجا؛ از دست رفتن
- * این پرچم‌ها فقط یعنی یک پرسش دوباره پرسیده شود.
+ * چند پرچم کوچک رابط. قواعد کاربر در `rules.db` و تنظیمات در `AsudehSettings`
+ * هستند، نه اینجا؛ از دست رفتن این پرچم‌ها فقط یعنی یک پرسش دوباره پرسیده شود.
  */
 class AppPrefs(context: Context) {
 

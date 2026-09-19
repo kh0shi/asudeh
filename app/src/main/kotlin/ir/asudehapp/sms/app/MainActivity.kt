@@ -17,6 +17,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import ir.asudehapp.sms.data.ThemeMode
+import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.SmsUri
 import ir.asudehapp.sms.ui.AsudehTheme
 
@@ -41,6 +46,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { granted ->
         if (granted[Manifest.permission.READ_SMS] == true) model.sync()
+        if (granted[Manifest.permission.READ_CONTACTS] == true) model.refreshContactNames()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,16 +60,29 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) handle(intent)
 
         setContent {
-            AsudehTheme {
-                AsudehApp(
-                    model = model,
-                    isDefaultApp = defaultAppState,
-                    onBecomeDefault = ::requestDefaultSmsRole,
-                    onContinueReadOnly = {
-                        model.finishOnboarding()
-                        requestPermissions()
-                    },
-                )
+            val settings by model.settings.collectAsState()
+            val names by model.contactNames.collectAsState()
+            val dark = when (settings.theme) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+            AsudehTheme(darkTheme = dark, dynamicColor = settings.dynamicColor) {
+                CompositionLocalProvider(
+                    LocalPersianDigits provides settings.persianDigits,
+                    LocalContactNames provides names,
+                ) {
+                    AsudehApp(
+                        model = model,
+                        isDefaultApp = defaultAppState,
+                        onBecomeDefault = ::requestDefaultSmsRole,
+                        onContinueReadOnly = {
+                            model.finishOnboarding()
+                            requestPermissions()
+                        },
+                        onExit = ::finish,
+                    )
+                }
             }
         }
     }
@@ -73,6 +92,12 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handle(intent)
+    }
+
+    /** پیش‌نویس با رفتن اپ به پس‌زمینه از دست نمی‌رود (D53). */
+    override fun onStop() {
+        model.saveDraftNow()
+        super.onStop()
     }
 
     override fun onResume() {
@@ -87,21 +112,42 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** `sms:` از اپ‌های دیگر، یا لمس اعلان خود اپ. */
+    /** `sms:` از اپ‌های دیگر، «اشتراک‌گذاری»، یا لمس اعلان خود اپ. */
     private fun handle(intent: Intent?) {
         intent ?: return
-        if (intent.action == Intent.ACTION_SENDTO || intent.action == Intent.ACTION_VIEW) {
-            val parsed = intent.dataString?.let(SmsUri::parse) ?: return
-            val recipient = parsed.recipients.firstOrNull() ?: return
-            val body = parsed.body ?: intent.getStringExtra(EXTRA_SMS_BODY)
-            model.composeTo(recipient, body)
-            return
+        when (intent.action) {
+            Intent.ACTION_SENDTO, Intent.ACTION_VIEW -> {
+                val parsed = intent.dataString?.let(SmsUri::parse) ?: return
+                if (parsed.recipients.isEmpty()) return
+                val body = parsed.body ?: intent.getStringExtra(EXTRA_SMS_BODY)
+                model.composeTo(parsed.recipients, body)
+                return
+            }
+            // اشتراک‌گذاری متن یا تصویر: گیرنده را کاربر در «گفتگوی تازه» انتخاب می‌کند.
+            Intent.ACTION_SEND -> {
+                model.shareIntoNewConversation(
+                    Share(text = intent.getStringExtra(Intent.EXTRA_TEXT), image = intent.streamUri()),
+                )
+                return
+            }
         }
         val threadId = intent.getLongExtra(EXTRA_THREAD_ID, 0L)
         if (threadId != 0L) {
             model.openFromNotification(threadId)
+            return
         }
+        intent.getStringExtra(EXTRA_FOLDER)
+            ?.let { runCatching { Folder.valueOf(it) }.getOrNull() }
+            ?.let(model::openFolderFromNotification)
     }
+
+    @Suppress("DEPRECATION")
+    private fun Intent.streamUri(): android.net.Uri? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getParcelableExtra(Intent.EXTRA_STREAM, android.net.Uri::class.java)
+        } else {
+            getParcelableExtra(Intent.EXTRA_STREAM)
+        }
 
     /**
      * از اندروید ۱۰ نقش پیامک با `RoleManager` نگه داشته می‌شود. روی بعضی
@@ -155,11 +201,21 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val EXTRA_THREAD_ID = "ir.asudehapp.sms.THREAD_ID"
+        private const val EXTRA_FOLDER = "ir.asudehapp.sms.FOLDER"
         private const val EXTRA_SMS_BODY = "sms_body"
 
         fun intentFor(context: Context, threadId: Long): Intent =
             Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .putExtra(EXTRA_THREAD_ID, threadId)
+
+        /** لمس اعلان `Digest`: پوشهٔ پیامک‌های پنهان باز می‌شود (D40). */
+        fun folderIntent(context: Context, folder: Folder): Intent =
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(EXTRA_FOLDER, folder.name)
     }
 }
+
+/** اشتراک‌گذاری از اپ دیگر: متن و/یا تصویر. */
+data class Share(val text: String?, val image: android.net.Uri?)
