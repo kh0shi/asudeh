@@ -126,6 +126,11 @@
             android:name="ir.asudehapp.sms.telephony.NotificationActionReceiver"
             android:exported="false" />
 
+        <!-- ارسال زمان‌بندی‌شده (ADR-0011). -->
+        <receiver
+            android:name="ir.asudehapp.sms.telephony.ScheduledSendReceiver"
+            android:exported="false" />
+
         <!-- «خلاصه» (D40). -->
         <receiver
             android:name="ir.asudehapp.sms.telephony.DigestReceiver"

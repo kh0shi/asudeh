@@ -9,6 +9,7 @@
 - [تصمیم‌های معماری](docs/decisions/)
 - [ساخت پروژه](docs/BUILD.md)
 - [وضعیت پیاده‌سازی](docs/STATUS.md): چه چیزی پیاده شده و چه چیزی نه
+- [برابری با اپ پیامک گوگل](docs/PARITY.md): چه چیزی کم است و چه چیزی عمداً نیست
 
 ## دو تعهد
 
@@ -16,6 +17,8 @@
   manifest ادغام‌شده این را بررسی می‌کند ([ADR-0002](docs/decisions/0002-no-internet-permission.md)).
 - **هیچ پیامکی گم نمی‌شود.** هر پیامک **پیش از** طبقه‌بندی در Telephony Provider
   سیستم ذخیره می‌شود، و اپ هرگز به ابتکار خودش چیزی را حذف نمی‌کند
-  ([ADR-0003](docs/decisions/0003-save-first-never-delete.md)).
+  ([ADR-0003](docs/decisions/0003-save-first-never-delete.md)). حذف دستی هم یک
+  پله برگشت دارد: پیامک حذف‌شده به «حذف‌شده‌ها» می‌رود و آنجا فقط خود کاربر
+  خالی‌اش می‌کند ([ADR-0010](docs/decisions/0010-delete-with-a-trash.md)).
 
 مجوز: GPL-3.0

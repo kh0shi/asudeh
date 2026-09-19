@@ -202,3 +202,75 @@ data class HiddenCount(val promo: Int, val scam: Int) {
 
 /** جای یک پیامک، برای پشتیبان. */
 data class ProviderFolder(val providerId: Long, val folder: Folder)
+
+/**
+ * پیامکی که کاربر حذف کرده است (ADR-0010). حذف واقعی است: پیامک از Telephony
+ * Provider سیستم برداشته می‌شود و این ردیف تنها نسخهٔ باقی‌ماندهٔ آن است، تا
+ * «حذف اشتباهی» هم مثل بقیهٔ کارهای اپ برگشت‌پذیر باشد (اصل ۵).
+ *
+ * سطل **هرگز خودکار خالی نمی‌شود** (مانیفست بند ۵-۴): فقط خود کاربر آن را
+ * خالی می‌کند.
+ */
+@Entity(tableName = "trashed_message", indices = [Index(value = ["deletedAt"])])
+data class TrashedMessageEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val kind: String,
+    /** شناسهٔ قبلی در provider، فقط برای ردگیری؛ با بازگرداندن عوض می‌شود. */
+    val providerId: Long,
+    val address: String,
+    val recipients: String,
+    val body: String,
+    val date: Long,
+    val dateReceived: Long,
+    val subId: Int,
+    /** پوشه‌ای که پیامک پیش از حذف در آن بود؛ با بازگرداندن به همان‌جا برمی‌گردد. */
+    val folder: Folder,
+    val read: Boolean,
+    val outgoing: Boolean,
+    val attachments: Int,
+    val deletedAt: Long,
+) {
+    /**
+     * MMS برنمی‌گردد: partهایش با حذف از provider از بین می‌روند و نوشتن دوبارهٔ
+     * متنش به‌جای خود پیام، یک پیام جعلی می‌سازد. متنش اینجا می‌ماند تا کاربر
+     * ببیند چه چیزی را حذف کرده است.
+     */
+    val restorable: Boolean get() = kind == MessageEntity.KIND_SMS
+}
+
+/** وضعیت یک پیامک زمان‌بندی‌شده (ADR-0011). */
+enum class ScheduleState {
+    /** منتظر رسیدن زمانش. */
+    WAITING,
+
+    /**
+     * زمانش آن‌قدر گذشته که ارسال خودکار درست نیست (گوشی خاموش بوده). پیامک
+     * **بی‌صدا فرستاده نمی‌شود**؛ در گفتگو با «الان بفرست» دیده می‌شود.
+     */
+    MISSED,
+}
+
+/**
+ * پیامکی که کاربر برای بعد زمان‌بندی کرده است (ADR-0011).
+ *
+ * تا زمان ارسال در Telephony Provider نوشته نمی‌شود، چون هنوز پیامکی نیست:
+ * `SaveFirst` همان لحظهٔ ارسال اجرا می‌شود. این ردیف در `index.db` است، پس با
+ * پاک شدن اپ از بین می‌رود؛ برای همین همین‌جا دیده می‌شود و در گفتگو هم.
+ */
+@Entity(
+    tableName = "scheduled_message",
+    indices = [Index(value = ["sendAt"]), Index(value = ["threadId"])],
+)
+data class ScheduledMessageEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val threadId: Long,
+    /** گیرنده‌ها، جدا با «|»؛ برای گروه بیش از یکی. */
+    val recipients: String,
+    val body: String,
+    val subId: Int,
+    val sendAt: Long,
+    val createdAt: Long,
+    val state: ScheduleState,
+) {
+    val addresses: List<String> get() = recipients.split(MessageEntity.RECIPIENT_SEPARATOR)
+}

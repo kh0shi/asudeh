@@ -204,6 +204,81 @@
     <string name="rule_block">همیشه تبلیغ</string>
     <string name="rule_forget">فراموش کن</string>
 
+    <!-- انتخاب، حذف و سطل (ADR-0010) -->
+    <string name="select">انتخاب</string>
+    <string name="select_all">انتخاب همه</string>
+    <string name="copy_message">کپی متن</string>
+    <string name="select_text">انتخاب بخشی از متن</string>
+    <string name="select_text_hint">با کشیدن دستگیره‌ها، فقط همان تکه‌ای را که می‌خواهید بردارید.</string>
+    <string name="share_message">اشتراک‌گذاری</string>
+    <string name="delete">حذف</string>
+    <string name="delete_thread">حذف گفتگو</string>
+    <plurals name="selected_count">
+        <item quantity="one">%d انتخاب‌شده</item>
+        <item quantity="other">%d انتخاب‌شده</item>
+    </plurals>
+    <string name="delete_title">حذف</string>
+    <plurals name="delete_messages_body">
+        <item quantity="one">%d پیامک حذف می‌شود.</item>
+        <item quantity="other">%d پیامک حذف می‌شود.</item>
+    </plurals>
+    <plurals name="delete_threads_body">
+        <item quantity="one">%1$d گفتگو با %2$d پیامک حذف می‌شود.</item>
+        <item quantity="other">%1$d گفتگو با %2$d پیامک حذف می‌شود.</item>
+    </plurals>
+    <string name="delete_explain">حذف‌شده‌ها به «حذف‌شده‌ها» می‌روند و تا وقتی خودتان آنجا را خالی نکنید، می‌توانید برشان گردانید.</string>
+    <string name="delete_confirm">حذف کن</string>
+    <plurals name="notice_deleted">
+        <item quantity="one">%d پیامک به «حذف‌شده‌ها» رفت.</item>
+        <item quantity="other">%d پیامک به «حذف‌شده‌ها» رفت.</item>
+    </plurals>
+    <string name="notice_nothing_deleted">چیزی حذف نشد. برای حذف پیامک، آسوده باید اپ پیامک پیش‌فرض باشد.</string>
+    <plurals name="notice_restored">
+        <item quantity="one">%d پیامک برگشت.</item>
+        <item quantity="other">%d پیامک برگشت.</item>
+    </plurals>
+    <string name="notice_restore_failed">برگرداندن ممکن نشد.</string>
+    <string name="undo">بازگرداندن</string>
+
+    <!-- «حذف‌شده‌ها» -->
+    <string name="trash">حذف‌شده‌ها</string>
+    <string name="trash_hint">این‌ها از گوشی پاک شده‌اند و فقط در آسوده مانده‌اند. تا وقتی اینجا هستند، برگرداندنی‌اند.</string>
+    <string name="trash_empty_state">چیزی حذف نکرده‌اید.</string>
+    <string name="trash_restore">برگردان</string>
+    <string name="trash_not_restorable">پیام چندرسانه‌ای برنمی‌گردد؛ فقط متنش نگه داشته شده است.</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d پیامک</item>
+        <item quantity="other">%d پیامک</item>
+    </plurals>
+    <string name="empty_trash">خالی کردن «حذف‌شده‌ها»</string>
+    <plurals name="empty_trash_step1">
+        <item quantity="one">%d پیامک اینجاست. همه برای همیشه پاک شوند؟</item>
+        <item quantity="other">%d پیامک اینجاست. همه برای همیشه پاک شوند؟</item>
+    </plurals>
+    <plurals name="empty_trash_step2">
+        <item quantity="one">%d پیامک برای همیشه پاک می‌شود و دیگر برنمی‌گردد. مطمئن هستید؟</item>
+        <item quantity="other">%d پیامک برای همیشه پاک می‌شود و دیگر برنمی‌گردد. مطمئن هستید؟</item>
+    </plurals>
+
+    <!-- ارسال زمان‌بندی‌شده (ADR-0011) -->
+    <string name="schedule_send">بعداً بفرست</string>
+    <string name="schedule_title">کی فرستاده شود؟</string>
+    <string name="schedule_tonight">امشب، ساعت %1$s</string>
+    <string name="schedule_tomorrow_morning">فردا صبح، ساعت %1$s</string>
+    <string name="schedule_tomorrow_afternoon">فردا بعدازظهر، ساعت %1$s</string>
+    <string name="schedule_custom">زمان دلخواه…</string>
+    <string name="schedule_pick_day">روز ارسال</string>
+    <string name="schedule_pick_time">ساعت ارسال</string>
+    <string name="schedule_note">تا آن لحظه، متن فقط در آسوده می‌ماند و جایی فرستاده نمی‌شود. اگر گوشی خاموش باشد، پیامک پس از روشن شدن فرستاده می‌شود.</string>
+    <string name="schedule_too_soon">زمان انتخابی گذشته است.</string>
+    <string name="scheduled_today">امروز ساعت %1$s فرستاده می‌شود</string>
+    <string name="scheduled_tomorrow">فردا ساعت %1$s فرستاده می‌شود</string>
+    <string name="scheduled_later">%1$s ساعت %2$s فرستاده می‌شود</string>
+    <string name="schedule_missed">فرستاده نشد؛ زمانش گذشته بود</string>
+    <string name="schedule_cancel">لغو</string>
+    <string name="schedule_send_now">الان بفرست</string>
+    <string name="notice_schedule_sending">در حال فرستادن…</string>
+
     <!-- D58 -->
     <string name="crash_title">آسوده دفعهٔ قبل بسته شد</string>
     <string name="crash_body">گزارش را می‌فرستید؟ در گزارش هیچ متن پیامک یا شماره‌ای نیست؛ متن کامل آن را پایین می‌بینید.</string>

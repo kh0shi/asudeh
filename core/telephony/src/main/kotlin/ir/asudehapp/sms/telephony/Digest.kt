@@ -77,6 +77,10 @@ object DigestScheduler {
  * زمان‌بندی دوباره پس از روشن شدن گوشی یا عوض شدن ساعت. export شده است چون
  * این پیام‌ها از سیستم می‌آیند، ولی همه «protected broadcast»اند و اپ دیگری
  * نمی‌تواند آن‌ها را بفرستد.
+ *
+ * هشدارها با خاموش شدن گوشی پاک می‌شوند، پس صف پیامک‌های زمان‌بندی‌شده هم
+ * همین‌جا دوباره تنظیم می‌شود (ADR-0011)؛ وگرنه پیامکی که برای فردا گذاشته‌اید
+ * بی‌صدا نمی‌رفت.
  */
 class DigestRescheduleReceiver : BroadcastReceiver() {
 
@@ -85,7 +89,10 @@ class DigestRescheduleReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED,
-            -> DigestScheduler.schedule(context)
+            -> {
+                DigestScheduler.schedule(context)
+                ScheduledSendScheduler.reschedule(context)
+            }
         }
     }
 }

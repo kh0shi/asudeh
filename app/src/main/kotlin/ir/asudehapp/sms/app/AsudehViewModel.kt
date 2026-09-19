@@ -12,17 +12,24 @@ import ir.asudehapp.sms.data.BackupException
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.data.MmsPartInfo
+import ir.asudehapp.sms.data.MessageKey
 import ir.asudehapp.sms.data.MoveSuggestion
+import ir.asudehapp.sms.data.ScheduledMessageEntity
 import ir.asudehapp.sms.data.SenderRuleEntity
+import ir.asudehapp.sms.data.TrashedMessageEntity
 import ir.asudehapp.sms.data.ThemeMode
 import ir.asudehapp.sms.data.ThreadSummary
 import ir.asudehapp.sms.mms.MmsPart
 import ir.asudehapp.sms.model.Addresses
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.persian.ScheduleChoice
+import ir.asudehapp.sms.persian.SendSchedule
 import ir.asudehapp.sms.telephony.Contacts
 import ir.asudehapp.sms.telephony.DigestScheduler
 import ir.asudehapp.sms.telephony.MmsDownloader
 import ir.asudehapp.sms.telephony.MmsImages
+import ir.asudehapp.sms.telephony.ScheduledSend
+import ir.asudehapp.sms.telephony.ScheduledSendScheduler
 import ir.asudehapp.sms.telephony.SimCard
 import ir.asudehapp.sms.telephony.SimCards
 import kotlinx.coroutines.FlowPreview
@@ -35,8 +42,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.ZoneId
 
 /**
  * ناوبری با یک پشتهٔ ساده از مقصدها که در ViewModel نگه داشته می‌شود و با
@@ -60,6 +69,9 @@ sealed interface Destination {
     data object Settings : Destination
     data object Rules : Destination
     data object NewConversation : Destination
+
+    /** «حذف‌شده‌ها» (ADR-0010). */
+    data object Trash : Destination
 }
 
 /** یک `UiState` تغییرناپذیر برای هر صفحه (D56). */
@@ -97,6 +109,26 @@ data class EmptyFolderRequest(
     val confirmed: Boolean = false,
 )
 
+/**
+ * حذف انتخاب‌شده‌ها (ADR-0010). یک مرحله کافی است، چون حذف به سطل می‌رود و
+ * برگشت‌پذیر است؛ «خالی کردن سطل» است که دو مرحله دارد.
+ */
+data class DeleteRequest(
+    val messages: List<MessageEntity>,
+    /** شمار گفتگوهایی که کاملاً حذف می‌شوند؛ صفر یعنی حذف چند پیامک. */
+    val threads: Int,
+)
+
+/** «خالی کردن سطل»: حذف قطعی، پس مثل D45 دو مرحله دارد. */
+data class EmptyTrashRequest(val count: Int, val confirmed: Boolean = false)
+
+/** برگهٔ انتخاب زمان ارسال (ADR-0011). */
+data class ScheduleRequest(
+    val presets: List<ScheduleChoice>,
+    /** متنی که زمان‌بندی می‌شود؛ همان پیش‌نویس لحظهٔ باز شدن برگه. */
+    val body: String,
+)
+
 /** تنظیمات، به‌صورت یک عکس فوری برای رابط (D52). */
 data class SettingsState(
     val digest: DigestFrequency = DigestFrequency.DAILY,
@@ -109,6 +141,14 @@ data class SettingsState(
 
 /** پیام کوتاهی که پس از یک کار نشان داده می‌شود (Snackbar). */
 sealed interface UiNotice {
+    /** [trashIds] برای دکمهٔ «بازگرداندن» همان لحظه است (ADR-0010). */
+    data class Deleted(val count: Int, val trashIds: List<Long>) : UiNotice
+    data class Restored(val count: Int) : UiNotice
+    data object RestoreFailed : UiNotice
+    data object NothingDeleted : UiNotice
+    data class Scheduled(val atMillis: Long) : UiNotice
+    data object ScheduleTooSoon : UiNotice
+    data object ScheduleSending : UiNotice
     data class BackupExported(val messages: Int) : UiNotice
     data class BackupImported(val added: Int, val duplicates: Int, val corrupt: Int) : UiNotice
     data class BackupFailed(val reason: BackupException.Reason?) : UiNotice
@@ -162,6 +202,41 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _emptyFolder = MutableStateFlow<EmptyFolderRequest?>(null)
     val emptyFolder: StateFlow<EmptyFolderRequest?> = _emptyFolder.asStateFlow()
+
+    // ——— انتخاب و حذف (ADR-0010) ———
+
+    /** پیامک‌های انتخاب‌شده در گفتگو. خالی یعنی حالت انتخاب روشن نیست. */
+    private val _selectedMessages = MutableStateFlow<Set<MessageKey>>(emptySet())
+    val selectedMessages: StateFlow<Set<MessageKey>> = _selectedMessages.asStateFlow()
+
+    /** گفتگوهای انتخاب‌شده در فهرست. */
+    private val _selectedThreads = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedThreads: StateFlow<Set<Long>> = _selectedThreads.asStateFlow()
+
+    private val _deleteRequest = MutableStateFlow<DeleteRequest?>(null)
+    val deleteRequest: StateFlow<DeleteRequest?> = _deleteRequest.asStateFlow()
+
+    private val _emptyTrash = MutableStateFlow<EmptyTrashRequest?>(null)
+    val emptyTrash: StateFlow<EmptyTrashRequest?> = _emptyTrash.asStateFlow()
+
+    val trash: StateFlow<List<TrashedMessageEntity>> = repository.trash()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
+
+    val trashCount: StateFlow<Int> = repository.trashCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), 0)
+
+    // ——— ارسال زمان‌بندی‌شده (ADR-0011) ———
+
+    private val _scheduleRequest = MutableStateFlow<ScheduleRequest?>(null)
+    val scheduleRequest: StateFlow<ScheduleRequest?> = _scheduleRequest.asStateFlow()
+
+    /** پیامک‌های زمان‌بندی‌شدهٔ همین گفتگو، زیر آخرین پیام دیده می‌شوند. */
+    val scheduledHere: StateFlow<List<ScheduledMessageEntity>> = _conversation
+        .map { it.threadId }
+        .flatMapLatest { threadId ->
+            if (threadId > 0) repository.scheduledFor(threadId) else kotlinx.coroutines.flow.flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
 
     private val _syncing = MutableStateFlow(false)
     val syncing: StateFlow<Boolean> = _syncing.asStateFlow()
@@ -252,6 +327,8 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         }
         sync()
         refreshSims()
+        // پیامکی که زمانش وقتی اپ بسته بود رسیده، همین حالا فرستاده می‌شود.
+        ScheduledSendScheduler.reschedule(application)
         viewModelScope.launch {
             combine(inboxThreads, promoThreads, scamThreads) { a, b, c -> a + b + c }.collect { threads ->
                 resolveNames(threads.flatMap { summary -> participantsOf(summary.address, summary.recipients) })
@@ -461,6 +538,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     /** پیش‌نویس گفتگو، وقتی کاربر از آن بیرون می‌رود (D53). */
     private fun leaveConversation() {
+        _selectedMessages.value = emptySet()
         val state = _conversation.value
         val current = _stack.value.last()
         if (current !is Destination.Conversation) return
@@ -667,6 +745,170 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun cancelEmptyFolder() {
         _emptyFolder.value = null
+    }
+
+    // ——— انتخاب پیامک و گفتگو (ADR-0010) ———
+
+    fun toggleMessage(message: MessageEntity) {
+        val key = MessageKey(message.kind, message.providerId)
+        val current = _selectedMessages.value
+        _selectedMessages.value = if (key in current) current - key else current + key
+    }
+
+    fun selectAllMessages() {
+        _selectedMessages.value = _conversation.value.messages
+            .mapTo(mutableSetOf()) { MessageKey(it.kind, it.providerId) }
+    }
+
+    fun clearMessageSelection() {
+        _selectedMessages.value = emptySet()
+    }
+
+    fun toggleThread(threadId: Long) {
+        val current = _selectedThreads.value
+        _selectedThreads.value = if (threadId in current) current - threadId else current + threadId
+    }
+
+    fun clearThreadSelection() {
+        _selectedThreads.value = emptySet()
+    }
+
+    // ——— حذف، با سطل (ADR-0010) ———
+
+    /** «حذف» روی پیامک‌های انتخاب‌شدهٔ همین گفتگو. */
+    fun requestDeleteSelectedMessages() {
+        val keys = _selectedMessages.value
+        if (keys.isEmpty()) return
+        val messages = _conversation.value.messages.filter { MessageKey(it.kind, it.providerId) in keys }
+        if (messages.isEmpty()) return
+        _deleteRequest.value = DeleteRequest(messages, threads = 0)
+    }
+
+    /** «حذف گفتگو»، یکی یا چندتا. همهٔ پیامک‌های آن‌ها در همین پوشه حذف می‌شوند. */
+    fun requestDeleteThreads(threadIds: Set<Long>, folder: Folder) {
+        if (threadIds.isEmpty()) return
+        viewModelScope.launch {
+            val messages = threadIds.flatMap { repository.messagesOfThread(it, folder) }
+            _deleteRequest.value = DeleteRequest(messages, threads = threadIds.size)
+        }
+    }
+
+    fun cancelDelete() {
+        _deleteRequest.value = null
+    }
+
+    /** تنها راه حذف: تأیید صریح کاربر (ADR-0003 بند ۳). */
+    fun confirmDelete() {
+        val request = _deleteRequest.value ?: return
+        _deleteRequest.value = null
+        clearMessageSelection()
+        clearThreadSelection()
+        viewModelScope.launch {
+            val trashed = repository.deleteAfterExplicitConfirmation(request.messages)
+            _notice.value = if (trashed.isEmpty()) {
+                UiNotice.NothingDeleted
+            } else {
+                UiNotice.Deleted(trashed.size, trashed)
+            }
+        }
+    }
+
+    /** «بازگرداندن» از Snackbar یا از صفحهٔ «حذف‌شده‌ها». */
+    fun restoreFromTrash(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            val restored = repository.restoreAllFromTrash(ids)
+            _notice.value = if (restored > 0) UiNotice.Restored(restored) else UiNotice.RestoreFailed
+        }
+    }
+
+    fun requestEmptyTrash() {
+        val count = trashCount.value
+        if (count > 0) _emptyTrash.value = EmptyTrashRequest(count)
+    }
+
+    fun confirmEmptyTrashFirstStep() {
+        _emptyTrash.value = _emptyTrash.value?.copy(confirmed = true)
+    }
+
+    /** حذف قطعی، فقط بعد از هر دو مرحله (D45). */
+    fun emptyTrashConfirmed() {
+        val request = _emptyTrash.value ?: return
+        _emptyTrash.value = null
+        if (!request.confirmed) return
+        viewModelScope.launch { repository.emptyTrashAfterExplicitConfirmation() }
+    }
+
+    fun cancelEmptyTrash() {
+        _emptyTrash.value = null
+    }
+
+    // ——— ارسال زمان‌بندی‌شده (ADR-0011) ———
+
+    /** برگهٔ «بعداً بفرست»، با زمان‌های پیشنهادی همین لحظه. */
+    fun requestSchedule() {
+        val body = _draft.value
+        if (body.isBlank() || _conversation.value.participants.isEmpty()) return
+        _scheduleRequest.value = ScheduleRequest(
+            presets = SendSchedule.presets(System.currentTimeMillis(), ZoneId.systemDefault()),
+            body = body,
+        )
+    }
+
+    fun cancelSchedule() {
+        _scheduleRequest.value = null
+    }
+
+    /**
+     * زمان‌بندی خود ارسال. پیامک تا لحظهٔ ارسال در Telephony Provider نوشته
+     * نمی‌شود، چون هنوز پیامکی نیست؛ متنش در صف است و در گفتگو دیده می‌شود.
+     */
+    fun scheduleSend(atMillis: Long) {
+        val request = _scheduleRequest.value ?: return
+        val state = _conversation.value
+        val at = SendSchedule.validate(atMillis, System.currentTimeMillis())
+        if (at == null) {
+            _scheduleRequest.value = null
+            _notice.value = UiNotice.ScheduleTooSoon
+            return
+        }
+        _scheduleRequest.value = null
+        _draft.value = ""
+        viewModelScope.launch {
+            val threadId = state.threadId.takeIf { it > 0 }
+                ?: runCatching {
+                    if (state.participants.size == 1) {
+                        repository.threadIdFor(state.address)
+                    } else {
+                        repository.threadIdFor(state.participants.toSet())
+                    }
+                }.getOrDefault(0L)
+            repository.schedule(threadId, state.participants, request.body, state.subscriptionId, at)
+            repository.saveDraft(threadId, "")
+            if (threadId > 0 && threadId != state.threadId) {
+                replaceTop(Destination.Conversation(threadId, state.folder, state.participants))
+            }
+            ScheduledSendScheduler.reschedule(getApplication())
+            _notice.value = UiNotice.Scheduled(at)
+        }
+    }
+
+    /** «لغو»: پیامک زمان‌بندی‌شده برداشته می‌شود و متنش به پیش‌نویس برمی‌گردد. */
+    fun cancelScheduled(message: ScheduledMessageEntity) {
+        viewModelScope.launch {
+            repository.removeScheduled(message.id)
+            if (_draft.value.isEmpty()) _draft.value = message.body
+            ScheduledSendScheduler.reschedule(getApplication())
+        }
+    }
+
+    /** «الان بفرست»، چه پیش از زمانش و چه برای پیامکی که زمانش گذشته است. */
+    fun sendScheduledNow(message: ScheduledMessageEntity) {
+        _notice.value = UiNotice.ScheduleSending
+        viewModelScope.launch {
+            ScheduledSend.sendOne(getApplication(), message)
+            ScheduledSendScheduler.reschedule(getApplication())
+        }
     }
 
     // ——— جستجو ———

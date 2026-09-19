@@ -21,6 +21,7 @@ import ir.asudehapp.sms.classifier.receive.Notifier
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.HiddenCount
 import ir.asudehapp.sms.data.MessageEntity
+import ir.asudehapp.sms.data.ScheduledMessageEntity
 import ir.asudehapp.sms.model.Addresses
 import ir.asudehapp.sms.model.Category
 import ir.asudehapp.sms.model.Folder
@@ -186,6 +187,28 @@ class AsudehNotifier(
     }
 
     /**
+     * پیامک زمان‌بندی‌شده‌ای که فرستاده نشد (ADR-0011): یا گوشی آن‌قدر خاموش
+     * بوده که ارسال خودکار دیگر درست نبود، یا ثبت پیامک شکست خورد. متنش در صف
+     * می‌ماند و در گفتگو با «الان بفرست» دیده می‌شود، پس گم نمی‌شود.
+     */
+    @SuppressLint("MissingPermission")
+    fun notifyScheduleMissed(message: ScheduledMessageEntity) {
+        if (!canNotify()) return
+        NotificationChannels.ensure(context)
+        val notification = NotificationCompat.Builder(context, NotificationChannels.PERSONAL)
+            .setSmallIcon(android.R.drawable.stat_notify_error)
+            .setContentTitle(context.getString(R.string.notify_schedule_missed_title))
+            .setContentText(context.getString(R.string.notify_schedule_missed_text))
+            .setContentIntent(contentIntent(message.threadId))
+            .setAutoCancel(true)
+            .build()
+        runCatching {
+            NotificationManagerCompat.from(context)
+                .notify(idOf(message.id) xor SCHEDULE_MISSED_SALT, notification)
+        }
+    }
+
+    /**
      * MMSی که دریافتش از MMSC ممکن نشد. اعلانش در provider هست و از داخل
      * گفتگو دوباره دریافت می‌شود، پس بی‌صدا گم نمی‌شود.
      */
@@ -311,6 +334,7 @@ class AsudehNotifier(
     companion object {
         private const val MAX_PREVIEW = 200
         private const val SEND_FAILED_SALT = 0x5E1D
+        private const val SCHEDULE_MISSED_SALT = 0x5C4E
         private const val THREAD_SALT = 0x7A11
         private const val DIGEST_ID = 0x0D16
 

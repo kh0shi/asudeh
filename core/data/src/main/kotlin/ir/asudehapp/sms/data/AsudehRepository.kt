@@ -77,6 +77,8 @@ class AsudehRepository(
 
     private val dao: MessageDao get() = indexDatabase.messages()
     private val prefDao: ThreadPrefDao get() = indexDatabase.threadPrefs()
+    private val trashDao: TrashDao get() = indexDatabase.trash()
+    private val scheduleDao: ScheduledMessageDao get() = indexDatabase.scheduled()
     private val ruleDao: SenderRuleDao get() = rulesDatabase.senderRules()
 
     val index: MessageIndex get() = RoomMessageIndex(dao, rules.pack.version)
@@ -618,11 +620,187 @@ class AsudehRepository(
         return deleted.size + deletedMms.size
     }
 
+    // ——— حذف، با سطل بازیافت (ADR-0010) ———
+
+    fun trash(): Flow<List<TrashedMessageEntity>> = trashDao.observeAll()
+
+    fun trashCount(): Flow<Int> = trashDao.observeCount()
+
+    /**
+     * حذف پیامک‌های انتخاب‌شده، **فقط با اقدام صریح کاربر** (ADR-0003 بند ۳).
+     *
+     * ترتیب کارها همان `SaveFirst` است، وارونه: اول نسخهٔ سطل نوشته می‌شود و
+     * بعد پیامک از provider برداشته می‌شود. اگر بین این دو، اپ کشته شود، بدترین
+     * حالت یک ردیف اضافه در سطل است، نه یک پیامک گم‌شده.
+     *
+     * پیامکی که provider آن را حذف نکرد (مثلاً چون اپ پیش‌فرض نیست) سر جایش
+     * می‌ماند و نسخهٔ سطلش هم برداشته می‌شود، تا دوتایی دیده نشود.
+     *
+     * خروجی، شناسهٔ ردیف‌های سطل است، تا رابط بتواند «بازگرداندن» را همان‌جا
+     * پیشنهاد بدهد.
+     */
+    suspend fun deleteAfterExplicitConfirmation(messages: List<MessageEntity>): List<Long> {
+        if (messages.isEmpty()) return emptyList()
+        val now = System.currentTimeMillis()
+        val trashIds = trashDao.put(messages.map { it.toTrashed(now) })
+
+        val deleted = HashSet<MessageKey>()
+        for ((kind, group) in messages.groupBy { it.kind }) {
+            // پیامکی که هرگز در provider نوشته نشد (شناسهٔ منفی) فقط در ایندکس است.
+            val unsaved = group.filter { it.providerId <= 0 }
+            for (message in unsaved) {
+                dao.delete(message.kind, message.providerId)
+                deleted += MessageKey(message.kind, message.providerId)
+            }
+            val ids = group.filter { it.providerId > 0 }.map { it.providerId }
+            if (ids.isEmpty()) continue
+            val gone = if (kind == MessageEntity.KIND_MMS) mms.delete(ids) else store.delete(ids)
+            for (chunk in gone.chunked(SYNC_CHUNK)) dao.deleteAll(kind, chunk)
+            for (id in gone) deleted += MessageKey(kind, id)
+        }
+
+        val (kept, orphans) = messages.indices
+            .mapNotNull { index -> trashIds.getOrNull(index)?.let { index to it } }
+            .partition { (index, _) ->
+                MessageKey(messages[index].kind, messages[index].providerId) in deleted
+            }
+        if (orphans.isNotEmpty()) trashDao.removeAll(orphans.map { it.second })
+        return kept.map { it.second }
+    }
+
+    /** «بازگرداندن» بلافاصله پس از حذف: همهٔ ردیف‌های همان حذف برمی‌گردند. */
+    suspend fun restoreAllFromTrash(ids: List<Long>): Int = ids.count { restoreFromTrash(it) }
+
+    /** پیامک‌های یک گفتگو در یک پوشه؛ [folder] خالی یعنی کل گفتگو. */
+    suspend fun messagesOfThread(threadId: Long, folder: Folder?): List<MessageEntity> =
+        if (folder == null) dao.allInThread(threadId) else dao.inThread(threadId, folder)
+
+    /**
+     * بازگرداندن یک پیامک از سطل: دوباره در provider نوشته می‌شود و به همان
+     * پوشه‌ای برمی‌گردد که پیش از حذف در آن بود. شناسهٔ تازه می‌گیرد، چون
+     * شناسهٔ قبلی دیگر مال کسی نیست.
+     */
+    suspend fun restoreFromTrash(id: Long): Boolean {
+        val row = trashDao.get(id) ?: return false
+        if (!row.restorable) return false
+        val stored = runCatching {
+            if (row.outgoing) {
+                store.saveOutgoing(row.address, row.body, row.subId, row.date)
+            } else {
+                store.saveIncoming(
+                    RawSms(
+                        address = row.address,
+                        body = row.body,
+                        sentAt = row.date,
+                        receivedAt = row.dateReceived,
+                        subscriptionId = row.subId,
+                    ),
+                )
+            }
+        }.getOrNull() ?: return false
+        if (row.outgoing) store.setSendResult(stored.providerId, SendStatus.SENT)
+        if (row.read) store.markRead(listOf(MessageKey(row.kind, stored.providerId)), read = true)
+
+        val input = MessageInput(row.address, row.body)
+        val verdict = if (row.outgoing) null else runCatching { classifier.classify(input) }.getOrNull()
+        dao.upsert(
+            MessageEntity(
+                kind = row.kind,
+                providerId = stored.providerId,
+                threadId = stored.threadId,
+                address = row.address,
+                normalizedAddress = Addresses.normalize(row.address),
+                body = row.body,
+                date = row.date,
+                dateReceived = row.dateReceived,
+                subId = row.subId,
+                // جای پیامک، انتخاب قبلی خود کاربر است و دوباره پرسیده نمی‌شود (اصل ۸).
+                folder = row.folder,
+                category = verdict?.category ?: Category.PERSONAL,
+                confidence = verdict?.confidence ?: Confidence.LOW,
+                reasonCode = ReasonCode.NOT_SURE,
+                reasonArgs = "",
+                rulesVersion = rules.pack.version,
+                origin = Origin.EXTERNAL,
+                read = row.read,
+                outgoing = row.outgoing,
+                sendStatus = if (row.outgoing) SendStatus.SENT else SendStatus.NONE,
+                pendingClassify = false,
+                risk = verdict?.risk ?: false,
+                suggestMove = false,
+                recipients = row.recipients,
+                attachments = 0,
+            ),
+        )
+        trashDao.remove(id)
+        return true
+    }
+
+    /** «خالی کردن سطل»: حذف قطعی، فقط بعد از تأیید دومرحلهٔ کاربر. */
+    suspend fun emptyTrashAfterExplicitConfirmation(): Int = trashDao.clear()
+
+    // ——— ارسال زمان‌بندی‌شده (ADR-0011) ———
+
+    fun scheduledFor(threadId: Long): Flow<List<ScheduledMessageEntity>> =
+        scheduleDao.observeForThread(threadId)
+
+    fun allScheduled(): Flow<List<ScheduledMessageEntity>> = scheduleDao.observeAll()
+
+    /** خروجی، شناسهٔ پیامک زمان‌بندی‌شده است. */
+    suspend fun schedule(
+        threadId: Long,
+        recipients: List<String>,
+        body: String,
+        subscriptionId: Int,
+        sendAt: Long,
+    ): ScheduledMessageEntity {
+        val entity = ScheduledMessageEntity(
+            threadId = threadId,
+            recipients = recipients.joinToString(MessageEntity.RECIPIENT_SEPARATOR),
+            body = body,
+            subId = subscriptionId,
+            sendAt = sendAt,
+            createdAt = System.currentTimeMillis(),
+            state = ScheduleState.WAITING,
+        )
+        return entity.copy(id = scheduleDao.put(entity))
+    }
+
+    suspend fun scheduledMessage(id: Long): ScheduledMessageEntity? = scheduleDao.get(id)
+
+    suspend fun dueScheduled(now: Long): List<ScheduledMessageEntity> = scheduleDao.due(now)
+
+    suspend fun waitingScheduled(): List<ScheduledMessageEntity> = scheduleDao.waiting()
+
+    suspend fun nextScheduledAfter(now: Long): Long? = scheduleDao.nextAfter(now)
+
+    suspend fun markScheduleMissed(id: Long) = scheduleDao.setState(id, ScheduleState.MISSED)
+
+    /** لغو یا برداشتن یک پیامک زمان‌بندی‌شده. متن به پیش‌نویس برمی‌گردد. */
+    suspend fun removeScheduled(id: Long) = scheduleDao.remove(id)
+
     private companion object {
         const val SYNC_CHUNK = 500
         const val SEARCH_LIMIT = 200
     }
 }
+
+/** نسخهٔ سطل از یک پیامک، پیش از حذف شدنش از provider (ADR-0010). */
+private fun MessageEntity.toTrashed(deletedAt: Long): TrashedMessageEntity = TrashedMessageEntity(
+    kind = kind,
+    providerId = providerId,
+    address = address,
+    recipients = recipients,
+    body = body,
+    date = date,
+    dateReceived = dateReceived,
+    subId = subId,
+    folder = folder,
+    read = read,
+    outgoing = outgoing,
+    attachments = attachments,
+    deletedAt = deletedAt,
+)
 
 private fun List<SenderRuleEntity>.toUserRules(): UserRules = UserRules(
     allowlist = filter { it.kind == SenderRuleKind.ALLOW }.mapTo(mutableSetOf()) { it.address },
