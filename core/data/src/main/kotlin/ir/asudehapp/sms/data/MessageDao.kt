@@ -218,6 +218,14 @@ interface MessageDao {
     @Query("SELECT providerId FROM message WHERE kind = :kind AND folder = :folder AND providerId > 0")
     suspend fun providerIdsInFolder(kind: String, folder: Folder): List<Long>
 
+    /** پیامک‌های یک گفتگو در یک پوشه، برای حذف کل گفتگو (ADR-0010). */
+    @Query("SELECT * FROM message WHERE threadId = :threadId AND folder = :folder")
+    suspend fun inThread(threadId: Long, folder: Folder): List<MessageEntity>
+
+    /** همهٔ پیامک‌های یک گفتگو، از هر سه پوشه. */
+    @Query("SELECT * FROM message WHERE threadId = :threadId")
+    suspend fun allInThread(threadId: Long): List<MessageEntity>
+
     /**
      * وضعیت ارسال. «ناموفق» برگشت‌ناپذیر است: اگر یک تکه از پیامک چندتکه
      * نرسیده باشد، رسیدن تکهٔ بعدی آن را «ارسال‌شده» نمی‌کند.
@@ -278,4 +286,69 @@ interface SenderRuleDao {
 
     @Query("DELETE FROM sender_rule WHERE address = :address")
     suspend fun remove(address: String)
+}
+
+/**
+ * سطل حذف‌شده‌ها (ADR-0010). هیچ کوئری‌ای در این DAO خودکار صدا زده نمی‌شود:
+ * هم پر شدن سطل و هم خالی شدنش با اقدام صریح کاربر است.
+ */
+@Dao
+interface TrashDao {
+
+    /** خروجی، شناسهٔ ردیف‌های تازه است، به همان ترتیب ورودی. */
+    @Insert
+    suspend fun put(rows: List<TrashedMessageEntity>): List<Long>
+
+    @Query("SELECT * FROM trashed_message ORDER BY deletedAt DESC, id DESC")
+    fun observeAll(): Flow<List<TrashedMessageEntity>>
+
+    @Query("SELECT COUNT(*) FROM trashed_message")
+    fun observeCount(): Flow<Int>
+
+    @Query("SELECT * FROM trashed_message WHERE id = :id")
+    suspend fun get(id: Long): TrashedMessageEntity?
+
+    @Query("DELETE FROM trashed_message WHERE id = :id")
+    suspend fun remove(id: Long)
+
+    @Query("DELETE FROM trashed_message WHERE id IN (:ids)")
+    suspend fun removeAll(ids: List<Long>)
+
+    /** «خالی کردن سطل»: فقط با تأیید دومرحلهٔ کاربر. */
+    @Query("DELETE FROM trashed_message")
+    suspend fun clear(): Int
+}
+
+/** صف پیامک‌های زمان‌بندی‌شده (ADR-0011). */
+@Dao
+interface ScheduledMessageDao {
+
+    @Insert
+    suspend fun put(message: ScheduledMessageEntity): Long
+
+    @Query("SELECT * FROM scheduled_message WHERE threadId = :threadId ORDER BY sendAt ASC")
+    fun observeForThread(threadId: Long): Flow<List<ScheduledMessageEntity>>
+
+    @Query("SELECT * FROM scheduled_message ORDER BY sendAt ASC")
+    fun observeAll(): Flow<List<ScheduledMessageEntity>>
+
+    @Query("SELECT * FROM scheduled_message WHERE id = :id")
+    suspend fun get(id: Long): ScheduledMessageEntity?
+
+    /** پیامک‌هایی که زمانشان رسیده است. */
+    @Query("SELECT * FROM scheduled_message WHERE state = 'WAITING' AND sendAt <= :now ORDER BY sendAt ASC")
+    suspend fun due(now: Long): List<ScheduledMessageEntity>
+
+    /** نزدیک‌ترین زمان پیش رو، برای تنظیم هشدار بعدی. */
+    @Query("SELECT MIN(sendAt) FROM scheduled_message WHERE state = 'WAITING' AND sendAt > :now")
+    suspend fun nextAfter(now: Long): Long?
+
+    @Query("SELECT * FROM scheduled_message WHERE state = 'WAITING'")
+    suspend fun waiting(): List<ScheduledMessageEntity>
+
+    @Query("UPDATE scheduled_message SET state = :state WHERE id = :id")
+    suspend fun setState(id: Long, state: ScheduleState)
+
+    @Query("DELETE FROM scheduled_message WHERE id = :id")
+    suspend fun remove(id: Long)
 }

@@ -35,6 +35,9 @@ class AsudehConverters {
 
     @TypeConverter fun ruleKindToString(value: SenderRuleKind): String = value.name
     @TypeConverter fun stringToRuleKind(value: String): SenderRuleKind = SenderRuleKind.valueOf(value)
+
+    @TypeConverter fun scheduleStateToString(value: ScheduleState): String = value.name
+    @TypeConverter fun stringToScheduleState(value: String): ScheduleState = ScheduleState.valueOf(value)
 }
 
 /**
@@ -48,8 +51,14 @@ class AsudehConverters {
  * گوشی تازه فرق دارند (`data_extraction_rules.xml`).
  */
 @Database(
-    entities = [MessageEntity::class, MessageFts::class, ThreadPrefEntity::class],
-    version = 2,
+    entities = [
+        MessageEntity::class,
+        MessageFts::class,
+        ThreadPrefEntity::class,
+        TrashedMessageEntity::class,
+        ScheduledMessageEntity::class,
+    ],
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
@@ -58,6 +67,10 @@ abstract class IndexDatabase : RoomDatabase() {
     abstract fun messages(): MessageDao
 
     abstract fun threadPrefs(): ThreadPrefDao
+
+    abstract fun trash(): TrashDao
+
+    abstract fun scheduled(): ScheduledMessageDao
 
     companion object {
         const val NAME = "index.db"
@@ -70,7 +83,7 @@ abstract class IndexDatabase : RoomDatabase() {
                 context.applicationContext,
                 IndexDatabase::class.java,
                 NAME,
-            ).addMigrations(IndexMigrations.V1_V2).build().also { instance = it }
+            ).addMigrations(IndexMigrations.V1_V2, IndexMigrations.V2_V3).build().also { instance = it }
         }
     }
 }
@@ -122,6 +135,33 @@ object IndexMigrations {
             for (statement in V1_V2_SQL) db.execSQL(statement)
         }
     }
+
+    /**
+     * نسخهٔ ۳: سطل حذف‌شده‌ها (ADR-0010) و صف پیامک‌های زمان‌بندی‌شده
+     * (ADR-0011). هر دو
+     * جدول تازه‌اند؛ هیچ ستونی عوض یا پاک نمی‌شود.
+     */
+    val V2_V3: Migration = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V2_V3_SQL) db.execSQL(statement)
+        }
+    }
+
+    internal val V2_V3_SQL: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `trashed_message` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+            "`kind` TEXT NOT NULL, `providerId` INTEGER NOT NULL, `address` TEXT NOT NULL, " +
+            "`recipients` TEXT NOT NULL, `body` TEXT NOT NULL, `date` INTEGER NOT NULL, " +
+            "`dateReceived` INTEGER NOT NULL, `subId` INTEGER NOT NULL, `folder` TEXT NOT NULL, " +
+            "`read` INTEGER NOT NULL, `outgoing` INTEGER NOT NULL, `attachments` INTEGER NOT NULL, " +
+            "`deletedAt` INTEGER NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS `index_trashed_message_deletedAt` ON `trashed_message` (`deletedAt`)",
+        "CREATE TABLE IF NOT EXISTS `scheduled_message` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+            "`threadId` INTEGER NOT NULL, `recipients` TEXT NOT NULL, `body` TEXT NOT NULL, " +
+            "`subId` INTEGER NOT NULL, `sendAt` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, " +
+            "`state` TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS `index_scheduled_message_sendAt` ON `scheduled_message` (`sendAt`)",
+        "CREATE INDEX IF NOT EXISTS `index_scheduled_message_threadId` ON `scheduled_message` (`threadId`)",
+    )
 
     internal val V1_V2_SQL: List<String> = listOf(
         "ALTER TABLE `message` ADD COLUMN `recipients` TEXT NOT NULL DEFAULT ''",

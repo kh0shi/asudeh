@@ -46,6 +46,7 @@ import java.util.Calendar
  */
 @Composable
 fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
+    val trashCount by model.trashCount.collectAsState()
     val settings by model.settings.collectAsState()
     val context = LocalContext.current
     val exportLauncher = rememberLauncherForActivityResult(
@@ -88,6 +89,10 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
         Section(stringResource(R.string.settings_rules))
         Link(stringResource(R.string.settings_rules), stringResource(R.string.settings_rules_hint)) {
             model.navigate(Destination.Rules)
+        }
+        // «حذف‌شده‌ها» (ADR-0010): تنها جایی که پیامک حذف‌شده هنوز هست.
+        Link(stringResource(R.string.trash), Texts.count(R.plurals.trash_count, trashCount)) {
+            model.navigate(Destination.Trash)
         }
 
         Section(stringResource(R.string.settings_sending))

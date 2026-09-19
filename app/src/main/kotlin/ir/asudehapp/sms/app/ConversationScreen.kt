@@ -1,11 +1,14 @@
 package ir.asudehapp.sms.app
 
 import android.Manifest
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,14 +21,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -48,11 +56,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.MessageEntity
+import ir.asudehapp.sms.data.MessageKey
+import ir.asudehapp.sms.data.ScheduleState
+import ir.asudehapp.sms.data.ScheduledMessageEntity
 import ir.asudehapp.sms.data.SendStatus
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.telephony.SimCard
@@ -134,8 +147,11 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
     val sendError by model.sendError.collectAsState()
     val settings by model.settings.collectAsState()
     val sims by model.sims.collectAsState()
+    val selected by model.selectedMessages.collectAsState()
+    val scheduled by model.scheduledHere.collectAsState()
     var expandedRuns by remember { mutableStateOf(setOf<Long>()) }
     var reasonFor by remember { mutableStateOf<MessageEntity?>(null) }
+    var selectTextOf by remember { mutableStateOf<String?>(null) }
 
     val items = remember(state.messages, state.folder) {
         buildItems(state.messages, state.folder)
@@ -145,8 +161,9 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
         sims.size > 1 || state.messages.map { it.subId }.filter { it >= 0 }.distinct().size > 1
     }
     val listState = rememberLazyListState()
-    LaunchedEffect(items.size) {
-        if (items.isNotEmpty()) listState.scrollToItem(items.lastIndex)
+    LaunchedEffect(items.size, scheduled.size) {
+        val last = items.size + scheduled.size - 1
+        if (last >= 0) listState.scrollToItem(last)
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -160,7 +177,11 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                         showSender = state.isGroup,
                         showSim = multiSim,
                         showReason = settings.showReasonEverywhere,
+                        selected = MessageKey(item.message.kind, item.message.providerId) in selected,
+                        selectionMode = selected.isNotEmpty(),
+                        isDefaultApp = isDefaultApp,
                         onWhy = { reasonFor = item.message },
+                        onSelectText = { selectTextOf = item.message.body },
                         onResend = { model.resend(item.message) },
                     )
 
@@ -192,7 +213,11 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                                     showSender = state.isGroup,
                                     showSim = multiSim,
                                     showReason = true,
+                                    selected = MessageKey(hidden.kind, hidden.providerId) in selected,
+                                    selectionMode = selected.isNotEmpty(),
+                                    isDefaultApp = isDefaultApp,
                                     onWhy = { reasonFor = hidden },
+                                    onSelectText = { selectTextOf = hidden.body },
                                     // پیامک مشکوک به کلاهبرداری با یک لمس برنمی‌گردد؛
                                     // اول باید دلیلش دیده شود (D44).
                                     onRescue = if (hidden.folder == Folder.PROMO) {
@@ -206,6 +231,14 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                         }
                     }
                 }
+            }
+            items(scheduled.size) { position ->
+                ScheduledRow(
+                    message = scheduled[position],
+                    enabled = isDefaultApp,
+                    onCancel = { model.cancelScheduled(scheduled[position]) },
+                    onSendNow = { model.sendScheduledNow(scheduled[position]) },
+                )
             }
         }
         HorizontalDivider()
@@ -230,6 +263,10 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                 TextButton(onClick = model::dismissSendError) { Text(stringResource(R.string.cancel)) }
             },
         )
+    }
+
+    selectTextOf?.let { text ->
+        SelectTextDialog(text) { selectTextOf = null }
     }
 
     reasonFor?.let { message ->
@@ -375,6 +412,13 @@ private fun Composer(
                 placeholder = { Text(stringResource(R.string.compose_hint)) },
                 maxLines = 5,
             )
+            // «بعداً بفرست» فقط برای متن است؛ پیوست زمان‌بندی نمی‌شود (ADR-0011).
+            IconButton(
+                onClick = model::requestSchedule,
+                enabled = enabled && !preparing && draft.isNotBlank() && attachments.isEmpty(),
+            ) {
+                Icon(Icons.Default.DateRange, stringResource(R.string.schedule_send))
+            }
             IconButton(
                 onClick = model::send,
                 enabled = enabled && !preparing && (draft.isNotBlank() || attachments.isNotEmpty()),
@@ -444,6 +488,15 @@ private fun HiddenRunBar(folder: Folder, count: Int, expanded: Boolean, onToggle
     }
 }
 
+/**
+ * یک پیامک در گفتگو.
+ *
+ * لمس کوتاه «چرا اینجاست؟» را باز می‌کند و لمس طولانی منوی خود پیامک را
+ * (کپی، انتخاب متن، اشتراک‌گذاری، حذف). وقتی چند پیامک انتخاب شده‌اند، لمس
+ * کوتاه هم انتخاب را عوض می‌کند، چون در حالت انتخاب هیچ لمسی نباید صفحهٔ
+ * دیگری باز کند.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MessageBubble(
     model: AsudehViewModel,
@@ -452,14 +505,23 @@ private fun MessageBubble(
     showSender: Boolean,
     showSim: Boolean,
     showReason: Boolean,
+    selected: Boolean,
+    selectionMode: Boolean,
+    isDefaultApp: Boolean,
     onWhy: () -> Unit,
+    onSelectText: () -> Unit,
     onResend: () -> Unit,
     onRescue: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    var menu by remember { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxWidth()
+            .background(
+                if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background,
+            )
             .padding(horizontal = 12.dp, vertical = 6.dp),
         horizontalAlignment = if (message.outgoing) Alignment.End else Alignment.Start,
     ) {
@@ -481,33 +543,60 @@ private fun MessageBubble(
         if (showSender && !message.outgoing) {
             Text(Texts.sender(message.address), style = MaterialTheme.typography.labelMedium)
         }
-        Column(
-            Modifier
-                .background(
-                    if (message.outgoing) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-                    RoundedCornerShape(12.dp),
-                )
-                .clickable(onClick = onWhy)
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (message.kind == MessageEntity.KIND_MMS) {
-                MmsContent(model, message)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (selectionMode) {
+                Checkbox(checked = selected, onCheckedChange = { model.toggleMessage(message) })
             }
-            // متن پیامک هرگز تغییر نمی‌کند: نه ارقامش و نه چیز دیگر (D50).
-            if (message.body.isNotEmpty()) {
-                Text(
-                    message.body,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (dimmed) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
+            Box {
+                Column(
+                    Modifier
+                        .background(
+                            if (message.outgoing) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            RoundedCornerShape(12.dp),
+                        )
+                        .combinedClickable(
+                            onClick = { if (selectionMode) model.toggleMessage(message) else onWhy() },
+                            onLongClick = {
+                                if (selectionMode) model.toggleMessage(message) else menu = true
+                            },
+                        )
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (message.kind == MessageEntity.KIND_MMS) {
+                        MmsContent(model, message)
+                    }
+                    // متن پیامک هرگز تغییر نمی‌کند: نه ارقامش و نه چیز دیگر (D50).
+                    if (message.body.isNotEmpty()) {
+                        Text(
+                            message.body,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (dimmed) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        )
+                    }
+                }
+                MessageMenu(
+                    expanded = menu,
+                    message = message,
+                    canDelete = isDefaultApp,
+                    onDismiss = { menu = false },
+                    onCopy = { clipboard.setText(AnnotatedString(message.body)) },
+                    onSelectText = onSelectText,
+                    onShare = { shareText(context, message.body) },
+                    onSelect = { model.toggleMessage(message) },
+                    onDelete = {
+                        model.toggleMessage(message)
+                        model.requestDeleteSelectedMessages()
                     },
+                    onWhy = onWhy,
                 )
             }
         }
@@ -558,6 +647,147 @@ private fun MessageBubble(
     }
 }
 
+/** منوی خود پیامک، روی لمس طولانی. */
+@Composable
+private fun MessageMenu(
+    expanded: Boolean,
+    message: MessageEntity,
+    canDelete: Boolean,
+    onDismiss: () -> Unit,
+    onCopy: () -> Unit,
+    onSelectText: () -> Unit,
+    onShare: () -> Unit,
+    onSelect: () -> Unit,
+    onDelete: () -> Unit,
+    onWhy: () -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        if (message.body.isNotEmpty()) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.copy_message)) },
+                onClick = {
+                    onDismiss()
+                    onCopy()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.select_text)) },
+                onClick = {
+                    onDismiss()
+                    onSelectText()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.share_message)) },
+                onClick = {
+                    onDismiss()
+                    onShare()
+                },
+            )
+        }
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.select)) },
+            onClick = {
+                onDismiss()
+                onSelect()
+            },
+        )
+        // حذف از provider فقط برای اپ پیش‌فرض ممکن است.
+        if (canDelete) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.delete)) },
+                onClick = {
+                    onDismiss()
+                    onDelete()
+                },
+            )
+        }
+        if (!message.outgoing) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.why_here)) },
+                onClick = {
+                    onDismiss()
+                    onWhy()
+                },
+            )
+        }
+    }
+}
+
+/**
+ * انتخاب بخشی از متن یک پیامک. متن داخل `SelectionContainer` است، پس با
+ * کشیدن دستگیره‌ها می‌شود فقط تکه‌ای از آن را برداشت — مثلاً یک کد پیگیری از
+ * وسط یک پیامک بلند.
+ */
+@Composable
+private fun SelectTextDialog(text: String, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.select_text)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    stringResource(R.string.select_text_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+                SelectionContainer {
+                    Text(
+                        text,
+                        Modifier.padding(top = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+        },
+    )
+}
+
+/**
+ * یک پیامک زمان‌بندی‌شده، زیر آخرین پیام گفتگو. تا وقتی فرستاده نشده، فقط
+ * همین‌جاست: در Telephony Provider نوشته نمی‌شود، چون هنوز پیامکی نیست
+ * (ADR-0011).
+ */
+@Composable
+private fun ScheduledRow(
+    message: ScheduledMessageEntity,
+    enabled: Boolean,
+    onCancel: () -> Unit,
+    onSendNow: () -> Unit,
+) {
+    val missed = message.state == ScheduleState.MISSED
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.End,
+    ) {
+        Column(
+            Modifier
+                .background(
+                    if (missed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer,
+                    RoundedCornerShape(12.dp),
+                )
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                if (missed) stringResource(R.string.schedule_missed) else Texts.scheduledFor(message.sendAt),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Text(message.body, style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.schedule_cancel)) }
+            TextButton(onClick = onSendNow, enabled = enabled) {
+                Text(stringResource(R.string.schedule_send_now))
+            }
+        }
+    }
+}
+
 /** برگهٔ «چرا اینجاست؟» با دکمه‌های `Rescue` و `Block` (D44). */
 @Composable
 private fun ReasonSheet(
@@ -603,4 +833,12 @@ private fun ReasonSheet(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
+}
+
+/** «اشتراک‌گذاری» متن پیامک با اپ‌های دیگر؛ خود اپ چیزی نمی‌فرستد. */
+private fun shareText(context: android.content.Context, text: String) {
+    val send = Intent(Intent.ACTION_SEND)
+        .setType("text/plain")
+        .putExtra(Intent.EXTRA_TEXT, text)
+    runCatching { context.startActivity(Intent.createChooser(send, null)) }
 }

@@ -65,6 +65,22 @@ jobs:
       - name: بررسی نبود مجوز INTERNET
         run: ./gradlew --no-daemon :app:checkDebugPermissions :app:checkReleasePermissions
 
+      # schema هر نسخهٔ پایگاه داده باید در مخزن باشد (هیچ migration مخربی
+      # نداریم). Room آن را هنگام ساخت تولید می‌کند؛ اگر با نسخهٔ داخل مخزن
+      # فرق داشته باشد، یعنی یک تغییر schema بدون ثبت شدن رد شده است.
+      - name: schema پایگاه داده با کد یکی است
+        run: |
+          new=$(git ls-files --others --exclude-standard core/data/schemas)
+          if [ -n "$new" ]; then
+            echo "schema تازه‌ای ساخته شد و در مخزن نیست:"
+            for file in $new; do
+              echo "--- $file"
+              cat "$file"
+            done
+            exit 1
+          fi
+          git diff --exit-code -- core/data/schemas
+
       - name: آزمون‌های واحد لایهٔ داده و تلفن
         run: ./gradlew --no-daemon :core:data:testDebugUnitTest :core:telephony:testDebugUnitTest
 

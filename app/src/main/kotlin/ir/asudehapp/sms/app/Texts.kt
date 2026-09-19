@@ -13,6 +13,11 @@ import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.ReasonCode
 import ir.asudehapp.sms.persian.JalaliDate
 import ir.asudehapp.sms.persian.PersianText
+import ir.asudehapp.sms.persian.ScheduleChoice
+import ir.asudehapp.sms.persian.ScheduleDay
+import ir.asudehapp.sms.persian.SchedulePreset
+import ir.asudehapp.sms.persian.SendSchedule
+import java.time.ZoneId
 import java.util.Calendar
 
 /** ارقام فارسی در رابط (D50)؛ از تنظیمات می‌آید. */
@@ -108,6 +113,30 @@ object Texts {
             ReasonCode.SUSPICIOUS_LINK -> text(R.string.reason_suspicious_link, arg(0))
             ReasonCode.NOT_SURE -> text(R.string.show_on_doubt)
             ReasonCode.CLASSIFIER_FAILED -> text(R.string.reason_classifier_failed)
+        }
+    }
+
+    /** «فردا ساعت ۰۸:۰۰ فرستاده می‌شود» برای یک پیامک زمان‌بندی‌شده (ADR-0011). */
+    @Composable
+    fun scheduledFor(millis: Long): String {
+        val at = SendSchedule.describe(millis, System.currentTimeMillis(), ZoneId.systemDefault())
+        val clock = digits(at.clock())
+        return when (at.day) {
+            ScheduleDay.TODAY -> text(R.string.scheduled_today, clock)
+            ScheduleDay.TOMORROW -> text(R.string.scheduled_tomorrow, clock)
+            ScheduleDay.LATER -> text(R.string.scheduled_later, digits(at.date.formatShort()), clock)
+        }
+    }
+
+    /** نام یکی از زمان‌های پیشنهادی در برگهٔ «بعداً بفرست». */
+    @Composable
+    fun scheduleChoice(choice: ScheduleChoice): String {
+        val at = SendSchedule.describe(choice.atMillis, System.currentTimeMillis(), ZoneId.systemDefault())
+        val clock = digits(at.clock())
+        return when (choice.preset) {
+            SchedulePreset.TONIGHT -> text(R.string.schedule_tonight, clock)
+            SchedulePreset.TOMORROW_MORNING -> text(R.string.schedule_tomorrow_morning, clock)
+            SchedulePreset.TOMORROW_AFTERNOON -> text(R.string.schedule_tomorrow_afternoon, clock)
         }
     }
 

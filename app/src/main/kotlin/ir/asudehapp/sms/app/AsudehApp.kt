@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -18,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -39,6 +43,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
@@ -83,55 +88,92 @@ fun AsudehApp(
 
     val destination by model.destination.collectAsState()
     val conversation by model.conversation.collectAsState()
+    val selectedMessages by model.selectedMessages.collectAsState()
+    val selectedThreads by model.selectedThreads.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val notice by model.notice.collectAsState()
     val noticeText = notice?.let { noticeText(it) }
+    // «بازگرداندن» فقط روی همان حذفی که همین الان انجام شد (ADR-0010).
+    val undoLabel = stringResource(R.string.undo)
     LaunchedEffect(notice) {
+        val current = notice
         if (noticeText != null) {
-            snackbar.showSnackbar(noticeText)
-            model.dismissNotice()
+            val undoable = current as? UiNotice.Deleted
+            val result = snackbar.showSnackbar(
+                message = noticeText,
+                actionLabel = undoLabel.takeIf { undoable != null },
+            )
+            if (result == SnackbarResult.ActionPerformed && undoable != null) {
+                model.restoreFromTrash(undoable.trashIds)
+            } else {
+                model.dismissNotice()
+            }
         }
     }
 
-    BackHandler { if (!model.back()) onExit() }
+    // در حالت انتخاب، «بازگشت» اول انتخاب را برمی‌دارد.
+    val selectionCount = if (destination is Destination.Conversation) {
+        selectedMessages.size
+    } else {
+        selectedThreads.size
+    }
+    BackHandler {
+        when {
+            selectionCount > 0 -> clearSelection(model, destination)
+            !model.back() -> onExit()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        when (val current = destination) {
-                            Destination.Home -> stringResource(R.string.app_name)
-                            is Destination.FolderView -> Texts.folderName(current.folder)
-                            is Destination.Conversation -> Texts.participants(conversation.participants)
-                            Destination.Search -> stringResource(R.string.search)
-                            Destination.Settings -> stringResource(R.string.settings)
-                            Destination.Rules -> stringResource(R.string.settings_rules)
-                            Destination.NewConversation -> stringResource(R.string.new_conversation)
+                        if (selectionCount > 0) {
+                            Texts.count(R.plurals.selected_count, selectionCount)
+                        } else {
+                            when (val current = destination) {
+                                Destination.Home -> stringResource(R.string.app_name)
+                                is Destination.FolderView -> Texts.folderName(current.folder)
+                                is Destination.Conversation -> Texts.participants(conversation.participants)
+                                Destination.Search -> stringResource(R.string.search)
+                                Destination.Settings -> stringResource(R.string.settings)
+                                Destination.Rules -> stringResource(R.string.settings_rules)
+                                Destination.NewConversation -> stringResource(R.string.new_conversation)
+                                Destination.Trash -> stringResource(R.string.trash)
+                            }
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
                 navigationIcon = {
-                    if (destination != Destination.Home) {
+                    if (selectionCount > 0) {
+                        IconButton(onClick = { clearSelection(model, destination) }) {
+                            Icon(Icons.Default.Close, stringResource(R.string.cancel))
+                        }
+                    } else if (destination != Destination.Home) {
                         IconButton(onClick = { model.back() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
                         }
                     }
                 },
                 actions = {
-                    when (val current = destination) {
-                        Destination.Home -> {
-                            IconButton(onClick = { model.navigate(Destination.Search) }) {
-                                Icon(Icons.Default.Search, stringResource(R.string.search))
+                    if (selectionCount > 0) {
+                        SelectionActions(model, destination, isDefaultApp, selectedThreads)
+                    } else {
+                        when (val current = destination) {
+                            Destination.Home -> {
+                                IconButton(onClick = { model.navigate(Destination.Search) }) {
+                                    Icon(Icons.Default.Search, stringResource(R.string.search))
+                                }
+                                IconButton(onClick = { model.navigate(Destination.Settings) }) {
+                                    Icon(Icons.Default.Settings, stringResource(R.string.settings))
+                                }
                             }
-                            IconButton(onClick = { model.navigate(Destination.Settings) }) {
-                                Icon(Icons.Default.Settings, stringResource(R.string.settings))
-                            }
+                            is Destination.Conversation -> ConversationActions(model, conversation, current.folder)
+                            else -> Unit
                         }
-                        is Destination.Conversation -> ConversationActions(model, conversation, current.folder)
-                        else -> Unit
                     }
                 },
             )
@@ -175,20 +217,142 @@ fun AsudehApp(
                 Destination.Settings -> SettingsScreen(model, isDefaultApp)
                 Destination.Rules -> RulesScreen(model)
                 Destination.NewConversation -> NewConversationScreen(model)
+                Destination.Trash -> TrashScreen(model)
             }
         }
     }
 
     RescueFollowUpDialog(model)
     EmptyFolderDialog(model)
+    DeleteDialog(model)
+    EmptyTrashDialog(model)
+    ScheduleDialog(model)
     SweepOfferDialog(model)
     SuggestionSampleDialog(model)
     CrashReportDialog(model)
 }
 
+/** برداشتن انتخاب، هر کجا که هستیم. */
+private fun clearSelection(model: AsudehViewModel, destination: Destination) {
+    if (destination is Destination.Conversation) {
+        model.clearMessageSelection()
+    } else {
+        model.clearThreadSelection()
+    }
+}
+
+/**
+ * نوار بالا در حالت انتخاب: «انتخاب همه» و «حذف». حذف از Telephony Provider
+ * فقط برای اپ پیش‌فرض ممکن است، پس دکمه‌اش فقط همان وقت دیده می‌شود.
+ */
+@Composable
+private fun SelectionActions(
+    model: AsudehViewModel,
+    destination: Destination,
+    isDefaultApp: Boolean,
+    selectedThreads: Set<Long>,
+) {
+    if (destination is Destination.Conversation) {
+        IconButton(onClick = model::selectAllMessages) {
+            Icon(Icons.Default.Done, stringResource(R.string.select_all))
+        }
+    }
+    if (!isDefaultApp) return
+    IconButton(
+        onClick = {
+            when (destination) {
+                is Destination.Conversation -> model.requestDeleteSelectedMessages()
+                is Destination.FolderView -> model.requestDeleteThreads(selectedThreads, destination.folder)
+                else -> model.requestDeleteThreads(selectedThreads, Folder.INBOX)
+            }
+        },
+    ) {
+        Icon(Icons.Default.Delete, stringResource(R.string.delete))
+    }
+}
+
+/**
+ * حذف انتخاب‌شده‌ها (ADR-0010). یک مرحله، چون حذف به «حذف‌شده‌ها» می‌رود و
+ * برگشت‌پذیر است؛ متن همین را می‌گوید تا کاربر بداند چه اتفاقی می‌افتد.
+ */
+@Composable
+private fun DeleteDialog(model: AsudehViewModel) {
+    val pending by model.deleteRequest.collectAsState()
+    val request = pending ?: return
+
+    AlertDialog(
+        onDismissRequest = model::cancelDelete,
+        title = { Text(stringResource(R.string.delete_title)) },
+        text = {
+            Column {
+                Text(
+                    if (request.threads > 0) {
+                        Texts.count(R.plurals.delete_threads_body, request.threads, request.messages.size)
+                    } else {
+                        Texts.count(R.plurals.delete_messages_body, request.messages.size)
+                    },
+                )
+                Text(
+                    stringResource(R.string.delete_explain),
+                    Modifier.padding(top = 8.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = model::confirmDelete) { Text(stringResource(R.string.delete_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = model::cancelDelete) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
+/** «خالی کردن حذف‌شده‌ها»: حذف قطعی، پس مثل D45 دو مرحله دارد. */
+@Composable
+private fun EmptyTrashDialog(model: AsudehViewModel) {
+    val pending by model.emptyTrash.collectAsState()
+    val request = pending ?: return
+
+    AlertDialog(
+        onDismissRequest = model::cancelEmptyTrash,
+        title = { Text(stringResource(R.string.empty_trash)) },
+        text = {
+            Text(
+                if (request.confirmed) {
+                    Texts.count(R.plurals.empty_trash_step2, request.count)
+                } else {
+                    Texts.count(R.plurals.empty_trash_step1, request.count)
+                },
+            )
+        },
+        confirmButton = {
+            if (request.confirmed) {
+                TextButton(onClick = model::emptyTrashConfirmed) {
+                    Text(stringResource(R.string.confirm_delete))
+                }
+            } else {
+                TextButton(onClick = model::confirmEmptyTrashFirstStep) {
+                    Text(stringResource(R.string.continue_))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = model::cancelEmptyTrash) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
 /** متن Snackbar برای هر پیام کوتاه. */
 @Composable
 private fun noticeText(notice: UiNotice): String = when (notice) {
+    is UiNotice.Deleted -> Texts.count(R.plurals.notice_deleted, notice.count)
+    is UiNotice.Restored -> Texts.count(R.plurals.notice_restored, notice.count)
+    UiNotice.RestoreFailed -> stringResource(R.string.notice_restore_failed)
+    UiNotice.NothingDeleted -> stringResource(R.string.notice_nothing_deleted)
+    is UiNotice.Scheduled -> Texts.scheduledFor(notice.atMillis)
+    UiNotice.ScheduleTooSoon -> stringResource(R.string.schedule_too_soon)
+    UiNotice.ScheduleSending -> stringResource(R.string.notice_schedule_sending)
     is UiNotice.BackupExported -> Texts.count(R.plurals.backup_exported, notice.messages)
     is UiNotice.BackupImported -> buildString {
         append(
@@ -490,6 +654,7 @@ private fun HomeScreen(
     onOpenThread: (Long) -> Unit,
 ) {
     val threads by model.inboxThreads.collectAsState()
+    val selectedThreads by model.selectedThreads.collectAsState()
     val promoUnread by model.promoUnread.collectAsState()
     val scamCount by model.scamCount.collectAsState()
     val syncing by model.syncing.collectAsState()
@@ -537,7 +702,14 @@ private fun HomeScreen(
             item { EmptyState(stringResource(R.string.empty_inbox)) }
         }
         items(threads, key = { it.threadId }) { thread ->
-            ThreadRow(model, thread) { onOpenThread(thread.threadId) }
+            ThreadRow(
+                model = model,
+                thread = thread,
+                selected = thread.threadId in selectedThreads,
+                selectionMode = selectedThreads.isNotEmpty(),
+                canDelete = isDefaultApp,
+                onClick = { onOpenThread(thread.threadId) },
+            )
         }
     }
 }
@@ -554,6 +726,7 @@ private fun FolderScreen(
         Folder.SCAM -> model.scamThreads
         Folder.INBOX -> model.inboxThreads
     }.collectAsState()
+    val selectedThreads by model.selectedThreads.collectAsState()
     val suggestions by model.suggestions.collectAsState()
 
     Column(Modifier.fillMaxSize()) {
@@ -589,7 +762,14 @@ private fun FolderScreen(
                 }
             }
             items(threads, key = { it.threadId }) { thread ->
-                ThreadRow(model, thread) { onOpenThread(thread.threadId) }
+                ThreadRow(
+                    model = model,
+                    thread = thread,
+                    selected = thread.threadId in selectedThreads,
+                    selectionMode = selectedThreads.isNotEmpty(),
+                    canDelete = isDefaultApp,
+                    onClick = { onOpenThread(thread.threadId) },
+                )
             }
         }
     }
@@ -628,21 +808,40 @@ private fun FolderRow(title: String, trailing: String, onClick: () -> Unit) {
 }
 
 /**
- * یک گفتگو در فهرست. لمس طولانی منوی سنجاق و خوانده/نخوانده را باز می‌کند
- * (D53).
+ * یک گفتگو در فهرست. لمس طولانی منوی سنجاق، خوانده/نخوانده و حذف را باز
+ * می‌کند (D53، ADR-0010)؛ وقتی چند گفتگو انتخاب شده‌اند، لمس کوتاه هم انتخاب
+ * را عوض می‌کند.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ThreadRow(model: AsudehViewModel, thread: ThreadSummary, onClick: () -> Unit) {
+private fun ThreadRow(
+    model: AsudehViewModel,
+    thread: ThreadSummary,
+    selected: Boolean,
+    selectionMode: Boolean,
+    canDelete: Boolean,
+    onClick: () -> Unit,
+) {
     var menu by remember { mutableStateOf(false) }
     Box {
         Row(
             Modifier
                 .fillMaxWidth()
-                .combinedClickable(onClick = onClick, onLongClick = { menu = true })
+                .background(
+                    if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Unspecified,
+                )
+                .combinedClickable(
+                    onClick = { if (selectionMode) model.toggleThread(thread.threadId) else onClick() },
+                    onLongClick = {
+                        if (selectionMode) model.toggleThread(thread.threadId) else menu = true
+                    },
+                )
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.Top,
         ) {
+            if (selectionMode) {
+                Checkbox(checked = selected, onCheckedChange = { model.toggleThread(thread.threadId) })
+            }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (thread.pinned) {
@@ -711,6 +910,23 @@ private fun ThreadRow(model: AsudehViewModel, thread: ThreadSummary, onClick: ()
                     }
                 },
             )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.select)) },
+                onClick = {
+                    menu = false
+                    model.toggleThread(thread.threadId)
+                },
+            )
+            // حذف از provider فقط برای اپ پیش‌فرض ممکن است.
+            if (canDelete) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.delete_thread)) },
+                    onClick = {
+                        menu = false
+                        model.requestDeleteThreads(setOf(thread.threadId), thread.folder)
+                    },
+                )
+            }
         }
     }
 }
