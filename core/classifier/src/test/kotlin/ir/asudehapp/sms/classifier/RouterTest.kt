@@ -111,6 +111,27 @@ class RouterTest {
     }
 
     @Test
+    fun `old phishing found by the sweep stays in the inbox with a warning`() {
+        // اصل ۸ و D22: فقط پیامک `LIVE` خودکار جابه‌جا می‌شود.
+        for (origin in listOf(Origin.SWEEP, Origin.EXTERNAL)) {
+            val placement = Router.route(phish, adLine, origin = origin)
+            assertEquals(Folder.INBOX, placement.folder)
+            assertTrue(placement.showWarning)
+            assertTrue(placement.disableLinks)
+            assertTrue(placement.suggestMove)
+        }
+    }
+
+    @Test
+    fun `an old message from a blocked sender is only offered for moving`() {
+        val rules = UserRules(blocklist = setOf("30001234"))
+        val placement = Router.route(verdict(Category.PROMO), adLine, rules, Origin.EXTERNAL)
+        assertEquals(Folder.INBOX, placement.folder)
+        assertTrue(placement.suggestMove)
+        assertEquals(ReasonCode.BLOCKED_BY_USER, placement.reason.code)
+    }
+
+    @Test
     fun `a message from a mobile number is never hidden automatically`() {
         val placement = Router.route(verdict(Category.PROMO), mobile)
         assertEquals(Folder.INBOX, placement.folder)

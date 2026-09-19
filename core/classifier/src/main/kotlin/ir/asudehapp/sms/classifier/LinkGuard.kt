@@ -10,18 +10,28 @@ import ir.asudehapp.sms.model.DetectedLink
  */
 object LinkGuard {
 
+    /**
+     * گروه ۱ پیشوند (`https://` یا `www.`) و گروه ۲ میزبان است. پس از میزبان هر
+     * نویسه‌ای جز حرف و رقم و `-` و `_` می‌تواند بیاید: `»`، `!`، `"`، `:` و…
+     */
     private val URL_REGEX = Regex(
-        """(?:(?:https?|ftp)://|www\.)?([\p{L}\p{N}][\p{L}\p{N}\-._]*\.(?:[\p{L}]{2,24}))(?::\d{2,5})?(?=[/?#]|\s|$|[,،.؛;)\]])""",
+        """((?:https?|ftp)://|www\.)?([\p{L}\p{N}][\p{L}\p{N}\-._]*\.(?:[\p{L}]{2,24}))(?::\d{2,5})?(?![\p{L}\p{N}\-_])""",
         RegexOption.IGNORE_CASE,
     )
 
-    /** دامنه‌های سطح بالا که نباید هر «کلمه.کلمه» را لینک بشماریم. */
+    /**
+     * دامنه‌های سطح بالا که نباید هر «کلمه.کلمه» را لینک بشماریم. لینکی که با
+     * `https://` یا `www.` شروع شود، با هر دامنهٔ سطح بالایی لینک است.
+     */
     private val KNOWN_TLDS = setOf(
         "ir", "com", "net", "org", "info", "biz", "co", "io", "me", "app", "site",
         "online", "xyz", "top", "shop", "store", "club", "live", "icu", "cc", "tk",
         "ru", "cn", "uk", "de", "fr", "in", "pro", "vip", "link", "click", "help",
         "ly", "gd", "gl", "to", "st", "su", "im", "ai", "sh", "ws", "cf", "ga",
         "ml", "space", "website", "fun", "life", "world", "today", "win", "bid",
+        "pw", "sbs", "cfd", "buzz", "cyou", "us", "tr", "ae", "eu", "tv", "cloud",
+        "work", "rest", "bar", "lol", "monster", "quest", "email", "support",
+        "services", "digital", "network", "page", "dev", "gq", "tel", "mobi", "ink",
     )
 
     /**
@@ -38,9 +48,10 @@ object LinkGuard {
     fun extract(body: String): List<DetectedLink> {
         val found = LinkedHashMap<String, DetectedLink>()
         for (match in URL_REGEX.findAll(body)) {
-            val host = match.groupValues[1].lowercase().trimEnd('.')
+            val explicit = match.groupValues[1].isNotEmpty()
+            val host = match.groupValues[2].lowercase().trimEnd('.')
             val tld = host.substringAfterLast('.', "")
-            if (tld !in KNOWN_TLDS) continue
+            if (!explicit && tld !in KNOWN_TLDS) continue
             if (host.count { it == '.' } == 0) continue
             val display = host.removePrefix("www.")
             found.putIfAbsent(
@@ -98,6 +109,9 @@ object LinkGuard {
         val officialDeconfused = official.map { CONFUSABLES[it] ?: it }.joinToString("")
         if (deconfused == officialDeconfused) return true
         if (registrable.split('.').any { it.startsWith("xn--") }) return true
+
+        // «rn» به‌جای «m» و «vv» به‌جای «w»: brni.ir در برابر bmi.ir (D37).
+        if (normalizeForComparison(registrable) == normalizeForComparison(official)) return true
 
         // غلط املایی نزدیک: bmi.ir در برابر bnii.ir
         val registrableLabel = registrable.substringBefore('.')

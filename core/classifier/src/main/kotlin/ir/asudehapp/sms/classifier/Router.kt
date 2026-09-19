@@ -31,7 +31,10 @@ object Router {
         val hasEvidence = verdict.evidence != null
 
         // ۱. فیشینگ با شاهد قطعی، از سرشماره‌ای که در فهرست سفید نیست.
+        //    فقط پیامک `LIVE` خودکار جابه‌جا می‌شود؛ پیامک قدیمی با هشدار در
+        //    صندوق می‌ماند و فقط پیشنهاد جابه‌جایی می‌گیرد (اصل ۸، D22).
         if (verdict.category == Category.PHISHING && hasEvidence && !allowed) {
+            if (origin != Origin.LIVE) return suggested(verdict)
             return Placement(
                 folder = Folder.SCAM,
                 notification = NotificationBehavior.NONE,
@@ -68,6 +71,9 @@ object Router {
         // ۵. فهرست سیاه کاربر: برای این سرشماره `Block` بر `ShowOnDoubt` برتری
         //    دارد (ADR-0006 بند ۲).
         if (blocked) {
+            if (origin != Origin.LIVE) {
+                return suggested(verdict, Reason(ReasonCode.BLOCKED_BY_USER))
+            }
             return Placement(
                 folder = Folder.PROMO,
                 notification = NotificationBehavior.NONE,
@@ -90,13 +96,21 @@ object Router {
                 )
             } else {
                 // فقط پیامکی که اپ خودش زنده گرفته خودکار پنهان می‌شود (اصل ۸، D22).
-                inbox(verdict).copy(suggestMove = true)
+                suggested(verdict)
             }
         }
 
         // ۸. هر حالت دیگر، از جمله خطای طبقه‌بند: صندوق اصلی (`ShowOnDoubt`).
         return inbox(verdict)
     }
+
+    /**
+     * پیامکی که اگر زنده رسیده بود پنهان می‌شد، ولی چون `origin` آن `LIVE` نیست
+     * در صندوق می‌ماند و فقط پیشنهاد جابه‌جایی می‌گیرد (اصل ۸، D22). هشدار و
+     * غیرفعال بودن لینک‌ها سر جایش می‌ماند.
+     */
+    private fun suggested(verdict: Verdict, reason: Reason = verdict.reason) =
+        inbox(verdict, reason).copy(suggestMove = true)
 
     private fun inbox(verdict: Verdict, reason: Reason = verdict.reason) = Placement(
         folder = Folder.INBOX,

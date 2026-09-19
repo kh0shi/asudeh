@@ -44,4 +44,18 @@ class PersianTextTest {
         assertFalse(PersianText.isRightToLeft("hello سلام"))
         assertTrue(PersianText.isRightToLeft("۱۲۳ سلام"))
     }
+
+    @Test
+    fun `invisible characters are removed`() {
+        assertEquals("تخفیف", PersianText.normalize("ت\u200Bخ\u2060فی\u00ADف\u2067"))
+    }
+
+    @Test
+    fun `whole words only`() {
+        assertTrue(PersianText.containsWord("مانده حساب", "مانده"))
+        assertTrue(PersianText.containsWord("کد تخفیف!", "تخفیف"))
+        assertFalse(PersianText.containsWord("کالای کوچک", "چک"))
+        assertFalse(PersianText.containsWord("please submit", "bmi"))
+        assertFalse(PersianText.containsWord("فروش اقساطی", "اقساط"))
+    }
 }

@@ -28,13 +28,15 @@ class Classifier(private val rules: CompiledRulePack) {
         val links = LinkGuard.extract(input.body)
 
         // ۱. فیشینگ، فقط با شاهد ساختاری (اصل ۴). هیچ امتیاز احتمالی اینجا دخالت نمی‌کند.
-        phishing(text, address, senderKind, links)?.let { return it }
+        phishing(text, address, senderKind, input.isKnownContact, links)?.let { return it }
 
         // ۲. رمز یکبار مصرف: مستقل از هر چیز دیگری تشخیص داده می‌شود (ADR-0006).
-        otp(text, links)?.let { return it }
+        //    لینک مشکوک در پیامک رمز یکبار یا بانکی هم هشدار می‌گیرد؛ این دقیقاً
+        //    الگوی رایج پیامک جعلی بانکی است (`LinkGuard`، اصل ۵ استثنا).
+        otp(text, links)?.let { return it.withRisk(text, links) }
 
         // ۳. بانکی
-        bank(text, links)?.let { return it }
+        bank(text, links)?.let { return it.withRisk(text, links) }
 
         // ۴. تبلیغاتی
         promo(text, senderKind)?.let { return it.withRisk(text, links) }
@@ -74,14 +76,19 @@ class Classifier(private val rules: CompiledRulePack) {
         text: String,
         address: String,
         senderKind: SenderKind,
+        isKnownContact: Boolean,
         links: List<DetectedLink>,
     ): Verdict? {
         for (brand in rules.brands) {
             if (!brand.isMentionedIn(text)) continue
 
+            // لینکی که خودش دامنهٔ رسمی همین نهاد است (مثلاً mymci.ir برای همراه
+            // اول) جعل نیست، حتی اگر شبیه دامنهٔ رسمی دیگرِ همان نهاد باشد.
+            val offBrandLinks = links.filterNot { brand.isOfficialHost(it.host) }
+
             // جعل دامنه: پیامک از نهاد X حرف می‌زند و لینکی دارد که شبیه دامنهٔ
             // رسمی X است ولی خودش نیست.
-            for (link in links) {
+            for (link in offBrandLinks) {
                 for (official in brand.domains) {
                     if (LinkGuard.isLookalike(link.host, official)) {
                         return phishVerdict(
@@ -95,8 +102,11 @@ class Classifier(private val rules: CompiledRulePack) {
             }
 
             // جعل سرشماره: نهادی که سرشمارهٔ رسمی دارد، از یک خط شخصی پیامک
-            // با لینک نمی‌فرستد.
-            if (links.isNotEmpty() && brand.senders.isNotEmpty() && !brand.isOfficialSender(address)) {
+            // با لینک غیررسمی نمی‌فرستد. دوستی که لینک رسمی بانک را فرستاده، یا
+            // مخاطب ذخیره‌شده، جعل نیست (D31).
+            if (offBrandLinks.isNotEmpty() && !isKnownContact &&
+                brand.senders.isNotEmpty() && !brand.isOfficialSender(address)
+            ) {
                 if (senderKind == SenderKind.MOBILE || senderKind == SenderKind.ALPHANUMERIC) {
                     return phishVerdict(
                         Evidence.SenderSpoof(brand.brand.name, address),
@@ -140,13 +150,17 @@ class Classifier(private val rules: CompiledRulePack) {
         if (bankHits == 0) return null
         val hasAmount = rules.amount.matches(text)
         val promoStrong = rules.promoStrong.hits(text)
+        val transaction = rules.bankTransaction.matches(text)
 
-        // تبلیغ وام و بیمه از سرشمارهٔ بانک، «بانکی» نیست.
-        if (promoStrong > 0 && !hasAmount) return null
+        // تبلیغ وام و بیمه، یا تبلیغی که قیمت دارد، «بانکی» نیست. فقط نشانهٔ
+        // قطعی تراکنش آن را بانکی می‌کند، و حتی آن‌وقت هم اطمینان بالا نمی‌گیرد
+        // تا نتواند از `Blocklist` رد شود (ADR-0006 بند ۲).
+        if (promoStrong > 0 && !transaction) return null
 
+        val confident = hasAmount && transaction && bankHits >= 2 && promoStrong == 0
         return Verdict(
             category = Category.BANK,
-            confidence = if (hasAmount && bankHits >= 2) Confidence.HIGH else Confidence.MEDIUM,
+            confidence = if (confident) Confidence.HIGH else Confidence.MEDIUM,
             reason = Reason(ReasonCode.BANK_PATTERN, listOfNotNull(rules.bank.firstHit(text))),
             links = links,
         )

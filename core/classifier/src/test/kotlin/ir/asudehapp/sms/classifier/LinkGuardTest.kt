@@ -65,7 +65,26 @@ class LinkGuardTest {
     }
 
     @Test
-    fun `rn is normalised to m for comparison`() {
-        assertEquals(LinkGuard.normalizeForComparison("rnci.ir"), "mci.ir")
+    fun `rn in place of m is a lookalike`() {
+        assertTrue(LinkGuard.isLookalike("brni.ir", "bmi.ir"))
+        assertTrue(LinkGuard.isLookalike("rnci.ir", "mci.ir"))
+    }
+
+    @Test
+    fun `links next to punctuation are found`() {
+        for (body in listOf("«evil-login.com»", "x.com!", "bmi.ir:", "bmi.ir\"", "(evil.com)")) {
+            assertEquals(body, 1, LinkGuard.extract(body).size)
+        }
+    }
+
+    @Test
+    fun `a link with a scheme is found whatever its top level domain`() {
+        assertEquals("a.sbs", LinkGuard.extract("وارد https://a.sbs/login شوید").single().host)
+        assertEquals("evil.pw", LinkGuard.extract("evil.pw/x").single().host)
+    }
+
+    @Test
+    fun `a plain dotted word is not a link`() {
+        assertTrue(LinkGuard.extract("ساعت 10.30 جلسه داریم، file.txt را ببین").isEmpty())
     }
 }

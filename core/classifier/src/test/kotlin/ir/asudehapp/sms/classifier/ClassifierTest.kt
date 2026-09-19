@@ -146,6 +146,70 @@ class ClassifierTest {
     }
 
     @Test
+    fun `an operator's own second official domain is not a spoof`() {
+        val mci = classify("9990", "همراه اول: بسته اینترنت را از mymci.ir بخرید")
+        assertTrue(mci.category != Category.PHISHING)
+        val irancell = classify("7575", "ایرانسل: فاکتور خود را در mtnirancell.ir ببینید")
+        assertTrue(irancell.category != Category.PHISHING)
+    }
+
+    @Test
+    fun `a friend forwarding the official bank link is not a sender spoof`() {
+        val verdict = classify("09121234567", "بانک ملی رو دیدی؟ این لینکش bmi.ir", contact = true)
+        assertTrue(verdict.category != Category.PHISHING)
+        val stranger = classify("09121234567", "بانک ملی: وارد bmi.ir شوید")
+        assertTrue("لینک رسمی، جعل سرشماره نیست", stranger.category != Category.PHISHING)
+    }
+
+    @Test
+    fun `a latin brand abbreviation inside another word is not a mention`() {
+        val verdict = classify("09121234567", "please submit the form at docs.google.com")
+        assertTrue(verdict.category != Category.PHISHING)
+    }
+
+    @Test
+    fun `a stranger mentioning a bank with an unofficial link is still a sender spoof`() {
+        val verdict = classify("09121234567", "بانک ملی: حساب شما مسدود شد. وارد melli-pay.com شوید")
+        assertEquals(Category.PHISHING, verdict.category)
+    }
+
+    @Test
+    fun `a one time password with a bait link is suspect`() {
+        val verdict = classify("10001", "کد تایید شما 48213 است. برای دریافت جایزه وارد bit.ly/abc شوید")
+        assertEquals(Category.OTP, verdict.category)
+        assertTrue("لینک کوتاه‌شده در پیامک رمز یکبار باید هشدار بگیرد", verdict.risk)
+    }
+
+    @Test
+    fun `a bank message with a bait link is suspect`() {
+        val verdict = classify("200011", "برداشت 1,500,000 ریال از حساب شما. برای لغو کلیک کنید bit.ly/x1")
+        assertEquals(Category.BANK, verdict.category)
+        assertTrue(verdict.risk)
+    }
+
+    @Test
+    fun `a sale with a price is not a bank message`() {
+        val verdict = classify("30001234", "جشنواره فروش! کالای کوچک فقط 250,000 تومان، 3 روز باقی مانده")
+        assertEquals(Category.PROMO, verdict.category)
+        val installments = classify("30001234", "فروش اقساطی بدون ضامن، قیمت 12,000,000 تومان")
+        assertTrue(installments.category != Category.BANK)
+    }
+
+    @Test
+    fun `a bank message that also advertises never gets high confidence`() {
+        val verdict = classify("200011", "واریز 5,000,000 ریال به حساب شما. جشنواره تخفیف ویژه!")
+        assertEquals(Category.BANK, verdict.category)
+        assertEquals(Confidence.MEDIUM, verdict.confidence)
+    }
+
+    @Test
+    fun `invisible characters do not hide promotional words`() {
+        val verdict = classify("30001234", "ت\u200Bخفیف ویژه ح\u200Bراج")
+        assertEquals(Category.PROMO, verdict.category)
+        assertEquals(Confidence.HIGH, verdict.confidence)
+    }
+
+    @Test
     fun `classifying one message stays well under five milliseconds`() {
         val samples = listOf(
             "10001" to "رمز یکبار مصرف شما ۴۵۸۲۱ است",

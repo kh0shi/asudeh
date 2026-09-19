@@ -21,6 +21,11 @@ data class RulePack(
     val promo: PatternGroup = PatternGroup(),
     /** نشانه‌های قوی تبلیغ؛ یکی از این‌ها به‌تنهایی وزن دو نشانهٔ عادی را دارد. */
     val promoStrong: PatternGroup = PatternGroup(),
+    /**
+     * نشانه‌های قطعی تراکنش بانکی («برداشت»، «واریز»…). پیامکی که نشانهٔ قوی
+     * تبلیغ دارد فقط با یکی از این‌ها بانکی شمرده می‌شود.
+     */
+    val bankTransaction: PatternGroup = PatternGroup(),
     /** طعمه‌های کلاهبرداری: «برنده شدید»، «جایزه»… بدون `Evidence` فقط `Suspect` می‌سازند. */
     val scamBait: PatternGroup = PatternGroup(),
     val amount: PatternGroup = PatternGroup(),
@@ -81,6 +86,7 @@ class CompiledRulePack(val pack: RulePack) {
     val service: CompiledGroup = CompiledGroup(pack.service)
     val promo: CompiledGroup = CompiledGroup(pack.promo)
     val promoStrong: CompiledGroup = CompiledGroup(pack.promoStrong)
+    val bankTransaction: CompiledGroup = CompiledGroup(pack.bankTransaction)
     val scamBait: CompiledGroup = CompiledGroup(pack.scamBait)
     val amount: CompiledGroup = CompiledGroup(pack.amount)
 
@@ -107,17 +113,20 @@ class CompiledGroup(group: PatternGroup) {
         .let { all -> all.filterNot { candidate -> all.any { it != candidate && candidate.contains(it) } } }
     private val regexes: List<Regex> = group.regexes.map { Regex(it, RegexOption.IGNORE_CASE) }
 
-    /** تعداد الگوهای متمایزی که در متن نرمال‌شده دیده شده‌اند. */
+    /**
+     * تعداد الگوهای متمایزی که در متن نرمال‌شده دیده شده‌اند. کلیدواژه فقط
+     * به‌صورت کلمهٔ کامل شمرده می‌شود («چک» درون «کوچک» شمرده نمی‌شود).
+     */
     fun hits(normalizedText: String): Int {
         var count = 0
-        for (keyword in keywords) if (normalizedText.contains(keyword)) count++
+        for (keyword in keywords) if (PersianText.containsWord(normalizedText, keyword)) count++
         for (regex in regexes) if (regex.containsMatchIn(normalizedText)) count++
         return count
     }
 
     /** اولین الگوی دیده‌شده، برای ساختن `Reason`. */
     fun firstHit(normalizedText: String): String? {
-        for (keyword in keywords) if (normalizedText.contains(keyword)) return keyword
+        for (keyword in keywords) if (PersianText.containsWord(normalizedText, keyword)) return keyword
         for (regex in regexes) regex.find(normalizedText)?.let { return it.value }
         return null
     }
@@ -130,8 +139,15 @@ class CompiledBrand(val brand: Brand) {
     val domains: List<String> = brand.domains.map { it.lowercase().removePrefix("www.") }
     val senders: List<String> = brand.senders.map { it.filter(Char::isDigit) }.filter { it.isNotEmpty() }
 
-    fun isMentionedIn(normalizedText: String): Boolean = mentions.any { normalizedText.contains(it) }
+    fun isMentionedIn(normalizedText: String): Boolean =
+        mentions.any { PersianText.containsWord(normalizedText, it) }
 
     fun isOfficialSender(normalizedAddress: String): Boolean =
         senders.any { normalizedAddress.startsWith(it) }
+
+    /** میزبان، خود یکی از دامنه‌های رسمی این نهاد یا زیردامنهٔ آن است. */
+    fun isOfficialHost(host: String): Boolean {
+        val clean = host.lowercase().removePrefix("www.")
+        return domains.any { clean == it || clean.endsWith(".$it") }
+    }
 }

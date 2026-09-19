@@ -18,6 +18,12 @@ object PersianText {
         addAll('ۖ'..'ۭ')  // نشانه‌های قرآنی
         addAll('‎'..'‏')  // LRM و RLM
         addAll('‪'..'‮')  // نویسه‌های جهت‌دهی
+        addAll('\u2066'..'\u2069')  // جداکننده‌های جهت (isolate)
+        add('\u200B')  // فاصلهٔ صفر
+        add('\u200D')  // اتصال‌دهندهٔ صفر (ZWJ)
+        add('\u2060')  // word joiner
+        add('\u00AD')  // خط تیرهٔ نرم
+        add('\u180E')
         add('﻿')
     }
 
@@ -56,6 +62,25 @@ object PersianText {
             .replace(Regex(" {2,}"), " ")
             .trim()
             .lowercase()
+    }
+
+    /**
+     * آیا [word] به‌صورت یک کلمه یا عبارت کامل در [normalizedText] آمده است؟
+     * پیش و پس از آن نباید حرف یا رقم باشد، تا «چک» درون «کوچک» یا «bmi» درون
+     * «submit» پیدا نشود. هر دو ورودی باید نرمال‌شده باشند.
+     */
+    fun containsWord(normalizedText: String, word: String): Boolean {
+        if (word.isEmpty()) return false
+        var from = 0
+        while (true) {
+            val at = normalizedText.indexOf(word, from)
+            if (at < 0) return false
+            val end = at + word.length
+            val startOk = at == 0 || !normalizedText[at - 1].isLetterOrDigit()
+            val endOk = end == normalizedText.length || !normalizedText[end].isLetterOrDigit()
+            if (startOk && endOk) return true
+            from = at + 1
+        }
     }
 
     /** فقط ارقام را لاتین می‌کند و بقیهٔ متن را دست نمی‌زند. */
