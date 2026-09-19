@@ -9,14 +9,18 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.booleanResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 
 /**
  * رنگ برند آسوده پیش‌فرض است و «رنگ پویای اندروید» یک گزینهٔ اختیاری (D49).
@@ -99,5 +103,11 @@ fun AsudehTheme(
         else -> LightScheme
     }
 
-    MaterialTheme(colorScheme = colorScheme, typography = AsudehTypography, content = content)
+    // جهت رابط از زبان رابط می‌آید، نه از زبان گوشی: روی گوشی انگلیسی هم رابط
+    // فارسی راست‌به‌چپ است. جهت متن هر پیامک جدا از روی اولین حرف قوی‌اش
+    // تعیین می‌شود (D50).
+    val direction = if (booleanResource(R.bool.asudeh_rtl_ui)) LayoutDirection.Rtl else LayoutDirection.Ltr
+    CompositionLocalProvider(LocalLayoutDirection provides direction) {
+        MaterialTheme(colorScheme = colorScheme, typography = AsudehTypography, content = content)
+    }
 }

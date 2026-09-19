@@ -106,6 +106,18 @@ data class ThreadSummary(
     val hasRisk: Boolean,
 )
 
+/** خلاصهٔ پیشنهاد جابه‌جایی پیامک‌های قدیمی (اصل ۸). */
+data class MoveSuggestion(
+    val messages: Int,
+    val threads: Int,
+    /** چندتا از [messages] مشکوک به کلاهبرداری‌اند و به `ScamFolder` می‌روند. */
+    val scams: Int,
+) {
+    companion object {
+        val NONE: MoveSuggestion = MoveSuggestion(0, 0, 0)
+    }
+}
+
 /** شمار دسته‌های هر سرشماره، برای تشخیص `MixedSender` (ADR-0006). */
 data class SenderStats(
     val address: String,

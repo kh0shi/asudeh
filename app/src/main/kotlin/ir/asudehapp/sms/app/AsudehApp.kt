@@ -12,12 +12,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -35,6 +39,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
+import ir.asudehapp.sms.data.MessageEntity
+import ir.asudehapp.sms.data.MoveSuggestion
 import ir.asudehapp.sms.data.ThreadSummary
 import ir.asudehapp.sms.model.Folder
 
@@ -44,7 +50,14 @@ fun AsudehApp(
     model: AsudehViewModel,
     isDefaultApp: Boolean,
     onBecomeDefault: () -> Unit,
+    onContinueReadOnly: () -> Unit,
 ) {
+    val onboarded by model.onboarded.collectAsState()
+    if (!onboarded) {
+        WelcomeScreen(onBecomeDefault = onBecomeDefault, onContinueReadOnly = onContinueReadOnly)
+        return
+    }
+
     val destination by model.destination.collectAsState()
 
     BackHandler(enabled = destination != Destination.Home) { model.back() }
@@ -101,6 +114,150 @@ fun AsudehApp(
 
     RescueFollowUpDialog(model)
     EmptyFolderDialog(model)
+    SweepOfferDialog(model)
+    SuggestionSampleDialog(model)
+}
+
+/**
+ * مرحلهٔ اول اولین اجرا (D47): وعدهٔ اپ و یک دکمه. اگر کاربر نخواهد، اپ
+ * فقط-خواندنی کار می‌کند و از کار نمی‌افتد.
+ */
+@Composable
+private fun WelcomeScreen(onBecomeDefault: () -> Unit, onContinueReadOnly: () -> Unit) {
+    Scaffold { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        ) {
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displaySmall)
+            Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.welcome_body), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.welcome_default_hint), style = MaterialTheme.typography.bodyMedium)
+            Button(onClick = onBecomeDefault, Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.become_default))
+            }
+            TextButton(onClick = onContinueReadOnly, Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.continue_read_only))
+            }
+        }
+    }
+}
+
+/**
+ * مرحلهٔ چهارم اولین اجرا (D47، اصل ۸): نتیجهٔ `HistorySweep` و سه گزینه.
+ * هیچ پیامک قدیمی‌ای بدون «منتقل کن» جابه‌جا نمی‌شود.
+ */
+@Composable
+private fun SweepOfferDialog(model: AsudehViewModel) {
+    val offer by model.sweepOffer.collectAsState()
+    val found = offer ?: return
+    val sample by model.suggestionSample.collectAsState()
+
+    AlertDialog(
+        onDismissRequest = model::postponeSuggestions,
+        title = { Text(stringResource(R.string.sweep_title)) },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SuggestionSummary(found)
+                Text(stringResource(R.string.sweep_explain), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.show_on_doubt), style = MaterialTheme.typography.bodySmall)
+                val shown = sample
+                if (shown == null) {
+                    TextButton(onClick = model::showSuggestionSample) {
+                        Text(stringResource(R.string.sweep_samples))
+                    }
+                } else {
+                    SampleList(shown)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = model::acceptSuggestions) { Text(stringResource(R.string.sweep_move)) }
+        },
+        dismissButton = {
+            TextButton(onClick = model::postponeSuggestions) { Text(stringResource(R.string.sweep_not_now)) }
+        },
+    )
+}
+
+/** نمونه‌ها از کارت پیشنهاد در `PromoFolder`. */
+@Composable
+private fun SuggestionSampleDialog(model: AsudehViewModel) {
+    val offer by model.sweepOffer.collectAsState()
+    val sample by model.suggestionSample.collectAsState()
+    val shown = sample ?: return
+    if (offer != null) return
+
+    AlertDialog(
+        onDismissRequest = model::hideSuggestionSample,
+        title = { Text(stringResource(R.string.sweep_samples)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) { SampleList(shown) }
+        },
+        confirmButton = {
+            TextButton(onClick = model::hideSuggestionSample) { Text(stringResource(R.string.close)) }
+        },
+    )
+}
+
+@Composable
+private fun SuggestionSummary(found: MoveSuggestion) {
+    Text(
+        Texts.count(R.plurals.sweep_found, found.messages, found.threads),
+        style = MaterialTheme.typography.bodyLarge,
+    )
+    if (found.scams > 0) {
+        Text(
+            Texts.count(R.plurals.sweep_found_scams, found.scams),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}
+
+@Composable
+private fun SampleList(messages: List<MessageEntity>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (message in messages) {
+            Column {
+                Text(Texts.sender(message.address), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    message.body,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/** پیشنهاد جابه‌جایی که با «فعلاً نه» در `PromoFolder` می‌ماند (اصل ۸، D22). */
+@Composable
+private fun SuggestionCard(model: AsudehViewModel, found: MoveSuggestion) {
+    Card(
+        Modifier.fillMaxWidth().padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        ),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            SuggestionSummary(found)
+            Text(stringResource(R.string.sweep_explain), style = MaterialTheme.typography.bodySmall)
+            Row {
+                TextButton(onClick = model::acceptSuggestions) { Text(stringResource(R.string.sweep_move)) }
+                TextButton(onClick = model::showSuggestionSample) { Text(stringResource(R.string.sweep_samples)) }
+                TextButton(onClick = model::keepSuggestionsInInbox) { Text(stringResource(R.string.sweep_keep)) }
+            }
+        }
+    }
 }
 
 @Composable
@@ -206,6 +363,10 @@ private fun HomeScreen(
         if (!isDefaultApp) {
             item { DefaultAppCard(onBecomeDefault) }
         }
+        if (syncing) {
+            // مرحلهٔ سوم اولین اجرا: فهرست از همین لحظه قابل استفاده است (D47).
+            item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        }
         if (syncing || syncFailed) {
             item {
                 Text(
@@ -236,7 +397,7 @@ private fun HomeScreen(
         }
         item { HorizontalDivider() }
 
-        if (threads.isEmpty()) {
+        if (threads.isEmpty() && !syncing) {
             item { EmptyState(stringResource(R.string.empty_inbox)) }
         }
         items(threads, key = { it.threadId }) { thread ->
@@ -257,8 +418,12 @@ private fun FolderScreen(
         Folder.SCAM -> model.scamThreads
         Folder.INBOX -> model.inboxThreads
     }.collectAsState()
+    val suggestions by model.suggestions.collectAsState()
 
     Column(Modifier.fillMaxSize()) {
+        if (folder == Folder.PROMO && suggestions.messages > 0) {
+            SuggestionCard(model, suggestions)
+        }
         // «خالی کردن پوشه» فقط در `PromoFolder` است (D45)، و حذف از provider فقط
         // برای اپ پیش‌فرض ممکن است.
         if (isDefaultApp && folder == Folder.PROMO) {

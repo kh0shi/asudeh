@@ -30,6 +30,9 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult(),
     ) {
         defaultAppState = isDefaultSmsApp()
+        // مرحلهٔ دوم اولین اجرا (D47)، چه کاربر قبول کرده باشد چه نه.
+        model.finishOnboarding()
+        requestPermissions()
         // با پیش‌فرض شدن، اپ به پیامک‌ها دسترسی پیدا می‌کند؛ همگام‌سازی از نو (D21).
         model.sync()
     }
@@ -44,7 +47,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         defaultAppState = isDefaultSmsApp()
-        requestPermissions()
+        // کسی که آسوده را از پیش پیش‌فرض کرده، صفحهٔ خوش‌آمد را لازم ندارد.
+        if (defaultAppState) model.finishOnboarding()
+        // در اولین اجرا مجوزها بعد از صفحهٔ خوش‌آمد خواسته می‌شوند (D47).
+        if (model.onboarded.value) requestPermissions()
         if (savedInstanceState == null) handle(intent)
 
         setContent {
@@ -53,6 +59,10 @@ class MainActivity : ComponentActivity() {
                     model = model,
                     isDefaultApp = defaultAppState,
                     onBecomeDefault = ::requestDefaultSmsRole,
+                    onContinueReadOnly = {
+                        model.finishOnboarding()
+                        requestPermissions()
+                    },
                 )
             }
         }
@@ -67,7 +77,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        val wasDefault = defaultAppState
         defaultAppState = isDefaultSmsApp()
+        // از تنظیمات گوشی پیش‌فرض شده، نه از دکمهٔ اپ.
+        if (defaultAppState && !wasDefault) {
+            model.finishOnboarding()
+            requestPermissions()
+            model.sync()
+        }
     }
 
     /** `sms:` از اپ‌های دیگر، یا لمس اعلان خود اپ. */
@@ -86,8 +103,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun isDefaultSmsApp(): Boolean =
-        Telephony.Sms.getDefaultSmsPackage(this) == packageName
+    /**
+     * از اندروید ۱۰ نقش پیامک با `RoleManager` نگه داشته می‌شود. روی بعضی
+     * گوشی‌ها `getDefaultSmsPackage` بعد از گرفتن نقش هنوز null برمی‌گرداند،
+     * پس اول خود نقش بررسی می‌شود.
+     */
+    private fun isDefaultSmsApp(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_SMS)) {
+                return roleManager.isRoleHeld(RoleManager.ROLE_SMS)
+            }
+        }
+        return Telephony.Sms.getDefaultSmsPackage(this) == packageName
+    }
 
     /**
      * اولین مرحلهٔ اولین اجرا (D47): یک دکمه که درخواست `RoleManager` را باز

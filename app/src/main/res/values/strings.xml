@@ -13,6 +13,29 @@
     <string name="become_default">آسوده را اپ پیامک اصلی کن</string>
     <string name="not_default_title">آسوده هنوز اپ پیامک پیش‌فرض نیست</string>
     <string name="not_default_body">تا وقتی پیش‌فرض نشود، پیامک‌های تازه به آسوده نمی‌رسند و نمی‌توانید پیامک بفرستید. پیامک‌های موجود را می‌توانید همین‌جا ببینید.</string>
+    <!-- اولین اجرا (D47) -->
+    <string name="welcome_title">پیامک‌های مهم، بدون شلوغی تبلیغ</string>
+    <string name="welcome_body">آسوده تبلیغ‌ها را کنار می‌گذارد تا پیامک‌های مهم گم نشوند. هیچ داده‌ای از گوشی بیرون نمی‌رود و هیچ پیامکی بدون اجازهٔ شما پاک نمی‌شود.</string>
+    <string name="welcome_default_hint">برای اینکه پیامک‌های تازه به آسوده برسند، آسوده باید اپ پیامک اصلی گوشی شود. هر وقت خواستید می‌توانید برگردید.</string>
+    <string name="continue_read_only">فعلاً فقط پیامک‌ها را ببینم</string>
+
+    <!-- نتیجهٔ HistorySweep (اصل ۸) -->
+    <string name="sweep_title">بررسی پیامک‌های قبلی</string>
+    <plurals name="sweep_found">
+        <item quantity="one">در پیامک‌های قبلی %1$d پیامک تبلیغاتی یا مشکوک در %2$d گفتگو پیدا شد.</item>
+        <item quantity="other">در پیامک‌های قبلی %1$d پیامک تبلیغاتی یا مشکوک در %2$d گفتگو پیدا شد.</item>
+    </plurals>
+    <plurals name="sweep_found_scams">
+        <item quantity="one">%d پیامک مشکوک به کلاهبرداری است و به پوشهٔ کلاهبرداری می‌رود.</item>
+        <item quantity="other">%d پیامک مشکوک به کلاهبرداری است و به پوشهٔ کلاهبرداری می‌رود.</item>
+    </plurals>
+    <string name="sweep_explain">این پیامک‌ها پیش از آسوده رسیده بودند، پس بدون اجازهٔ شما جابه‌جا نمی‌شوند. جابه‌جایی چیزی را پاک نمی‌کند و هر پیامک را می‌توانید برگردانید.</string>
+    <string name="sweep_move">منتقل کن</string>
+    <string name="sweep_samples">نمونه‌ها</string>
+    <string name="sweep_not_now">فعلاً نه</string>
+    <string name="sweep_keep">در صندوق بماند</string>
+    <string name="close">بستن</string>
+
     <string name="syncing">در حال بررسی پیامک‌ها…</string>
     <string name="sync_failed">خواندن پیامک‌های گوشی ممکن نشد. اجازهٔ دسترسی به پیامک‌ها را بدهید.</string>
 

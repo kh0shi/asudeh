@@ -39,9 +39,17 @@ object Texts {
         },
     )
 
+    /**
+     * سرشماره داخل یک «جداسازی با اولین حرف قوی» (FSI…PDI) می‌آید: در رابط
+     * راست‌به‌چپ، `+98912…` باید با همان ترتیب چپ‌به‌راست دیده شود و «+» به
+     * آخرش نپرد، ولی نام فارسی فرستنده راست‌به‌چپ بماند (D50).
+     */
     @Composable
     fun sender(address: String): String =
-        PersianText.persianDigits(address.ifBlank { stringResource(R.string.unknown_sender) })
+        FSI + PersianText.persianDigits(address.ifBlank { stringResource(R.string.unknown_sender) }) + PDI
+
+    private const val FSI = "\u2068"
+    private const val PDI = "\u2069"
 
     /**
      * یک جملهٔ انسانی برای «چرا اینجاست؟» (D44). ساختن متن از روی `ReasonCode`

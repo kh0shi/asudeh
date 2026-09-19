@@ -96,6 +96,18 @@ class AsudehRepository(
         store.markRead(ids)
     }
 
+    fun suggestions(): Flow<MoveSuggestion> = dao.observeSuggestions()
+
+    suspend fun suggestedSample(limit: Int): List<MessageEntity> = dao.suggestedSample(limit)
+
+    /**
+     * جابه‌جایی پیامک‌های قدیمی، **فقط با تأیید صریح کاربر** (اصل ۸). جابه‌جایی
+     * فقط در ایندکس است و چیزی از provider حذف نمی‌شود.
+     */
+    suspend fun acceptSuggestionsAfterUserConfirmation(): Int = dao.acceptSuggestions()
+
+    suspend fun dismissSuggestions(): Int = dao.dismissSuggestions()
+
     /**
      * `Rescue`: **همیشه فقط همان پیامک** به `Inbox` برمی‌گردد. رفتن سرشماره به
      * `Allowlist` یک پرسش جداگانه است (ADR-0006 بند ۱).

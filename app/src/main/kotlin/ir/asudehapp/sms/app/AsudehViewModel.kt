@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ir.asudehapp.sms.data.MessageEntity
+import ir.asudehapp.sms.data.MoveSuggestion
 import ir.asudehapp.sms.data.ThreadSummary
 import ir.asudehapp.sms.model.Folder
 import kotlinx.coroutines.Job
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -95,10 +97,76 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     val rulesVersion: String = repository.rules.pack.version
 
+    private val prefs = AppPrefs(application)
+
+    /** اولین اجرا (D47): تا وقتی false است، صفحهٔ خوش‌آمد دیده می‌شود. */
+    private val _onboarded = MutableStateFlow(prefs.onboarded)
+    val onboarded: StateFlow<Boolean> = _onboarded.asStateFlow()
+
+    /** پیامک‌های قدیمی که پیشنهاد جابه‌جایی دارند (اصل ۸، D16، D22). */
+    val suggestions: StateFlow<MoveSuggestion> = repository.suggestions()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), MoveSuggestion.NONE)
+
+    private val _sweepOfferAnswered = MutableStateFlow(prefs.sweepOfferAnswered)
+
+    /**
+     * برگهٔ نتیجهٔ `HistorySweep` (D47 مرحلهٔ ۴): فقط یک بار، بعد از اینکه
+     * بررسی تمام شد و چیزی برای پیشنهاد بود.
+     */
+    val sweepOffer: StateFlow<MoveSuggestion?> = combine(
+        suggestions,
+        _onboarded,
+        _sweepOfferAnswered,
+        _syncing,
+    ) { found, onboarded, answered, syncing ->
+        found.takeIf { onboarded && !answered && !syncing && it.messages > 0 }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), null)
+
+    /** نمونه‌های پیشنهاد، برای «نمونه‌ها را نشان بده». */
+    private val _suggestionSample = MutableStateFlow<List<MessageEntity>?>(null)
+    val suggestionSample: StateFlow<List<MessageEntity>?> = _suggestionSample.asStateFlow()
+
     private var conversationJob: Job? = null
 
     init {
         sync()
+    }
+
+    /** مرحلهٔ اول و دوم اولین اجرا تمام شد؛ چه اپ پیش‌فرض شده باشد چه نه. */
+    fun finishOnboarding() {
+        prefs.onboarded = true
+        _onboarded.value = true
+    }
+
+    fun showSuggestionSample() {
+        viewModelScope.launch {
+            _suggestionSample.value = repository.suggestedSample(SAMPLE_SIZE)
+        }
+    }
+
+    fun hideSuggestionSample() {
+        _suggestionSample.value = null
+    }
+
+    /** «منتقل کن»: تنها راهی که پیامک قدیمی جابه‌جا می‌شود (اصل ۸). */
+    fun acceptSuggestions() {
+        answerSweepOffer()
+        viewModelScope.launch { repository.acceptSuggestionsAfterUserConfirmation() }
+    }
+
+    /** «در صندوق بماند»: پیشنهاد برداشته می‌شود. */
+    fun keepSuggestionsInInbox() {
+        answerSweepOffer()
+        viewModelScope.launch { repository.dismissSuggestions() }
+    }
+
+    /** «فعلاً نه»: پیشنهاد در `PromoFolder` می‌ماند و این برگه تکرار نمی‌شود. */
+    fun postponeSuggestions() = answerSweepOffer()
+
+    private fun answerSweepOffer() {
+        _suggestionSample.value = null
+        prefs.sweepOfferAnswered = true
+        _sweepOfferAnswered.value = true
     }
 
     private fun threadsIn(folder: Folder): StateFlow<List<ThreadSummary>> =
@@ -255,5 +323,6 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     private companion object {
         const val STOP_TIMEOUT = 5_000L
+        const val SAMPLE_SIZE = 5
     }
 }

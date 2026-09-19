@@ -72,6 +72,49 @@ interface MessageDao {
     @Query("UPDATE message SET folder = :to WHERE normalizedAddress = :normalizedAddress AND folder = :from")
     suspend fun moveAllFrom(normalizedAddress: String, from: Folder, to: Folder)
 
+    /**
+     * پیامک‌هایی که اگر زنده رسیده بودند پنهان می‌شدند، ولی چون قدیمی‌اند فقط
+     * پیشنهاد جابه‌جایی دارند (اصل ۸، D16، D22).
+     */
+    @Query(
+        """
+        SELECT COUNT(*) AS messages,
+               COUNT(DISTINCT threadId) AS threads,
+               COALESCE(SUM(CASE WHEN category = 'PHISHING' THEN 1 ELSE 0 END), 0) AS scams
+          FROM message
+         WHERE suggestMove = 1 AND folder = 'INBOX'
+        """,
+    )
+    fun observeSuggestions(): Flow<MoveSuggestion>
+
+    @Query(
+        """
+        SELECT * FROM message
+         WHERE suggestMove = 1 AND folder = 'INBOX'
+         ORDER BY dateReceived DESC
+         LIMIT :limit
+        """,
+    )
+    suspend fun suggestedSample(limit: Int): List<MessageEntity>
+
+    /**
+     * پذیرفتن پیشنهاد: فیشینگ به `ScamFolder` و بقیه به `PromoFolder`. فقط
+     * پیامک‌هایی که هنوز در `Inbox` هستند و پیشنهاد دارند.
+     */
+    @Query(
+        """
+        UPDATE message
+           SET folder = CASE WHEN category = 'PHISHING' THEN 'SCAM' ELSE 'PROMO' END,
+               suggestMove = 0
+         WHERE suggestMove = 1 AND folder = 'INBOX'
+        """,
+    )
+    suspend fun acceptSuggestions(): Int
+
+    /** «در صندوق بماند»: پیشنهاد برداشته می‌شود و پیامک سر جایش می‌ماند. */
+    @Query("UPDATE message SET suggestMove = 0 WHERE suggestMove = 1 AND folder = 'INBOX'")
+    suspend fun dismissSuggestions(): Int
+
     @Query("SELECT * FROM message WHERE kind = :kind AND providerId = :providerId")
     suspend fun find(kind: String, providerId: Long): MessageEntity?
 
