@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      رابط آسوده فارسی است و باید راست‌به‌چپ باشد، حتی اگر زبان گوشی انگلیسی
+      باشد (D50). وقتی `values-en` اضافه شود (D12)، همان‌جا این مقدار false می‌شود.
+    -->
+    <bool name="asudeh_rtl_ui">true</bool>
+</resources>

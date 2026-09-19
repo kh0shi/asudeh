@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  D57: پشتیبان ابری غیرفعال است، چون پیامک‌ها نباید در Google Drive قرار بگیرند،
+  ولی انتقال مستقیم گوشی‌به‌گوشی مجاز است.
+
+  در انتقال فقط قواعد کاربر (rules.db) و تنظیمات می‌روند. ایندکس (index.db)
+  نمی‌رود، چون شناسه‌های provider روی گوشی تازه فرق دارند؛ آنجا از نو ساخته
+  می‌شود.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="rules.db" />
+        <include domain="sharedpref" path="." />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,201 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "10139b6862fbe6775d43637ea90722d9",
+    "entities": [
+      {
+        "tableName": "message",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`kind` TEXT NOT NULL, `providerId` INTEGER NOT NULL, `threadId` INTEGER NOT NULL, `address` TEXT NOT NULL, `normalizedAddress` TEXT NOT NULL, `body` TEXT NOT NULL, `date` INTEGER NOT NULL, `dateReceived` INTEGER NOT NULL, `subId` INTEGER NOT NULL, `folder` TEXT NOT NULL, `category` TEXT NOT NULL, `confidence` TEXT NOT NULL, `reasonCode` TEXT NOT NULL, `reasonArgs` TEXT NOT NULL, `rulesVersion` TEXT NOT NULL, `origin` TEXT NOT NULL, `read` INTEGER NOT NULL, `outgoing` INTEGER NOT NULL, `sendStatus` TEXT NOT NULL, `pendingClassify` INTEGER NOT NULL, `risk` INTEGER NOT NULL, `suggestMove` INTEGER NOT NULL, PRIMARY KEY(`kind`, `providerId`))",
+        "fields": [
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "providerId",
+            "columnName": "providerId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "threadId",
+            "columnName": "threadId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "normalizedAddress",
+            "columnName": "normalizedAddress",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "body",
+            "columnName": "body",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateReceived",
+            "columnName": "dateReceived",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subId",
+            "columnName": "subId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "folder",
+            "columnName": "folder",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confidence",
+            "columnName": "confidence",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reasonCode",
+            "columnName": "reasonCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reasonArgs",
+            "columnName": "reasonArgs",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rulesVersion",
+            "columnName": "rulesVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "origin",
+            "columnName": "origin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "read",
+            "columnName": "read",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outgoing",
+            "columnName": "outgoing",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sendStatus",
+            "columnName": "sendStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingClassify",
+            "columnName": "pendingClassify",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "risk",
+            "columnName": "risk",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "suggestMove",
+            "columnName": "suggestMove",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "kind",
+            "providerId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_message_threadId_folder_dateReceived",
+            "unique": false,
+            "columnNames": [
+              "threadId",
+              "folder",
+              "dateReceived"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_message_threadId_folder_dateReceived` ON `${TABLE_NAME}` (`threadId`, `folder`, `dateReceived`)"
+          },
+          {
+            "name": "index_message_folder_dateReceived",
+            "unique": false,
+            "columnNames": [
+              "folder",
+              "dateReceived"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_message_folder_dateReceived` ON `${TABLE_NAME}` (`folder`, `dateReceived`)"
+          },
+          {
+            "name": "index_message_normalizedAddress",
+            "unique": false,
+            "columnNames": [
+              "normalizedAddress"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_message_normalizedAddress` ON `${TABLE_NAME}` (`normalizedAddress`)"
+          },
+          {
+            "name": "index_message_pendingClassify",
+            "unique": false,
+            "columnNames": [
+              "pendingClassify"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_message_pendingClassify` ON `${TABLE_NAME}` (`pendingClassify`)"
+          }
+        ],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '10139b6862fbe6775d43637ea90722d9')"
+    ]
+  }
+}
