@@ -3,6 +3,8 @@ package ir.asudehapp.sms.app
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import ir.asudehapp.sms.R
@@ -12,6 +14,12 @@ import ir.asudehapp.sms.model.ReasonCode
 import ir.asudehapp.sms.persian.JalaliDate
 import ir.asudehapp.sms.persian.PersianText
 import java.util.Calendar
+
+/** ارقام فارسی در رابط (D50)؛ از تنظیمات می‌آید. */
+val LocalPersianDigits = compositionLocalOf { true }
+
+/** نام مخاطب هر سرشماره، اگر اجازهٔ مخاطب‌ها داده شده باشد. */
+val LocalContactNames = compositionLocalOf<Map<String, String>> { emptyMap() }
 
 /**
  * کمک‌کننده‌های متن رابط. خود متن‌ها در `strings.xml` هستند (D12)؛ اینجا فقط
@@ -28,7 +36,13 @@ object Texts {
 
     @Composable
     fun count(@PluralsRes id: Int, count: Int, vararg args: Any): String =
-        PersianText.persianDigits(pluralStringResource(id, count, count, *args))
+        digits(pluralStringResource(id, count, count, *args))
+
+    /** ارقام رابط؛ فارسی یا لاتین، بسته به تنظیمات. متن پیامک از این راه نمی‌گذرد. */
+    @Composable
+    @ReadOnlyComposable
+    fun digits(text: String): String =
+        if (LocalPersianDigits.current) PersianText.persianDigits(text) else PersianText.latinDigits(text)
 
     @Composable
     fun folderName(folder: Folder): String = stringResource(
@@ -45,8 +59,27 @@ object Texts {
      * آخرش نپرد، ولی نام فارسی فرستنده راست‌به‌چپ بماند (D50).
      */
     @Composable
-    fun sender(address: String): String =
-        FSI + PersianText.persianDigits(address.ifBlank { stringResource(R.string.unknown_sender) }) + PDI
+    fun sender(address: String): String {
+        val name = LocalContactNames.current[address]
+        if (name != null) return FSI + name + PDI
+        return FSI + digits(address.ifBlank { stringResource(R.string.unknown_sender) }) + PDI
+    }
+
+    /** نام یک گفتگو: برای گروه، نام همهٔ اعضا. */
+    @Composable
+    fun participants(addresses: List<String>): String {
+        if (addresses.size <= 1) return sender(addresses.firstOrNull().orEmpty())
+        return addresses.map { sender(it) }.joinToString(stringResource(R.string.list_separator))
+    }
+
+    /** نام گفتگو از روی خلاصه‌اش. */
+    @Composable
+    fun thread(address: String, recipients: String): String =
+        if (recipients.isEmpty()) {
+            sender(address)
+        } else {
+            participants(recipients.split(MessageEntity.RECIPIENT_SEPARATOR))
+        }
 
     private const val FSI = "\u2068"
     private const val PDI = "\u2069"
@@ -79,7 +112,10 @@ object Texts {
     }
 
     /** تاریخ شمسی و ارقام فارسی، پیش‌فرض رابط‌اند (D50). */
-    fun timestamp(millis: Long): String {
+    @Composable
+    fun timestamp(millis: Long): String = digits(timestampText(millis))
+
+    private fun timestampText(millis: Long): String {
         val calendar = Calendar.getInstance().apply { timeInMillis = millis }
         val date = JalaliDate.of(
             calendar.get(Calendar.YEAR),

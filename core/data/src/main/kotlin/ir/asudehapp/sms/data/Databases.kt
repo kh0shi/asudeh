@@ -6,6 +6,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import ir.asudehapp.sms.model.Category
 import ir.asudehapp.sms.model.Confidence
 import ir.asudehapp.sms.model.Folder
@@ -46,14 +48,16 @@ class AsudehConverters {
  * گوشی تازه فرق دارند (`data_extraction_rules.xml`).
  */
 @Database(
-    entities = [MessageEntity::class],
-    version = 1,
+    entities = [MessageEntity::class, MessageFts::class, ThreadPrefEntity::class],
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
 abstract class IndexDatabase : RoomDatabase() {
 
     abstract fun messages(): MessageDao
+
+    abstract fun threadPrefs(): ThreadPrefDao
 
     companion object {
         const val NAME = "index.db"
@@ -66,7 +70,7 @@ abstract class IndexDatabase : RoomDatabase() {
                 context.applicationContext,
                 IndexDatabase::class.java,
                 NAME,
-            ).build().also { instance = it }
+            ).addMigrations(IndexMigrations.V1_V2).build().also { instance = it }
         }
     }
 }
@@ -100,4 +104,41 @@ abstract class RulesDatabase : RoomDatabase() {
             ).build().also { instance = it }
         }
     }
+}
+
+/**
+ * migrationهای ایندکس. هر کدام با schema خروجی Room در `schemas/` مقایسه
+ * شده‌اند؛ هیچ‌کدام داده‌ای را پاک نمی‌کند.
+ */
+object IndexMigrations {
+
+    /**
+     * نسخهٔ ۲: جستجو (FTS4)، سنجاق و پیش‌نویس، و ستون‌های MMS. متن جستجوی
+     * پیامک‌های قبلی خالی می‌ماند و همگام‌سازی بعدی آن را در Kotlin می‌سازد،
+     * چون نرمال‌سازی فارسی در SQL ممکن نیست.
+     */
+    val V1_V2: Migration = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V1_V2_SQL) db.execSQL(statement)
+        }
+    }
+
+    internal val V1_V2_SQL: List<String> = listOf(
+        "ALTER TABLE `message` ADD COLUMN `recipients` TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE `message` ADD COLUMN `attachments` INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE `message` ADD COLUMN `pendingDownload` INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE `message` ADD COLUMN `searchText` TEXT NOT NULL DEFAULT ''",
+        "CREATE TABLE IF NOT EXISTS `thread_pref` (`threadId` INTEGER NOT NULL, `pinned` INTEGER NOT NULL, " +
+            "`draft` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`threadId`))",
+        "CREATE VIRTUAL TABLE IF NOT EXISTS `message_fts` USING FTS4(`searchText` TEXT NOT NULL, content=`message`)",
+        // triggerهای هم‌گام‌سازی FTS، همان‌که Room برای `contentEntity` می‌سازد.
+        "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_message_fts_BEFORE_UPDATE BEFORE UPDATE ON `message` " +
+            "BEGIN DELETE FROM `message_fts` WHERE `docid`=OLD.`rowid`; END",
+        "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_message_fts_BEFORE_DELETE BEFORE DELETE ON `message` " +
+            "BEGIN DELETE FROM `message_fts` WHERE `docid`=OLD.`rowid`; END",
+        "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_message_fts_AFTER_UPDATE AFTER UPDATE ON `message` " +
+            "BEGIN INSERT INTO `message_fts`(`docid`, `searchText`) VALUES (NEW.`rowid`, NEW.`searchText`); END",
+        "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_message_fts_AFTER_INSERT AFTER INSERT ON `message` " +
+            "BEGIN INSERT INTO `message_fts`(`docid`, `searchText`) VALUES (NEW.`rowid`, NEW.`searchText`); END",
+    )
 }

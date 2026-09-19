@@ -77,6 +77,8 @@ val allowedPermissions = setOf(
     "android.permission.READ_CONTACTS",
     "android.permission.POST_NOTIFICATIONS",
     "android.permission.RECEIVE_BOOT_COMPLETED",
+    // اختیاری؛ فقط برای انتخاب سیم ارسال و شناختن شمارهٔ خود کاربر در MMS گروهی (D27).
+    "android.permission.READ_PHONE_STATE",
     // مجوز امضایی خودِ اپ که androidx.core به manifest اضافه می‌کند، برای
     // گیرنده‌های ثبت‌شده در زمان اجرا. چیزی بیرون از اپ به آن دسترسی ندارد.
     "ir.asudehapp.sms.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",

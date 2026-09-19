@@ -1,6 +1,8 @@
 package ir.asudehapp.sms.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Fts4
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import ir.asudehapp.sms.model.Category
@@ -8,6 +10,7 @@ import ir.asudehapp.sms.model.Confidence
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.Origin
 import ir.asudehapp.sms.model.ReasonCode
+import ir.asudehapp.sms.persian.SearchText
 
 /**
  * ایندکس محلی. **منبع حقیقت، Telephony Provider سیستم است** (D19 ب) و این
@@ -65,12 +68,64 @@ data class MessageEntity(
     val risk: Boolean,
     /** تبلیغ قطعی که خودکار جابه‌جا نشده و فقط پیشنهاد جابه‌جایی دارد (اصل ۸). */
     val suggestMove: Boolean,
+    /**
+     * طرف‌های دیگر یک MMS گروهی، جدا با «|». برای پیامک عادی خالی است. MMS
+     * گروهی هرگز پنهان نمی‌شود (D26).
+     */
+    @ColumnInfo(defaultValue = "''")
+    val recipients: String = "",
+    /** شمار پیوست‌های MMS (تصویر، صدا، ویدیو، ...). */
+    @ColumnInfo(defaultValue = "0")
+    val attachments: Int = 0,
+    /**
+     * MMSی که فقط اعلانش رسیده و خودش هنوز از MMSC دریافت نشده است. در گفتگو
+     * با دکمهٔ «دریافت» دیده می‌شود؛ پس بی‌صدا گم نمی‌شود (`SilentLoss`).
+     */
+    @ColumnInfo(defaultValue = "0")
+    val pendingDownload: Boolean = false,
+    /**
+     * متن نرمال‌شده برای جستجو (`message_fts`، D20). هرگز نمایش داده نمی‌شود.
+     * خالی یعنی هنوز ساخته نشده؛ ایندکس‌های نسخهٔ ۱ در همگام‌سازی پر می‌شوند.
+     */
+    @ColumnInfo(defaultValue = "''")
+    val searchText: String = SearchText.of(body, address),
 ) {
+    /** پیامک یا MMS گروهی: بیش از یک طرف دیگر. */
+    val isGroup: Boolean get() = recipients.contains(RECIPIENT_SEPARATOR)
+
+    /** همهٔ طرف‌های دیگر گفتگو. برای پیامک عادی فقط [address]. */
+    val participants: List<String>
+        get() = if (recipients.isEmpty()) listOf(address) else recipients.split(RECIPIENT_SEPARATOR)
+
     companion object {
         const val KIND_SMS: String = "SMS"
         const val KIND_MMS: String = "MMS"
+        const val RECIPIENT_SEPARATOR: String = "|"
     }
 }
+
+/**
+ * جستجوی متن کامل (D20). محتوای آن از ستون `searchText` جدول `message` می‌آید
+ * و Room با trigger آن را هم‌گام نگه می‌دارد.
+ */
+@Fts4(contentEntity = MessageEntity::class)
+@Entity(tableName = "message_fts")
+data class MessageFts(
+    val searchText: String,
+)
+
+/**
+ * ترجیح‌های کاربر برای هر گفتگو: سنجاق و پیش‌نویس (D53). این‌ها مثل خود ایندکس
+ * در انتقال گوشی‌به‌گوشی منتقل نمی‌شوند، چون شناسهٔ گفتگوها آنجا فرق دارد.
+ */
+@Entity(tableName = "thread_pref")
+data class ThreadPrefEntity(
+    @PrimaryKey val threadId: Long,
+    val pinned: Boolean,
+    /** متن نوشته‌شده ولی فرستاده‌نشده. خالی یعنی پیش‌نویسی نیست. */
+    val draft: String,
+    val updatedAt: Long,
+)
 
 enum class SendStatus {
     /** پیامک دریافتی. */
@@ -82,6 +137,9 @@ enum class SendStatus {
 
     /** ارسال نشد؛ در گفتگو با دکمهٔ «دوباره بفرست» دیده می‌شود. */
     FAILED,
+
+    /** گزارش تحویل رسیده است (D53؛ فقط اگر کاربر گزارش تحویل را روشن کرده باشد). */
+    DELIVERED,
 }
 
 enum class SenderRuleKind { ALLOW, BLOCK }
@@ -104,6 +162,12 @@ data class ThreadSummary(
     val unread: Int,
     val total: Int,
     val hasRisk: Boolean,
+    /** طرف‌های دیگر آخرین پیامک، برای گفتگوی گروهی. */
+    val recipients: String = "",
+    /** شمار پیوست‌های آخرین پیامک؛ برای پیش‌نمایش MMS بی‌متن. */
+    val attachments: Int = 0,
+    val pinned: Boolean = false,
+    val draft: String = "",
 )
 
 /** خلاصهٔ پیشنهاد جابه‌جایی پیامک‌های قدیمی (اصل ۸). */
@@ -127,3 +191,14 @@ data class SenderStats(
     /** سرشماره‌ای که هم تبلیغ می‌فرستد و هم پیامک مهم. */
     fun isMixed(): Boolean = promoCount > 0 && importantCount > 0
 }
+
+/** کلید یک پیامک در ایندکس. */
+data class MessageKey(val kind: String, val providerId: Long)
+
+/** شمار پیامک‌های پنهان‌شده، برای `Digest` (D40). */
+data class HiddenCount(val promo: Int, val scam: Int) {
+    val total: Int get() = promo + scam
+}
+
+/** جای یک پیامک، برای پشتیبان. */
+data class ProviderFolder(val providerId: Long, val folder: Folder)

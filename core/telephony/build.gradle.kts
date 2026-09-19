@@ -23,6 +23,7 @@ android {
 
 dependencies {
     api(project(":core:data"))
+    implementation(project(":core:persian"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
 

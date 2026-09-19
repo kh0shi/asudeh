@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- متن اعلان‌ها (D12). ارقام در کد فارسی می‌شوند (D50). -->
+<resources>
+    <!-- کانال‌ها (D38). نام کانال در تنظیمات اندروید دیده می‌شود. -->
+    <string name="channel_personal">شخصی</string>
+    <string name="channel_otp">رمز یکبار</string>
+    <string name="channel_bank">بانکی</string>
+    <string name="channel_service">خدماتی</string>
+    <string name="channel_suspect">مشکوک</string>
+    <string name="channel_digest">خلاصه</string>
+
+    <string name="notify_unknown_sender">فرستندهٔ ناشناس</string>
+    <string name="notify_suspect_title">مراقب باشید: پیامک مشکوک</string>
+    <string name="notify_suspect_text">این پیامک نشانه‌های کلاهبرداری دارد</string>
+    <string name="notify_otp_text">رمز یکبار مصرف دریافت شد</string>
+    <string name="notify_send_failed_title">پیامک ارسال نشد</string>
+    <string name="notify_send_failed_text">به %1$s. برای ارسال دوباره، گفتگو را باز کنید.</string>
+    <string name="notify_mms_title">پیام چندرسانه‌ای از %1$s</string>
+    <string name="notify_mms_image">🖼 تصویر</string>
+    <string name="notify_mms_attachment">📎 پیوست</string>
+    <string name="notify_mms_failed">پیام چندرسانه‌ای دریافت نشد. در گفتگو دوباره امتحان کنید.</string>
+    <string name="notify_mms_not_saved">پیام چندرسانه‌ای رسید ولی ثبت نشد.</string>
+
+    <!-- دکمه‌های اعلان (D41) -->
+    <string name="action_copy_code">کپی رمز %1$s</string>
+    <string name="action_reply">پاسخ</string>
+    <string name="action_reply_hint">پیامک</string>
+    <string name="action_mark_read">خوانده شد</string>
+    <string name="code_copied">رمز کپی شد</string>
+
+    <!-- Digest (D40) -->
+    <string name="digest_title_daily">خلاصهٔ امروز آسوده</string>
+    <string name="digest_title_weekly">خلاصهٔ این هفتهٔ آسوده</string>
+    <plurals name="digest_promo">
+        <item quantity="one">%d تبلیغ پنهان شد</item>
+        <item quantity="other">%d تبلیغ پنهان شد</item>
+    </plurals>
+    <plurals name="digest_scam">
+        <item quantity="one">%d پیامک مشکوک به کلاهبرداری کنار گذاشته شد</item>
+        <item quantity="other">%d پیامک مشکوک به کلاهبرداری کنار گذاشته شد</item>
+    </plurals>
+    <string name="digest_join">%1$s و %2$s</string>
+</resources>

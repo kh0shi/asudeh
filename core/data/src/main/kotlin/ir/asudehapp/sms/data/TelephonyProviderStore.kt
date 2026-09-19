@@ -66,14 +66,19 @@ class TelephonyProviderStore(private val context: Context) : TelephonyStore {
 
     /** ثبت نتیجهٔ ارسال: `SENT`، `FAILED` یا دوباره `OUTBOX` برای «دوباره بفرست». */
     suspend fun setSendResult(providerId: Long, status: SendStatus) = withContext(Dispatchers.IO) {
+        val uri = ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, providerId)
+        if (status == SendStatus.DELIVERED) {
+            val values = ContentValues().apply { put(Telephony.Sms.STATUS, Telephony.Sms.STATUS_COMPLETE) }
+            runCatching { context.contentResolver.update(uri, values, null, null) }
+            return@withContext
+        }
         val type = when (status) {
             SendStatus.SENT -> Telephony.Sms.MESSAGE_TYPE_SENT
             SendStatus.FAILED -> Telephony.Sms.MESSAGE_TYPE_FAILED
             SendStatus.PENDING -> Telephony.Sms.MESSAGE_TYPE_OUTBOX
-            SendStatus.NONE -> return@withContext
+            SendStatus.NONE, SendStatus.DELIVERED -> return@withContext
         }
         val values = ContentValues().apply { put(Telephony.Sms.TYPE, type) }
-        val uri = ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, providerId)
         // «ناموفق» با رسیدن تکهٔ بعدیِ یک پیامک چندتکه «ارسال‌شده» نمی‌شود.
         val keepFailure = if (status == SendStatus.SENT) {
             "${Telephony.Sms.TYPE} != ${Telephony.Sms.MESSAGE_TYPE_FAILED}"
@@ -147,29 +152,36 @@ class TelephonyProviderStore(private val context: Context) : TelephonyStore {
                 read = getInt(getColumnIndexOrThrow(Telephony.Sms.READ)) == 1,
                 // هر نوعی جز «دریافتی» پیامک خود کاربر است: ارسالی، صف، ناموفق.
                 outgoing = type != Telephony.Sms.MESSAGE_TYPE_INBOX,
-                sendStatus = sendStatusOf(type),
+                sendStatus = sendStatusOf(type, getInt(getColumnIndexOrThrow(Telephony.Sms.STATUS))),
                 subId = getInt(getColumnIndexOrThrow(Telephony.Sms.SUBSCRIPTION_ID)),
             )
         }
         return out
     }
 
-    private fun sendStatusOf(type: Int): SendStatus = when (type) {
-        Telephony.Sms.MESSAGE_TYPE_SENT -> SendStatus.SENT
+    private fun sendStatusOf(type: Int, status: Int): SendStatus = when (type) {
+        Telephony.Sms.MESSAGE_TYPE_SENT ->
+            if (status == Telephony.Sms.STATUS_COMPLETE) SendStatus.DELIVERED else SendStatus.SENT
         Telephony.Sms.MESSAGE_TYPE_FAILED -> SendStatus.FAILED
         Telephony.Sms.MESSAGE_TYPE_OUTBOX, Telephony.Sms.MESSAGE_TYPE_QUEUED -> SendStatus.PENDING
         else -> SendStatus.NONE
     }
 
-    /** خواندن پیامک به‌عنوان «خوانده‌شده» در سیستم، تا با ایندکس محلی یکی بماند. */
-    suspend fun markRead(providerIds: List<Long>) = withContext(Dispatchers.IO) {
-        if (providerIds.isEmpty()) return@withContext
-        val values = ContentValues().apply {
-            put(Telephony.Sms.READ, 1)
-            put(Telephony.Sms.SEEN, 1)
-        }
-        for (id in providerIds) {
-            val uri: Uri = ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, id)
+    /**
+     * «خوانده‌شده» یا «خوانده‌نشده» در سیستم، تا با ایندکس محلی یکی بماند. فقط
+     * اپ پیش‌فرض می‌تواند در provider بنویسد؛ خطا نادیده گرفته می‌شود، چون
+     * ایندکس محلی همچنان درست است.
+     */
+    suspend fun markRead(keys: List<MessageKey>, read: Boolean) = withContext(Dispatchers.IO) {
+        if (keys.isEmpty()) return@withContext
+        val flag = if (read) 1 else 0
+        for (key in keys) {
+            val base = if (key.kind == MessageEntity.KIND_MMS) Telephony.Mms.CONTENT_URI else Telephony.Sms.CONTENT_URI
+            val values = ContentValues().apply {
+                put(Telephony.Sms.READ, flag)
+                if (read) put(Telephony.Sms.SEEN, 1)
+            }
+            val uri: Uri = ContentUris.withAppendedId(base, key.providerId)
             runCatching { context.contentResolver.update(uri, values, null, null) }
         }
     }
@@ -201,6 +213,7 @@ class TelephonyProviderStore(private val context: Context) : TelephonyStore {
             Telephony.Sms.READ,
             Telephony.Sms.TYPE,
             Telephony.Sms.SUBSCRIPTION_ID,
+            Telephony.Sms.STATUS,
         )
     }
 }

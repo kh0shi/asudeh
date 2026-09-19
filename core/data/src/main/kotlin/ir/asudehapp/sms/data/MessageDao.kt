@@ -39,13 +39,18 @@ interface MessageDao {
                (SELECT COUNT(*) FROM message t
                  WHERE t.threadId = m.threadId AND t.folder = m.folder) AS total,
                (SELECT MAX(r.risk) FROM message r
-                 WHERE r.threadId = m.threadId AND r.folder = m.folder) AS hasRisk
+                 WHERE r.threadId = m.threadId AND r.folder = m.folder) AS hasRisk,
+               m.recipients AS recipients,
+               m.attachments AS attachments,
+               COALESCE(p.pinned, 0) AS pinned,
+               COALESCE(p.draft, '') AS draft
           FROM message m
+          LEFT JOIN thread_pref p ON p.threadId = m.threadId
          WHERE m.folder = :folder
            AND m.dateReceived = (SELECT MAX(x.dateReceived) FROM message x
                                   WHERE x.threadId = m.threadId AND x.folder = m.folder)
          GROUP BY m.threadId
-         ORDER BY lastDate DESC
+         ORDER BY pinned DESC, lastDate DESC
         """,
     )
     fun observeThreads(folder: Folder): Flow<List<ThreadSummary>>
@@ -53,6 +58,9 @@ interface MessageDao {
     /** همهٔ پیامک‌های یک گفتگو، از همهٔ پوشه‌ها، برای نمایش `HiddenRun` (D43). */
     @Query("SELECT * FROM message WHERE threadId = :threadId ORDER BY dateReceived ASC")
     fun observeConversation(threadId: Long): Flow<List<MessageEntity>>
+
+    @Query("SELECT * FROM message WHERE threadId = :threadId ORDER BY dateReceived ASC")
+    suspend fun conversationNow(threadId: Long): List<MessageEntity>
 
     @Query("SELECT COUNT(*) FROM message WHERE folder = :folder AND read = 0 AND outgoing = 0")
     fun observeUnreadCount(folder: Folder): Flow<Int>
@@ -65,6 +73,64 @@ interface MessageDao {
 
     @Query("UPDATE message SET read = 1 WHERE threadId = :threadId AND folder = :folder")
     suspend fun markThreadRead(threadId: Long, folder: Folder)
+
+    /** «همه خوانده شد» در یک پوشه (D45). */
+    @Query("UPDATE message SET read = 1 WHERE folder = :folder")
+    suspend fun markFolderRead(folder: Folder)
+
+    @Query("SELECT kind, providerId FROM message WHERE folder = :folder AND read = 0 AND outgoing = 0 AND providerId > 0")
+    suspend fun unreadIn(folder: Folder): List<MessageKey>
+
+    @Query("SELECT kind, providerId FROM message WHERE threadId = :threadId AND folder = :folder AND read = 0 AND outgoing = 0 AND providerId > 0")
+    suspend fun unreadInThread(threadId: Long, folder: Folder): List<MessageKey>
+
+    /** آخرین پیامک دریافتی یک گفتگو در یک پوشه، برای «علامت خوانده‌نشده». */
+    @Query(
+        """
+        SELECT * FROM message
+         WHERE threadId = :threadId AND folder = :folder AND outgoing = 0
+         ORDER BY dateReceived DESC
+         LIMIT 1
+        """,
+    )
+    suspend fun lastIncoming(threadId: Long, folder: Folder): MessageEntity?
+
+    @Query("UPDATE message SET read = :read WHERE kind = :kind AND providerId = :providerId")
+    suspend fun setRead(kind: String, providerId: Long, read: Boolean)
+
+    /**
+     * جستجوی متن کامل (D20). [query] از `SearchText.ftsQuery` می‌آید و فقط
+     * کلمه‌های نرمال‌شده با پیشوند دارد، پس عملگر FTS در آن نیست.
+     */
+    @Query(
+        """
+        SELECT message.* FROM message
+          JOIN message_fts ON message.rowid = message_fts.rowid
+         WHERE message_fts MATCH :query
+         ORDER BY message.dateReceived DESC
+         LIMIT :limit
+        """,
+    )
+    suspend fun search(query: String, limit: Int): List<MessageEntity>
+
+    /** ایندکس‌های نسخهٔ ۱ متن جستجو نداشتند؛ این‌ها در همگام‌سازی پر می‌شوند. */
+    @Query("SELECT * FROM message WHERE searchText = '' AND (body != '' OR address != '') LIMIT :limit")
+    suspend fun missingSearchText(limit: Int): List<MessageEntity>
+
+    @Query("UPDATE message SET searchText = :searchText WHERE kind = :kind AND providerId = :providerId")
+    suspend fun setSearchText(kind: String, providerId: Long, searchText: String)
+
+    /** پیامک‌های پنهانی که از [since] به بعد زنده رسیده‌اند، برای `Digest` (D40). */
+    @Query(
+        """
+        SELECT COALESCE(SUM(CASE WHEN folder = 'PROMO' THEN 1 ELSE 0 END), 0) AS promo,
+               COALESCE(SUM(CASE WHEN folder = 'SCAM' THEN 1 ELSE 0 END), 0) AS scam
+          FROM message
+         WHERE origin = 'LIVE' AND outgoing = 0 AND dateReceived >= :since
+           AND folder IN ('PROMO', 'SCAM')
+        """,
+    )
+    suspend fun hiddenSince(since: Long): HiddenCount
 
     @Query("UPDATE message SET folder = :folder, suggestMove = 0 WHERE kind = :kind AND providerId = :providerId")
     suspend fun moveMessage(kind: String, providerId: Long, folder: Folder)
@@ -118,6 +184,13 @@ interface MessageDao {
     @Query("SELECT * FROM message WHERE kind = :kind AND providerId = :providerId")
     suspend fun find(kind: String, providerId: Long): MessageEntity?
 
+    /** جای پیامک‌هایی که در `Inbox` نیستند، برای پشتیبان (D57). */
+    @Query("SELECT providerId, folder FROM message WHERE kind = :kind AND folder != 'INBOX' AND providerId > 0")
+    suspend fun hiddenPlacements(kind: String): List<ProviderFolder>
+
+    @Query("SELECT * FROM message WHERE kind = 'MMS' AND pendingDownload = 1")
+    suspend fun pendingDownloads(): List<MessageEntity>
+
     @Query("SELECT * FROM message WHERE pendingClassify = 1")
     suspend fun pendingClassify(): List<MessageEntity>
 
@@ -142,9 +215,6 @@ interface MessageDao {
     @Query("SELECT * FROM message WHERE normalizedAddress = :normalizedAddress")
     suspend fun messagesFrom(normalizedAddress: String): List<MessageEntity>
 
-    @Query("SELECT providerId FROM message WHERE threadId = :threadId AND folder = :folder AND providerId > 0")
-    suspend fun providerIdsIn(threadId: Long, folder: Folder): List<Long>
-
     @Query("SELECT providerId FROM message WHERE kind = :kind AND folder = :folder AND providerId > 0")
     suspend fun providerIdsInFolder(kind: String, folder: Folder): List<Long>
 
@@ -155,11 +225,12 @@ interface MessageDao {
     @Query(
         """
         UPDATE message SET sendStatus = :status
-         WHERE kind = 'SMS' AND providerId = :providerId
+         WHERE kind = :kind AND providerId = :providerId
            AND (sendStatus != 'FAILED' OR :status = 'PENDING')
+           AND NOT (sendStatus = 'DELIVERED' AND :status = 'SENT')
         """,
     )
-    suspend fun setSendStatus(providerId: Long, status: SendStatus)
+    suspend fun setSendStatus(kind: String, providerId: Long, status: SendStatus)
 
     /**
      * شمار دسته‌های یک سرشماره، برای تشخیص `MixedSender`: سرشماره‌ای که هم
@@ -177,6 +248,20 @@ interface MessageDao {
         """,
     )
     suspend fun statsFor(normalizedAddress: String): SenderStats?
+}
+
+/** سنجاق و پیش‌نویس هر گفتگو. */
+@Dao
+interface ThreadPrefDao {
+
+    @Query("SELECT * FROM thread_pref WHERE threadId = :threadId")
+    suspend fun get(threadId: Long): ThreadPrefEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(pref: ThreadPrefEntity)
+
+    @Query("DELETE FROM thread_pref WHERE threadId = :threadId")
+    suspend fun remove(threadId: Long)
 }
 
 @Dao

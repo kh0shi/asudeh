@@ -19,7 +19,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicLong
 
-/** پیامک خام، همان‌طور که از PDU بیرون آمده است. */
+/** پیامک خام (یا MMS دریافت‌شده)، همان‌طور که از PDU بیرون آمده است. */
 data class RawSms(
     val address: String,
     val body: String,
@@ -28,7 +28,20 @@ data class RawSms(
     /** زمان دریافت روی گوشی؛ مرتب‌سازی بر اساس این است (D24). */
     val receivedAt: Long,
     val subscriptionId: Int = -1,
-)
+    /** این یک MMS است که پیش‌تر در provider نوشته شده (D26). */
+    val isMms: Boolean = false,
+    /** شمار پیوست‌های MMS. */
+    val attachments: Int = 0,
+    val hasImage: Boolean = false,
+    /**
+     * همهٔ طرف‌های دیگر یک MMS گروهی، به‌جز خود کاربر. برای پیامک عادی خالی
+     * است.
+     */
+    val recipients: List<String> = emptyList(),
+) {
+    /** MMS گروهی هرگز پنهان نمی‌شود (D26). */
+    val isGroup: Boolean get() = recipients.size > 1
+}
 
 /** نتیجهٔ نوشتن در Telephony Provider سیستم. */
 data class StoredMessage(val providerId: Long, val threadId: Long)
@@ -122,7 +135,8 @@ class ReceivePipeline(
                         isKnownContact = isKnownContact(raw.address),
                     )
                     val computed = classify(input)
-                    computed to Router.route(computed, input, userRules(), origin)
+                    val routed = Router.route(computed, input, userRules(), origin)
+                    computed to if (raw.isGroup) routed.keptInInbox() else routed
                 }
                 val (computed, routed) = work.await()
                 verdict = computed
@@ -175,6 +189,21 @@ class ReceivePipeline(
         }
 
         return message
+    }
+
+    /**
+     * گفتگوی گروهی آدم‌های واقعی است و هرگز پنهان نمی‌شود (D26)، ولی هشدار
+     * `Suspect` و غیرفعال بودن لینک‌ها سر جایش می‌ماند.
+     */
+    private fun Placement.keptInInbox(): Placement {
+        if (folder == Folder.INBOX) return this
+        return copy(
+            folder = Folder.INBOX,
+            notification = NotificationBehavior.ALERT,
+            showWarning = showWarning || folder == Folder.SCAM,
+            disableLinks = disableLinks || folder == Folder.SCAM,
+            suggestMove = false,
+        )
     }
 
     private fun fallbackPlacement() = Placement(

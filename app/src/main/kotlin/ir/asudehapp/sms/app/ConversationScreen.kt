@@ -1,5 +1,9 @@
 package ir.asudehapp.sms.app
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,15 +13,31 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,12 +45,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.data.SendStatus
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.telephony.SimCard
+import ir.asudehapp.sms.telephony.SimCards
 
 /** یک تکه از گفتگو: یا یک پیامک دیده‌شده، یا نوار جمع‌شدهٔ `HiddenRun`. */
 private sealed interface ConversationItem {
@@ -44,25 +70,96 @@ private sealed interface ConversationItem {
     data class Hidden(val folder: Folder, val messages: List<MessageEntity>) : ConversationItem
 }
 
+/** کارهای نوار بالای گفتگو: سنجاق، `Unsub11` و خوانده‌نشده. */
+@Composable
+fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, folder: Folder) {
+    var menu by remember { mutableStateOf(false) }
+    var confirmUnsub by remember { mutableStateOf(false) }
+    IconButton(onClick = { menu = true }) {
+        Icon(Icons.Default.MoreVert, stringResource(R.string.more))
+    }
+    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        if (state.threadId > 0) {
+            DropdownMenuItem(
+                text = { Text(stringResource(if (state.pinned) R.string.unpin else R.string.pin)) },
+                onClick = {
+                    menu = false
+                    model.setPinned(state.threadId, !state.pinned)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.mark_unread)) },
+                onClick = {
+                    menu = false
+                    model.markUnread(state.threadId, folder)
+                    model.back()
+                },
+            )
+        }
+        // `Unsub11` فقط برای خطوط انبوه، و همیشه با تأیید صریح (D28).
+        if (state.isAdLine) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.unsub)) },
+                onClick = {
+                    menu = false
+                    confirmUnsub = true
+                },
+            )
+        }
+    }
+    if (confirmUnsub) {
+        AlertDialog(
+            onDismissRequest = { confirmUnsub = false },
+            title = { Text(stringResource(R.string.unsub_confirm_title)) },
+            text = { Text(stringResource(R.string.unsub_confirm_body, Texts.sender(state.address))) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmUnsub = false
+                    model.unsubscribe()
+                }) { Text(stringResource(R.string.unsub_send)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmUnsub = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+}
+
 @Composable
 fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
     val state by model.conversation.collectAsState()
     val draft by model.draft.collectAsState()
+    val attachments by model.attachments.collectAsState()
+    val preparing by model.preparingAttachment.collectAsState()
     val sendError by model.sendError.collectAsState()
+    val settings by model.settings.collectAsState()
+    val sims by model.sims.collectAsState()
     var expandedRuns by remember { mutableStateOf(setOf<Long>()) }
     var reasonFor by remember { mutableStateOf<MessageEntity?>(null) }
 
     val items = remember(state.messages, state.folder) {
         buildItems(state.messages, state.folder)
     }
+    // نشان سیم فقط وقتی معنی دارد که پیامک‌ها از بیش از یک سیم آمده باشند (D27).
+    val multiSim = remember(state.messages, sims) {
+        sims.size > 1 || state.messages.map { it.subId }.filter { it >= 0 }.distinct().size > 1
+    }
+    val listState = rememberLazyListState()
+    LaunchedEffect(items.size) {
+        if (items.isNotEmpty()) listState.scrollToItem(items.lastIndex)
+    }
 
     Column(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
             items(items.size) { position ->
                 when (val item = items[position]) {
                     is ConversationItem.Visible -> MessageBubble(
+                        model = model,
                         message = item.message,
                         dimmed = false,
+                        showSender = state.isGroup,
+                        showSim = multiSim,
+                        showReason = settings.showReasonEverywhere,
                         onWhy = { reasonFor = item.message },
                         onResend = { model.resend(item.message) },
                     )
@@ -89,8 +186,12 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                         if (expanded) {
                             for (hidden in item.messages) {
                                 MessageBubble(
+                                    model = model,
                                     message = hidden,
                                     dimmed = true,
+                                    showSender = state.isGroup,
+                                    showSim = multiSim,
+                                    showReason = true,
                                     onWhy = { reasonFor = hidden },
                                     // پیامک مشکوک به کلاهبرداری با یک لمس برنمی‌گردد؛
                                     // اول باید دلیلش دیده شود (D44).
@@ -109,11 +210,15 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
         }
         HorizontalDivider()
         Composer(
+            model = model,
+            state = state,
             draft = draft,
-            enabled = isDefaultApp && state.address.isNotBlank(),
+            attachments = attachments,
+            preparing = preparing,
+            sims = sims,
+            multiSim = multiSim,
+            enabled = isDefaultApp && state.participants.isNotEmpty(),
             isDefaultApp = isDefaultApp,
-            onDraftChange = model::updateDraft,
-            onSend = model::send,
         )
     }
 
@@ -146,12 +251,28 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
 
 @Composable
 private fun Composer(
+    model: AsudehViewModel,
+    state: ConversationUiState,
     draft: String,
+    attachments: List<PendingAttachment>,
+    preparing: Boolean,
+    sims: List<SimCard>,
+    multiSim: Boolean,
     enabled: Boolean,
     isDefaultApp: Boolean,
-    onDraftChange: (String) -> Unit,
-    onSend: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(model::attach)
+    }
+    var simMenu by remember { mutableStateOf(false) }
+    val phonePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            model.refreshSims()
+            simMenu = true
+        }
+    }
+
     Column(Modifier.fillMaxWidth().padding(8.dp)) {
         if (!isDefaultApp) {
             Text(
@@ -160,17 +281,105 @@ private fun Composer(
                 style = MaterialTheme.typography.labelSmall,
             )
         }
+        if (state.isGroup && enabled) {
+            Text(
+                stringResource(R.string.new_conversation_group_hint),
+                Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+        if (preparing) {
+            Text(stringResource(R.string.attachment_preparing), style = MaterialTheme.typography.labelSmall)
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
+        if (attachments.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(attachments) { attachment ->
+                    Box {
+                        val bitmap = remember(attachment) {
+                            runCatching {
+                                android.graphics.BitmapFactory.decodeByteArray(attachment.part.data, 0, attachment.part.data.size)
+                                    ?.asImageBitmap()
+                            }.getOrNull()
+                        }
+                        if (bitmap != null) {
+                            androidx.compose.foundation.Image(
+                                bitmap,
+                                null,
+                                Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                        IconButton(
+                            onClick = { model.removeAttachment(attachment) },
+                            modifier = Modifier.size(28.dp).align(Alignment.TopEnd),
+                        ) {
+                            Icon(Icons.Default.Close, stringResource(R.string.remove_attachment))
+                        }
+                    }
+                }
+            }
+        }
+        // انتخاب سیم فقط وقتی بیش از یک سیم هست (D27). بدون اجازهٔ خواندن
+        // سیم‌کارت‌ها، از روی پیامک‌های همین گفتگو حدس زده می‌شود.
+        if (enabled && multiSim) {
+            val current = sims.firstOrNull { it.subscriptionId == state.subscriptionId }
+            val slot = current?.slot ?: SimCards.slotOf(context, state.subscriptionId)
+            Box {
+                AssistChip(
+                    onClick = {
+                        if (SimCards.canRead(context)) {
+                            model.refreshSims()
+                            simMenu = true
+                        } else {
+                            phonePermission.launch(Manifest.permission.READ_PHONE_STATE)
+                        }
+                    },
+                    label = {
+                        Text(
+                            stringResource(
+                                R.string.send_from_sim,
+                                slot?.let { Texts.digits(stringResource(R.string.sim_label, it)) }
+                                    ?: stringResource(R.string.choose_sim),
+                            ),
+                        )
+                    },
+                )
+                DropdownMenu(expanded = simMenu, onDismissRequest = { simMenu = false }) {
+                    for (sim in sims) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(Texts.digits(stringResource(R.string.sim_label, sim.slot)) + " · " + sim.label)
+                            },
+                            onClick = {
+                                simMenu = false
+                                model.chooseSim(sim.subscriptionId)
+                            },
+                        )
+                    }
+                }
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                onClick = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                enabled = enabled && !preparing,
+            ) {
+                Icon(Icons.Default.Add, stringResource(R.string.attach_image))
+            }
             OutlinedTextField(
                 value = draft,
-                onValueChange = onDraftChange,
+                onValueChange = model::updateDraft,
                 modifier = Modifier.weight(1f),
                 enabled = enabled,
                 placeholder = { Text(stringResource(R.string.compose_hint)) },
                 maxLines = 5,
             )
-            TextButton(onClick = onSend, enabled = enabled && draft.isNotBlank()) {
-                Text(stringResource(R.string.send))
+            IconButton(
+                onClick = model::send,
+                enabled = enabled && !preparing && (draft.isNotBlank() || attachments.isNotEmpty()),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.send))
             }
         }
     }
@@ -237,12 +446,17 @@ private fun HiddenRunBar(folder: Folder, count: Int, expanded: Boolean, onToggle
 
 @Composable
 private fun MessageBubble(
+    model: AsudehViewModel,
     message: MessageEntity,
     dimmed: Boolean,
+    showSender: Boolean,
+    showSim: Boolean,
+    showReason: Boolean,
     onWhy: () -> Unit,
     onResend: () -> Unit,
     onRescue: (() -> Unit)? = null,
 ) {
+    val context = LocalContext.current
     Column(
         Modifier
             .fillMaxWidth()
@@ -264,7 +478,10 @@ private fun MessageBubble(
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
         }
-        Box(
+        if (showSender && !message.outgoing) {
+            Text(Texts.sender(message.address), style = MaterialTheme.typography.labelMedium)
+        }
+        Column(
             Modifier
                 .background(
                     if (message.outgoing) {
@@ -276,26 +493,44 @@ private fun MessageBubble(
                 )
                 .clickable(onClick = onWhy)
                 .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            if (message.kind == MessageEntity.KIND_MMS) {
+                MmsContent(model, message)
+            }
             // متن پیامک هرگز تغییر نمی‌کند: نه ارقامش و نه چیز دیگر (D50).
-            Text(
-                message.body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (dimmed) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-            )
+            if (message.body.isNotEmpty()) {
+                Text(
+                    message.body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (dimmed) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+            }
         }
         if (message.risk) {
             Text(stringResource(R.string.links_disabled), style = MaterialTheme.typography.labelSmall)
+        }
+        if (showReason && !message.outgoing) {
+            Text(Texts.reason(message), style = MaterialTheme.typography.labelSmall)
         }
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(Texts.timestamp(message.dateReceived), style = MaterialTheme.typography.labelSmall)
+            if (showSim) {
+                SimCards.slotOf(context, message.subId)?.let { slot ->
+                    Text(
+                        Texts.digits(stringResource(R.string.sim_label, slot)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
             when (message.sendStatus) {
                 // ارسال ناموفق هرگز بی‌صدا نیست.
                 SendStatus.FAILED -> {
@@ -308,6 +543,10 @@ private fun MessageBubble(
                 }
                 SendStatus.PENDING -> Text(
                     stringResource(R.string.send_pending),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+                SendStatus.DELIVERED -> Text(
+                    stringResource(R.string.delivered),
                     style = MaterialTheme.typography.labelSmall,
                 )
                 SendStatus.SENT, SendStatus.NONE -> Unit
@@ -352,7 +591,7 @@ private fun ReasonSheet(
             }
         },
         confirmButton = {
-            if (message.outgoing) {
+            if (message.outgoing || message.isGroup) {
                 Unit
             } else if (message.folder != Folder.INBOX) {
                 TextButton(onClick = onRescue) { Text(stringResource(R.string.rescue)) }

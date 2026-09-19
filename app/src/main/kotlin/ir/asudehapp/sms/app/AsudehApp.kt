@@ -1,6 +1,28 @@
 package ir.asudehapp.sms.app
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import ir.asudehapp.sms.data.BackupException
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,6 +73,7 @@ fun AsudehApp(
     isDefaultApp: Boolean,
     onBecomeDefault: () -> Unit,
     onContinueReadOnly: () -> Unit,
+    onExit: () -> Unit,
 ) {
     val onboarded by model.onboarded.collectAsState()
     if (!onboarded) {
@@ -59,29 +82,68 @@ fun AsudehApp(
     }
 
     val destination by model.destination.collectAsState()
-
-    BackHandler(enabled = destination != Destination.Home) { model.back() }
-
     val conversation by model.conversation.collectAsState()
-    val title = when (val current = destination) {
-        Destination.Home -> stringResource(R.string.app_name)
-        is Destination.FolderView -> Texts.folderName(current.folder)
-        is Destination.Conversation -> Texts.sender(conversation.address)
+    val snackbar = remember { SnackbarHostState() }
+    val notice by model.notice.collectAsState()
+    val noticeText = notice?.let { noticeText(it) }
+    LaunchedEffect(notice) {
+        if (noticeText != null) {
+            snackbar.showSnackbar(noticeText)
+            model.dismissNotice()
+        }
     }
+
+    BackHandler { if (!model.back()) onExit() }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                title = {
+                    Text(
+                        when (val current = destination) {
+                            Destination.Home -> stringResource(R.string.app_name)
+                            is Destination.FolderView -> Texts.folderName(current.folder)
+                            is Destination.Conversation -> Texts.participants(conversation.participants)
+                            Destination.Search -> stringResource(R.string.search)
+                            Destination.Settings -> stringResource(R.string.settings)
+                            Destination.Rules -> stringResource(R.string.settings_rules)
+                            Destination.NewConversation -> stringResource(R.string.new_conversation)
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
                 navigationIcon = {
                     if (destination != Destination.Home) {
-                        TextButton(onClick = { model.back() }) {
-                            Text(stringResource(R.string.folder_inbox))
+                        IconButton(onClick = { model.back() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
                         }
+                    }
+                },
+                actions = {
+                    when (val current = destination) {
+                        Destination.Home -> {
+                            IconButton(onClick = { model.navigate(Destination.Search) }) {
+                                Icon(Icons.Default.Search, stringResource(R.string.search))
+                            }
+                            IconButton(onClick = { model.navigate(Destination.Settings) }) {
+                                Icon(Icons.Default.Settings, stringResource(R.string.settings))
+                            }
+                        }
+                        is Destination.Conversation -> ConversationActions(model, conversation, current.folder)
+                        else -> Unit
                     }
                 },
             )
         },
+        floatingActionButton = {
+            if (destination == Destination.Home && isDefaultApp) {
+                FloatingActionButton(onClick = { model.navigate(Destination.NewConversation) }) {
+                    Icon(Icons.Default.Add, stringResource(R.string.new_conversation))
+                }
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (val current = destination) {
@@ -108,6 +170,11 @@ fun AsudehApp(
                     model = model,
                     isDefaultApp = isDefaultApp,
                 )
+
+                Destination.Search -> SearchScreen(model)
+                Destination.Settings -> SettingsScreen(model, isDefaultApp)
+                Destination.Rules -> RulesScreen(model)
+                Destination.NewConversation -> NewConversationScreen(model)
             }
         }
     }
@@ -116,6 +183,75 @@ fun AsudehApp(
     EmptyFolderDialog(model)
     SweepOfferDialog(model)
     SuggestionSampleDialog(model)
+    CrashReportDialog(model)
+}
+
+/** متن Snackbar برای هر پیام کوتاه. */
+@Composable
+private fun noticeText(notice: UiNotice): String = when (notice) {
+    is UiNotice.BackupExported -> Texts.count(R.plurals.backup_exported, notice.messages)
+    is UiNotice.BackupImported -> buildString {
+        append(
+            stringResource(
+                R.string.backup_imported,
+                Texts.digits(notice.added.toString()),
+                Texts.digits(notice.duplicates.toString()),
+            ),
+        )
+        if (notice.corrupt > 0) {
+            append(' ')
+            append(stringResource(R.string.backup_imported_corrupt, Texts.digits(notice.corrupt.toString())))
+        }
+    }
+    is UiNotice.BackupFailed -> stringResource(
+        when (notice.reason) {
+            BackupException.Reason.NOT_A_BACKUP, BackupException.Reason.EMPTY -> R.string.backup_not_a_backup
+            BackupException.Reason.NEWER_VERSION -> R.string.backup_newer
+            BackupException.Reason.NOT_DEFAULT_APP -> R.string.backup_not_default
+            null -> R.string.backup_failed
+        },
+    )
+    UiNotice.AttachmentFailed -> stringResource(R.string.attachment_failed)
+    UiNotice.DownloadRequested -> stringResource(R.string.mms_download_requested)
+    UiNotice.DownloadFailed -> stringResource(R.string.mms_download_failed)
+}
+
+/**
+ * گزارش کرش قبلی (D58): پیشنهادی آرام، با متن کامل گزارش پیش از ارسال. ارسال
+ * با منوی اشتراک‌گذاری اندروید است؛ خود اپ چیزی نمی‌فرستد.
+ */
+@Composable
+private fun CrashReportDialog(model: AsudehViewModel) {
+    val report by model.crashReport.collectAsState()
+    val text = report ?: return
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = model::dismissCrashReport,
+        title = { Text(stringResource(R.string.crash_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.crash_body), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text,
+                    Modifier.padding(top = 8.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val send = Intent(Intent.ACTION_SEND)
+                    .setType("text/plain")
+                    .putExtra(Intent.EXTRA_SUBJECT, "Asudeh crash report")
+                    .putExtra(Intent.EXTRA_TEXT, text)
+                runCatching { context.startActivity(Intent.createChooser(send, null)) }
+                model.dismissCrashReport()
+            }) { Text(stringResource(R.string.crash_send)) }
+        },
+        dismissButton = {
+            TextButton(onClick = model::dismissCrashReport) { Text(stringResource(R.string.crash_dismiss)) }
+        },
+    )
 }
 
 /**
@@ -401,7 +537,7 @@ private fun HomeScreen(
             item { EmptyState(stringResource(R.string.empty_inbox)) }
         }
         items(threads, key = { it.threadId }) { thread ->
-            ThreadRow(thread) { onOpenThread(thread.threadId) }
+            ThreadRow(model, thread) { onOpenThread(thread.threadId) }
         }
     }
 }
@@ -424,15 +560,20 @@ private fun FolderScreen(
         if (folder == Folder.PROMO && suggestions.messages > 0) {
             SuggestionCard(model, suggestions)
         }
-        // «خالی کردن پوشه» فقط در `PromoFolder` است (D45)، و حذف از provider فقط
-        // برای اپ پیش‌فرض ممکن است.
-        if (isDefaultApp && folder == Folder.PROMO) {
+        // «همه خوانده شد» و «خالی کردن پوشه» فقط در `PromoFolder` است (D45)، و
+        // حذف از provider فقط برای اپ پیش‌فرض ممکن است.
+        if (folder == Folder.PROMO && threads.isNotEmpty()) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = { model.requestEmptyFolder(folder) }) {
-                    Text(stringResource(R.string.empty_folder))
+                TextButton(onClick = { model.markFolderRead(folder) }) {
+                    Text(stringResource(R.string.mark_all_read))
+                }
+                if (isDefaultApp) {
+                    TextButton(onClick = { model.requestEmptyFolder(folder) }) {
+                        Text(stringResource(R.string.empty_folder))
+                    }
                 }
             }
             HorizontalDivider()
@@ -448,7 +589,7 @@ private fun FolderScreen(
                 }
             }
             items(threads, key = { it.threadId }) { thread ->
-                ThreadRow(thread) { onOpenThread(thread.threadId) }
+                ThreadRow(model, thread) { onOpenThread(thread.threadId) }
             }
         }
     }
@@ -486,54 +627,101 @@ private fun FolderRow(title: String, trailing: String, onClick: () -> Unit) {
     }
 }
 
+/**
+ * یک گفتگو در فهرست. لمس طولانی منوی سنجاق و خوانده/نخوانده را باز می‌کند
+ * (D53).
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ThreadRow(thread: ThreadSummary, onClick: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (thread.hasRisk) {
-                    Text("⚠ ", style = MaterialTheme.typography.bodyMedium)
+private fun ThreadRow(model: AsudehViewModel, thread: ThreadSummary, onClick: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = { menu = true })
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (thread.pinned) {
+                        Icon(
+                            Icons.Default.Star,
+                            stringResource(R.string.pinned),
+                            Modifier.size(16.dp).padding(end = 4.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    if (thread.hasRisk) {
+                        Text("⚠ ", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Text(
+                        Texts.thread(thread.address, thread.recipients),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (thread.unread > 0) FontWeight.Bold else null,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
                 Text(
-                    Texts.sender(thread.address),
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
+                    snippet(thread),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (thread.draft.isNotEmpty()) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                thread.snippet,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(Texts.timestamp(thread.lastDate), style = MaterialTheme.typography.labelSmall)
-            if (thread.unread > 0) {
-                Box(
-                    Modifier
-                        .background(
-                            MaterialTheme.colorScheme.primary,
-                            RoundedCornerShape(10.dp),
+            Column(horizontalAlignment = Alignment.End) {
+                Text(Texts.timestamp(thread.lastDate), style = MaterialTheme.typography.labelSmall)
+                if (thread.unread > 0) {
+                    Box(
+                        Modifier
+                            .background(
+                                MaterialTheme.colorScheme.primary,
+                                RoundedCornerShape(10.dp),
+                            )
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            Texts.count(R.plurals.new_count, thread.unread),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimary,
                         )
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
-                ) {
-                    Text(
-                        Texts.count(R.plurals.new_count, thread.unread),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
+                    }
                 }
             }
         }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(if (thread.pinned) R.string.unpin else R.string.pin)) },
+                onClick = {
+                    menu = false
+                    model.setPinned(thread.threadId, !thread.pinned)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(if (thread.unread > 0) R.string.mark_read else R.string.mark_unread)) },
+                onClick = {
+                    menu = false
+                    if (thread.unread > 0) {
+                        model.markRead(thread.threadId, thread.folder)
+                    } else {
+                        model.markUnread(thread.threadId, thread.folder)
+                    }
+                },
+            )
+        }
     }
+}
+
+/** پیش‌نمایش گفتگو: پیش‌نویس، متن آخر، یا نشانهٔ پیوست MMS. */
+@Composable
+private fun snippet(thread: ThreadSummary): String = when {
+    thread.draft.isNotEmpty() -> stringResource(R.string.draft_prefix, thread.draft)
+    thread.snippet.isNotBlank() -> thread.snippet
+    thread.attachments > 0 -> stringResource(R.string.snippet_attachment)
+    else -> ""
 }
 
 @Composable

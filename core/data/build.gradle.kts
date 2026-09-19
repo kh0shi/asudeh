@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -31,8 +32,11 @@ ksp {
 dependencies {
     api(project(":core:model"))
     api(project(":core:classifier"))
+    implementation(project(":core:persian"))
+    api(project(":core:mms"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
     implementation(libs.androidx.room.runtime)
