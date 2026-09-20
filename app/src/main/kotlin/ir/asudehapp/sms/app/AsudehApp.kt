@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -229,11 +228,13 @@ fun AsudehApp(
 }
 
 /**
- * نوار بالای صفحهٔ اصلی: جستجو، تنظیمات، و منوی سه‌نقطه.
+ * نوار بالای صفحهٔ اصلی: جستجو، و منوی سه‌نقطه.
  *
- * پوشه‌های «تبلیغات» و «کلاهبرداری» در همین منو هستند، نه بالای فهرست
- * پیامک‌ها: آن ردیف‌ها هر روز جلوی چشم بودند بی‌آنکه هر روز به کارشان بیاید
- * (D42 الف). شمار خوانده‌نشده‌ها کنار نامشان می‌آید تا چیزی پنهان نماند.
+ * پوشه‌های «تبلیغات» و «کلاهبرداری» و «تنظیمات» در همین منو هستند، نه بالای
+ * فهرست پیامک‌ها و نه یک آیکون جدا: هر سه هر روز جلوی چشم بودند بی‌آنکه هر
+ * روز به کارشان بیاید (D42 الف). جستجو آیکون خودش را نگه می‌دارد، چون تنها
+ * راه رسیدن به یک پیامک قدیمی است. شمار خوانده‌نشده‌ها کنار نام پوشه‌ها
+ * می‌آید تا چیزی پنهان نماند.
  */
 @Composable
 private fun HomeActions(model: AsudehViewModel) {
@@ -243,9 +244,6 @@ private fun HomeActions(model: AsudehViewModel) {
 
     IconButton(onClick = { model.navigate(Destination.Search) }) {
         Icon(Icons.Default.Search, stringResource(R.string.search))
-    }
-    IconButton(onClick = { model.navigate(Destination.Settings) }) {
-        Icon(Icons.Default.Settings, stringResource(R.string.settings))
     }
     IconButton(onClick = { menu = true }) {
         Icon(Icons.Default.MoreVert, stringResource(R.string.more))
@@ -265,6 +263,14 @@ private fun HomeActions(model: AsudehViewModel) {
             menu = false
             model.navigate(Destination.FolderView(Folder.SCAM))
         }
+        HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.settings)) },
+            onClick = {
+                menu = false
+                model.navigate(Destination.Settings)
+            },
+        )
     }
 }
 
