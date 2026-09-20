@@ -12,6 +12,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.core.app.RemoteInput
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.persian.PersianText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -75,11 +76,15 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
     /**
      * رمز به‌عنوان دادهٔ حساس کپی می‌شود تا اندروید ۱۳ به بعد آن را در
-     * پیش‌نمایش کلیپ‌بورد نشان ندهد.
+     * پیش‌نمایش کلیپ‌بورد نشان ندهد. ارقامش همیشه لاتین کپی می‌شود، تا هر جا
+     * چسبانده شود کار کند.
      */
     private fun copyCode(context: Context, code: String) {
         val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
-        val clip = ClipData.newPlainText(context.getString(R.string.channel_otp), code)
+        val clip = ClipData.newPlainText(
+            context.getString(R.string.channel_otp),
+            PersianText.latinDigits(code),
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             clip.description.extras = PersistableBundle().apply {
                 putBoolean(EXTRA_IS_SENSITIVE, true)

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -24,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -65,6 +67,10 @@ fun NewConversationScreen(model: AsudehViewModel) {
             onValueChange = { numbers = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(R.string.new_conversation_hint)) },
+            // شماره چپ‌به‌راست است، حتی وسط یک رابط راست‌به‌چپ. بدون این،
+            // «+۹۸» و ویرگول جدا‌کننده جابه‌جا دیده می‌شدند و شماره‌ها به هم
+            // می‌ریختند (D50).
+            textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Go),
             keyboardActions = KeyboardActions(onGo = { start() }),
         )

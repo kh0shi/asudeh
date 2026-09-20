@@ -2,6 +2,7 @@ package ir.asudehapp.sms.classifier
 
 import ir.asudehapp.sms.model.Category
 import ir.asudehapp.sms.model.Confidence
+import ir.asudehapp.sms.model.DefaultRule
 import ir.asudehapp.sms.model.Evidence
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.MessageInput
@@ -169,5 +170,106 @@ class RouterTest {
         val placement = Router.route(verdict(Category.PROMO), mobile, rules)
         assertEquals(Folder.INBOX, placement.folder)
         assertEquals(ReasonCode.ALLOWED_BY_USER, placement.reason.code)
+    }
+
+    // ——— کلیدواژه‌ها و قواعد پیش‌فرض (ADR-0012) ———
+
+    @Test
+    fun `a blocklisted keyword hides a message that would have stayed in the inbox`() {
+        val rules = UserRules(blockKeywords = setOf("تخفیف"))
+        val message = MessageInput("30001234", "امروز ۳۰٪ تخفیف ویژه")
+        val placement = Router.route(verdict(Category.UNKNOWN, Confidence.LOW), message, rules)
+        assertEquals(Folder.PROMO, placement.folder)
+        assertEquals(ReasonCode.BLOCKED_KEYWORD, placement.reason.code)
+        assertEquals("تخفیف", placement.reason.args.single())
+    }
+
+    @Test
+    fun `a keyword ignores spaces and persian digits`() {
+        val rules = UserRules(blockKeywords = setOf("لغو ۱۱"))
+        val message = MessageInput("30001234", "فروش ویژه. لغو11")
+        assertEquals(Folder.PROMO, Router.route(verdict(Category.UNKNOWN, Confidence.LOW), message, rules).folder)
+    }
+
+    @Test
+    fun `an allowlisted keyword keeps a promo message in the inbox`() {
+        val rules = UserRules(allowKeywords = setOf("کد ورود"))
+        val message = MessageInput("30001234", "کدورود شما ۴۳۲۱ است")
+        val placement = Router.route(verdict(Category.PROMO), message, rules)
+        assertEquals(Folder.INBOX, placement.folder)
+        assertEquals(ReasonCode.ALLOWED_KEYWORD, placement.reason.code)
+    }
+
+    @Test
+    fun `a keyword never hides a confident one time password`() {
+        val rules = UserRules(blockKeywords = setOf("تخفیف"))
+        val message = MessageInput("30001234", "رمز ورود شما ۱۲۳۴ است. کد تخفیف ندارید.")
+        assertEquals(Folder.INBOX, Router.route(verdict(Category.OTP), message, rules).folder)
+    }
+
+    @Test
+    fun `an old message caught by a keyword is only suggested`() {
+        val rules = UserRules(blockKeywords = setOf("تخفیف"))
+        val message = MessageInput("30001234", "۳۰٪ تخفیف")
+        val placement = Router.route(
+            verdict(Category.UNKNOWN, Confidence.LOW),
+            message,
+            rules,
+            Origin.SWEEP,
+        )
+        assertEquals(Folder.INBOX, placement.folder)
+        assertTrue(placement.suggestMove)
+    }
+
+    @Test
+    fun `a blocklisted keyword never hides a message from a contact`() {
+        val rules = UserRules(blockKeywords = setOf("تخفیف"))
+        val contact = MessageInput("09121234567", "این مغازه تخفیف خوبی داشت", isKnownContact = true)
+        assertEquals(Folder.INBOX, Router.route(verdict(Category.UNKNOWN, Confidence.LOW), contact, rules).folder)
+    }
+
+    @Test
+    fun `an explicit block beats the contact lock even for a keyword rule`() {
+        val rules = UserRules(blocklist = setOf("09121234567"), blockKeywords = setOf("تخفیف"))
+        val contact = MessageInput("09121234567", "تخفیف", isKnownContact = true)
+        assertEquals(Folder.PROMO, Router.route(verdict(Category.UNKNOWN, Confidence.LOW), contact, rules).folder)
+    }
+
+    @Test
+    fun `turning off promo hiding keeps a certain advertisement in the inbox`() {
+        val rules = UserRules(disabledDefaults = setOf(DefaultRule.HIDE_PROMO))
+        assertEquals(Folder.INBOX, Router.route(verdict(Category.PROMO), adLine, rules).folder)
+    }
+
+    @Test
+    fun `turning off scam hiding keeps the warning but not the folder`() {
+        val rules = UserRules(disabledDefaults = setOf(DefaultRule.HIDE_SCAM))
+        val placement = Router.route(phish, adLine, rules)
+        assertEquals(Folder.INBOX, placement.folder)
+        assertTrue(placement.showWarning)
+        assertTrue(placement.disableLinks)
+    }
+
+    @Test
+    fun `turning off the contact rule lets an advertisement from a contact be hidden`() {
+        val contact = MessageInput("09121234567", "…", isKnownContact = true)
+        assertEquals(
+            "مخاطب به‌طور پیش‌فرض در فهرست سفید است",
+            Folder.INBOX,
+            Router.route(verdict(Category.PROMO), contact).folder,
+        )
+        val rules = UserRules(
+            disabledDefaults = setOf(DefaultRule.CONTACTS_IN_ALLOWLIST, DefaultRule.MOBILE_NEVER_HIDDEN),
+        )
+        assertEquals(Folder.PROMO, Router.route(verdict(Category.PROMO), contact, rules).folder)
+    }
+
+    @Test
+    fun `turning off the otp rule lets the blocklist hide a code`() {
+        val rules = UserRules(
+            blocklist = setOf("30001234"),
+            disabledDefaults = setOf(DefaultRule.OTP_AND_BANK_ALWAYS_INBOX),
+        )
+        assertEquals(Folder.PROMO, Router.route(verdict(Category.OTP), adLine, rules).folder)
     }
 }

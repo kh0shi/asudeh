@@ -54,6 +54,41 @@ class AsudehSettings(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_REASON, false)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_REASON, value).apply()
 
+    /** ساعت هر پیامک، زیر خودش. پیش‌فرض روشن است. */
+    var showMessageClock: Boolean
+        get() = prefs.getBoolean(KEY_MESSAGE_CLOCK, true)
+        set(value) = prefs.edit().putBoolean(KEY_MESSAGE_CLOCK, value).apply()
+
+    /**
+     * دریافت خودکار پیام چندرسانه‌ای از MMSC. خاموش که باشد، اعلانِ پیام در
+     * گفتگو با دکمهٔ «دریافت» می‌ماند؛ هیچ پیامی گم نمی‌شود.
+     */
+    var mmsAutoDownload: Boolean
+        get() = prefs.getBoolean(KEY_MMS_AUTO_DOWNLOAD, true)
+        set(value) = prefs.edit().putBoolean(KEY_MMS_AUTO_DOWNLOAD, value).apply()
+
+    /** فرستادن پیوست و پیام گروهی (MMS). خاموش که باشد، فقط پیامک ساده فرستاده می‌شود. */
+    var mmsSending: Boolean
+        get() = prefs.getBoolean(KEY_MMS_SENDING, true)
+        set(value) = prefs.edit().putBoolean(KEY_MMS_SENDING, value).apply()
+
+    /** قاعده‌های پیش‌فرضی که کاربر خاموش کرده است؛ نام‌های `DefaultRule` (ADR-0012). */
+    var disabledDefaultRules: Set<String>
+        get() = readSet(KEY_DISABLED_DEFAULTS)
+        set(value) = writeSet(KEY_DISABLED_DEFAULTS, value)
+
+    /** کلیدواژه‌های پیش‌فرضی که کاربر خاموش کرده است؛ شناسه‌های `DefaultRules` (ADR-0012). */
+    var disabledDefaultKeywords: Set<String>
+        get() = readSet(KEY_DISABLED_KEYWORDS)
+        set(value) = writeSet(KEY_DISABLED_KEYWORDS, value)
+
+    private fun readSet(key: String): Set<String> =
+        prefs.getString(key, null)?.split(SET_SEPARATOR)?.filter { it.isNotBlank() }?.toSet().orEmpty()
+
+    private fun writeSet(key: String, value: Set<String>) {
+        prefs.edit().putString(key, value.joinToString(SET_SEPARATOR)).apply()
+    }
+
     /** هر تغییر تنظیمات؛ رابط با آن خودش را به‌روز می‌کند. */
     fun changes(): Flow<Unit> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(Unit) }
@@ -70,6 +105,11 @@ class AsudehSettings(context: Context) {
         put(KEY_DYNAMIC_COLOR, dynamicColor.toString())
         put(KEY_PERSIAN_DIGITS, persianDigits.toString())
         put(KEY_SHOW_REASON, showReasonEverywhere.toString())
+        put(KEY_MESSAGE_CLOCK, showMessageClock.toString())
+        put(KEY_MMS_AUTO_DOWNLOAD, mmsAutoDownload.toString())
+        put(KEY_MMS_SENDING, mmsSending.toString())
+        put(KEY_DISABLED_DEFAULTS, disabledDefaultRules.joinToString(SET_SEPARATOR))
+        put(KEY_DISABLED_KEYWORDS, disabledDefaultKeywords.joinToString(SET_SEPARATOR))
     }
 
     /** بازگردانی از پشتیبان. کلید ناشناخته یا مقدار خراب نادیده گرفته می‌شود. */
@@ -80,6 +120,15 @@ class AsudehSettings(context: Context) {
         values[KEY_DYNAMIC_COLOR]?.toBooleanStrictOrNull()?.let { dynamicColor = it }
         values[KEY_PERSIAN_DIGITS]?.toBooleanStrictOrNull()?.let { persianDigits = it }
         values[KEY_SHOW_REASON]?.toBooleanStrictOrNull()?.let { showReasonEverywhere = it }
+        values[KEY_MESSAGE_CLOCK]?.toBooleanStrictOrNull()?.let { showMessageClock = it }
+        values[KEY_MMS_AUTO_DOWNLOAD]?.toBooleanStrictOrNull()?.let { mmsAutoDownload = it }
+        values[KEY_MMS_SENDING]?.toBooleanStrictOrNull()?.let { mmsSending = it }
+        values[KEY_DISABLED_DEFAULTS]?.let {
+            disabledDefaultRules = it.split(SET_SEPARATOR).filter(String::isNotBlank).toSet()
+        }
+        values[KEY_DISABLED_KEYWORDS]?.let {
+            disabledDefaultKeywords = it.split(SET_SEPARATOR).filter(String::isNotBlank).toSet()
+        }
     }
 
     private inline fun <reified T : Enum<T>> enumOr(name: String?, fallback: T): T =
@@ -94,5 +143,13 @@ class AsudehSettings(context: Context) {
         const val KEY_DYNAMIC_COLOR = "dynamic_color"
         const val KEY_PERSIAN_DIGITS = "persian_digits"
         const val KEY_SHOW_REASON = "show_reason_everywhere"
+        const val KEY_MESSAGE_CLOCK = "show_message_clock"
+        const val KEY_MMS_AUTO_DOWNLOAD = "mms_auto_download"
+        const val KEY_MMS_SENDING = "mms_sending"
+        const val KEY_DISABLED_DEFAULTS = "disabled_default_rules"
+        const val KEY_DISABLED_KEYWORDS = "disabled_default_keywords"
+
+        /** جداکنندهٔ عضوهای یک مجموعه در یک کلید متنی. در متن قواعد نمی‌آید. */
+        const val SET_SEPARATOR = "\n"
     }
 }

@@ -288,6 +288,23 @@ interface SenderRuleDao {
     suspend fun remove(address: String)
 }
 
+/** کلیدواژه‌های «قواعد من» (ADR-0012). */
+@Dao
+interface KeywordRuleDao {
+
+    @Query("SELECT * FROM keyword_rule ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<KeywordRuleEntity>>
+
+    @Query("SELECT * FROM keyword_rule")
+    suspend fun all(): List<KeywordRuleEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(rule: KeywordRuleEntity)
+
+    @Query("DELETE FROM keyword_rule WHERE normalized = :normalized")
+    suspend fun remove(normalized: String)
+}
+
 /**
  * سطل حذف‌شده‌ها (ADR-0010). هیچ کوئری‌ای در این DAO خودکار صدا زده نمی‌شود:
  * هم پر شدن سطل و هم خالی شدنش با اقدام صریح کاربر است.

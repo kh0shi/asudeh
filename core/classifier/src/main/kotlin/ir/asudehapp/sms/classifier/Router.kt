@@ -3,6 +3,7 @@ package ir.asudehapp.sms.classifier
 import ir.asudehapp.sms.model.Addresses
 import ir.asudehapp.sms.model.Category
 import ir.asudehapp.sms.model.Confidence
+import ir.asudehapp.sms.model.DefaultRule
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.MessageInput
 import ir.asudehapp.sms.model.NotificationBehavior
@@ -13,6 +14,7 @@ import ir.asudehapp.sms.model.ReasonCode
 import ir.asudehapp.sms.model.SenderKind
 import ir.asudehapp.sms.model.UserRules
 import ir.asudehapp.sms.model.Verdict
+import ir.asudehapp.sms.persian.KeywordMatch
 
 /**
  * «این پیامک کجا برود». همهٔ قواعد «چه کسی بر چه کسی برتری دارد» در همین یک
@@ -26,14 +28,36 @@ object Router {
         userRules: UserRules = UserRules.EMPTY,
         origin: Origin = Origin.LIVE,
     ): Placement {
-        val allowed = userRules.isAllowed(input.address)
-        val blocked = userRules.isBlocked(input.address)
+        // کلیدواژه‌های «قواعد من» و کلیدواژه‌های پیش‌فرضِ خاموش‌نشده، یک‌جا
+        // (ADR-0012). متن فقط وقتی آماده می‌شود که کلیدواژه‌ای در کار باشد.
+        val keyedBody = if (userRules.hasKeywords) KeywordMatch.key(input.body) else ""
+        val allowKeyword = userRules.allowKeywordIn(keyedBody)
+        val blockKeyword = userRules.blockKeywordIn(keyedBody)
+
+        // قفل ایمنی: پیامک از شمارهٔ موبایل یا مخاطب ذخیره‌شده هرگز خودکار پنهان
+        // نمی‌شود (D31). «مخاطب‌ها در فهرست سفیدند» یعنی همین، و کلیدواژهٔ فهرست
+        // سیاه هم آن را نمی‌شکند: پیام دوستی که «تخفیف» نوشته، تبلیغ نیست. هر
+        // دو قاعده در «قواعد من» خاموش‌شدنی‌اند (ADR-0012). فقط `Block` صریحِ
+        // خود آن سرشماره از این قفل می‌گذرد.
+        val personalLock =
+            (input.isKnownContact && userRules.isOn(DefaultRule.CONTACTS_IN_ALLOWLIST)) ||
+                (
+                    Addresses.kindOf(input.address) == SenderKind.MOBILE &&
+                        userRules.isOn(DefaultRule.MOBILE_NEVER_HIDDEN)
+                    )
+
+        val allowedSender = userRules.isAllowed(input.address)
+        val allowed = allowedSender || allowKeyword != null
+        val blockedSender = userRules.isBlocked(input.address)
+        val blocked = blockedSender || (blockKeyword != null && !personalLock)
         val hasEvidence = verdict.evidence != null
 
         // ۱. فیشینگ با شاهد قطعی، از سرشماره‌ای که در فهرست سفید نیست.
         //    فقط پیامک `LIVE` خودکار جابه‌جا می‌شود؛ پیامک قدیمی با هشدار در
         //    صندوق می‌ماند و فقط پیشنهاد جابه‌جایی می‌گیرد (اصل ۸، D22).
-        if (verdict.category == Category.PHISHING && hasEvidence && !allowed) {
+        if (verdict.category == Category.PHISHING && hasEvidence && !allowed &&
+            userRules.isOn(DefaultRule.HIDE_SCAM)
+        ) {
             if (origin != Origin.LIVE) return suggested(verdict)
             return Placement(
                 folder = Folder.SCAM,
@@ -44,8 +68,9 @@ object Router {
             )
         }
 
-        // ۲. همان، ولی سرشماره در فهرست سفید است: پنهان نمی‌شود، ولی `Suspect`
-        //    می‌ماند. `LinkGuard` استثنای اصل ۵ است.
+        // ۲. همان، ولی سرشماره در فهرست سفید است یا کاربر پنهان کردن
+        //    کلاهبرداری را خاموش کرده: پنهان نمی‌شود، ولی `Suspect` می‌ماند.
+        //    `LinkGuard` استثنای اصل ۵ است.
         if (verdict.category == Category.PHISHING && hasEvidence) {
             return Placement(
                 folder = Folder.INBOX,
@@ -58,36 +83,42 @@ object Router {
 
         // ۳. رمز یکبار و بانکی قطعی، حتی از سرشمارهٔ مسدود (ADR-0006 بند ۲).
         if ((verdict.category == Category.OTP || verdict.category == Category.BANK) &&
-            verdict.confidence == Confidence.HIGH
+            verdict.confidence == Confidence.HIGH &&
+            userRules.isOn(DefaultRule.OTP_AND_BANK_ALWAYS_INBOX)
         ) {
             return inbox(verdict)
         }
 
-        // ۴. فهرست سفید کاربر.
+        // ۴. فهرست سفید کاربر: سرشماره یا کلیدواژه.
         if (allowed) {
-            return inbox(verdict, Reason(ReasonCode.ALLOWED_BY_USER))
+            val reason = if (allowedSender) {
+                Reason(ReasonCode.ALLOWED_BY_USER)
+            } else {
+                Reason(ReasonCode.ALLOWED_KEYWORD, listOf(allowKeyword.orEmpty()))
+            }
+            return inbox(verdict, reason)
         }
 
         // ۵. فهرست سیاه کاربر: برای این سرشماره `Block` بر `ShowOnDoubt` برتری
         //    دارد (ADR-0006 بند ۲).
         if (blocked) {
-            if (origin != Origin.LIVE) {
-                return suggested(verdict, Reason(ReasonCode.BLOCKED_BY_USER))
+            val reason = if (blockKeyword != null && !blockedSender) {
+                Reason(ReasonCode.BLOCKED_KEYWORD, listOf(blockKeyword))
+            } else {
+                Reason(ReasonCode.BLOCKED_BY_USER)
             }
+            if (origin != Origin.LIVE) return suggested(verdict, reason)
             return Placement(
                 folder = Folder.PROMO,
                 notification = NotificationBehavior.NONE,
-                reason = Reason(ReasonCode.BLOCKED_BY_USER),
+                reason = reason,
             )
         }
 
-        // قفل ایمنی: پیامک از شمارهٔ موبایل یا مخاطب ذخیره‌شده هرگز خودکار پنهان
-        // نمی‌شود (D31). فقط `Block` صریح بالاتر می‌توانست آن را پنهان کند.
-        val personalLock =
-            input.isKnownContact || Addresses.kindOf(input.address) == SenderKind.MOBILE
-
         // ۶ و ۷. تبلیغ قطعی.
-        if (verdict.category == Category.PROMO && verdict.confidence == Confidence.HIGH && !personalLock) {
+        if (verdict.category == Category.PROMO && verdict.confidence == Confidence.HIGH &&
+            !personalLock && userRules.isOn(DefaultRule.HIDE_PROMO)
+        ) {
             return if (origin == Origin.LIVE) {
                 Placement(
                     folder = Folder.PROMO,

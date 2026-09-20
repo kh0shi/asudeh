@@ -108,6 +108,9 @@ class MmsDeliverReceiver : BroadcastReceiver() {
                     )
                 }.onFailure { Log.w(TAG, "ایندکس اعلان MMS ناموفق بود", it) }
 
+                // دریافت خودکار را کاربر می‌تواند در تنظیمات خاموش کند. خاموش که
+                // باشد، پیام در گفتگو با دکمهٔ «دریافت» می‌ماند و گم نمی‌شود.
+                if (!host.settings.mmsAutoDownload) return@launch
                 runCatching {
                     MmsDownloader.download(applicationContext, stored.providerId, notification.contentLocation, subscriptionId)
                 }.onFailure {

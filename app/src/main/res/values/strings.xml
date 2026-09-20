@@ -100,6 +100,8 @@
     <string name="reason_promo_words">شامل «%1$s» است.</string>
     <string name="reason_blocked">شما گفته‌اید تبلیغ‌های %1$s همیشه پنهان شود.</string>
     <string name="reason_allowed">شما %1$s را به فهرست سفید اضافه کرده‌اید.</string>
+    <string name="reason_allowed_keyword">شامل «%1$s» است و این واژه در فهرست سفید شماست.</string>
+    <string name="reason_blocked_keyword">شامل «%1$s» است و این واژه در فهرست سیاه شماست.</string>
     <string name="reason_otp">رمز یکبار مصرف است، پس همیشه در صندوق می‌ماند.</string>
     <string name="reason_bank">پیامک بانکی است، پس همیشه در صندوق می‌ماند.</string>
     <string name="reason_service">پیامک خدماتی است و بی‌صدا اعلان می‌شود.</string>
@@ -151,6 +153,7 @@
     <string name="mms_download_failed">دریافت ممکن نشد. داده یا شبکهٔ تلفن همراه را بررسی کنید.</string>
     <string name="open_attachment">باز کردن پیوست</string>
     <string name="no_app_for_attachment">اپی برای باز کردن این پیوست نیست.</string>
+    <string name="sent">ارسال شد</string>
     <string name="delivered">تحویل شد</string>
     <string name="sim_label">سیم %1$d</string>
     <string name="send_from_sim">ارسال از %1$s</string>
@@ -161,21 +164,32 @@
     <string name="unsub_send">بفرست</string>
 
     <!-- تنظیمات (D52) -->
+    <string name="settings_display">نمایش</string>
+    <string name="settings_spam">تبلیغات و پیامک‌های پنهان</string>
     <string name="settings_digest">خلاصهٔ پیامک‌های پنهان</string>
     <string name="digest_daily">هر روز ساعت ۲۱</string>
     <string name="digest_weekly">هر هفته، جمعه ساعت ۲۱</string>
     <string name="digest_off">خاموش</string>
     <string name="settings_digits">ارقام فارسی</string>
     <string name="settings_digits_hint">متن خود پیامک‌ها هرگز تغییر نمی‌کند.</string>
-    <string name="settings_theme">تم</string>
     <string name="theme_system">مثل گوشی</string>
     <string name="theme_light">روشن</string>
     <string name="theme_dark">تیره</string>
     <string name="settings_rules">قواعد من</string>
-    <string name="settings_rules_hint">فرستنده‌هایی که همیشه در صندوق یا همیشه در تبلیغات هستند</string>
+    <string name="settings_rules_hint">شماره‌ها و واژه‌هایی که همیشه در صندوق یا همیشه در تبلیغات‌اند</string>
+    <string name="settings_message_clock">ساعت پیامک</string>
+    <string name="settings_message_clock_hint">زیر هر پیامک، ساعتش هم نوشته شود.</string>
     <string name="settings_sending">ارسال</string>
     <string name="settings_delivery">گزارش تحویل</string>
     <string name="settings_delivery_hint">وقتی پیامک به گیرنده رسید، «تحویل شد» نشان داده شود.</string>
+    <!-- پیام چندرسانه‌ای؛ خاموش کردنشان هیچ پیامی را گم نمی‌کند. -->
+    <string name="settings_mms">پیام چندرسانه‌ای</string>
+    <string name="settings_mms_auto">دریافت خودکار</string>
+    <string name="settings_mms_auto_hint">پیام چندرسانه‌ای به‌محض رسیدن اعلانش دریافت شود. خاموش که باشد، در گفتگو با دکمهٔ «دریافت» می‌ماند و گم نمی‌شود.</string>
+    <string name="settings_mms_sending">فرستادن پیوست و پیام گروهی</string>
+    <string name="settings_mms_sending_hint">پیوست تصویر و گفتگوی گروهی با MMS فرستاده می‌شوند و ممکن است هزینهٔ بیشتری داشته باشند.</string>
+    <string name="mms_sending_off">فرستادن پیام چندرسانه‌ای در تنظیمات خاموش است، پس این پیام گروهی فرستاده نمی‌شود.</string>
+
     <string name="settings_backup">پشتیبان</string>
     <string name="backup_export">ساختن فایل پشتیبان</string>
     <string name="backup_import">بازگردانی از فایل</string>
@@ -198,11 +212,36 @@
     <string name="about_rules">نسخهٔ قواعد: %1$s</string>
     <string name="about_promise">آسوده متن‌باز است (GPL-3.0) و مجوز اینترنت ندارد. هیچ داده‌ای از گوشی بیرون نمی‌رود.</string>
 
-    <!-- قواعد من (D45، اصل ۵) -->
-    <string name="rules_empty">هنوز قاعده‌ای نگذاشته‌اید. با «این تبلیغ نیست» یا «همیشه تبلیغ» روی یک پیامک، قاعده اینجا دیده می‌شود.</string>
+    <!-- قواعد من (D45، اصل ۵، ADR-0012) -->
+    <string name="rules_empty">هنوز قاعده‌ای نگذاشته‌اید. با «افزودن قاعده»، یا با «این تبلیغ نیست» و «همیشه تبلیغ» روی یک پیامک، قاعده اینجا دیده می‌شود.</string>
     <string name="rule_allow">همیشه در صندوق</string>
     <string name="rule_block">همیشه تبلیغ</string>
+    <string name="rule_keyword_allow">پیامک حاوی این واژه همیشه در صندوق می‌ماند</string>
+    <string name="rule_keyword_block">پیامک حاوی این واژه تبلیغ شمرده می‌شود</string>
     <string name="rule_forget">فراموش کن</string>
+    <string name="rules_mine">قواعد من</string>
+    <string name="rules_defaults">قواعد پیش‌فرض</string>
+    <string name="rules_defaults_hint">این‌ها را آسوده گذاشته است. هرکدام را می‌توانید خاموش کنید؛ خاموش کردن هیچ‌کدام پیامکی را پاک یا جابه‌جا نمی‌کند.</string>
+    <string name="rules_add">افزودن قاعده</string>
+    <string name="rules_add_title">قاعدهٔ تازه</string>
+    <string name="rules_add_confirm">افزودن</string>
+    <string name="rules_kind_keyword">کلیدواژه</string>
+    <string name="rules_kind_sender">شماره یا سرشماره</string>
+    <string name="rules_list_allow">همیشه در صندوق بماند</string>
+    <string name="rules_list_block">تبلیغ شمرده شود</string>
+    <string name="rules_value_keyword">واژه یا عبارت</string>
+    <string name="rules_value_sender">شماره یا سرشماره</string>
+    <string name="rules_keyword_hint">حرف بزرگ و کوچک، ارقام فارسی و انگلیسی، فاصله و نیم‌فاصله فرقی نمی‌کنند: «لغو ۱۱» و «لغو11» یکی‌اند. «{لینک}» یعنی یک نشانی اینترنتی، مثل «لغو{لینک}».</string>
+    <string name="default_rule_contacts">مخاطب‌ها همیشه در صندوق</string>
+    <string name="default_rule_contacts_hint">پیامک کسی که در مخاطب‌های گوشی است هرگز خودکار پنهان نمی‌شود.</string>
+    <string name="default_rule_mobile">شماره‌های موبایل همیشه در صندوق</string>
+    <string name="default_rule_mobile_hint">پیامک شماره‌ای که با ۰۹ شروع می‌شود هرگز خودکار پنهان نمی‌شود.</string>
+    <string name="default_rule_otp">رمز یکبار و پیامک بانکی همیشه در صندوق</string>
+    <string name="default_rule_otp_hint">حتی از فرستنده‌ای که آن را تبلیغ شمرده‌اید.</string>
+    <string name="default_rule_promo">پنهان کردن تبلیغ‌ها</string>
+    <string name="default_rule_promo_hint">تبلیغ قطعی به پوشهٔ تبلیغات می‌رود. خاموش که باشد، همه‌چیز در صندوق می‌ماند.</string>
+    <string name="default_rule_scam">پنهان کردن کلاهبرداری‌ها</string>
+    <string name="default_rule_scam_hint">پیامکی که نشانهٔ قطعی جعل دارد به پوشهٔ کلاهبرداری می‌رود. خاموش که باشد، در صندوق می‌ماند، ولی هشدارش سر جایش است.</string>
 
     <!-- انتخاب، حذف و سطل (ADR-0010) -->
     <string name="select">انتخاب</string>
