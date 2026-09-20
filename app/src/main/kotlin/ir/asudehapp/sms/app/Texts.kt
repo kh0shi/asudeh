@@ -103,6 +103,8 @@ object Texts {
             ReasonCode.PROMO_WORDS -> text(R.string.reason_promo_words, arg(0))
             ReasonCode.BLOCKED_BY_USER -> text(R.string.reason_blocked, sender)
             ReasonCode.ALLOWED_BY_USER -> text(R.string.reason_allowed, sender)
+            ReasonCode.ALLOWED_KEYWORD -> text(R.string.reason_allowed_keyword, arg(0))
+            ReasonCode.BLOCKED_KEYWORD -> text(R.string.reason_blocked_keyword, arg(0))
             ReasonCode.OTP_PATTERN -> text(R.string.reason_otp)
             ReasonCode.BANK_PATTERN -> text(R.string.reason_bank)
             ReasonCode.SERVICE_PATTERN -> text(R.string.reason_service)
@@ -140,11 +142,16 @@ object Texts {
         }
     }
 
-    /** تاریخ شمسی و ارقام فارسی، پیش‌فرض رابط‌اند (D50). */
+    /**
+     * تاریخ شمسی و ارقام فارسی، پیش‌فرض رابط‌اند (D50). پیامک امروز فقط ساعتش
+     * را نشان می‌دهد؛ برای پیامک قدیمی‌تر، با [withClock] ساعت هم کنار تاریخ
+     * می‌آید (پیش‌فرض تنظیمات).
+     */
     @Composable
-    fun timestamp(millis: Long): String = digits(timestampText(millis))
+    fun timestamp(millis: Long, withClock: Boolean = false): String =
+        digits(timestampText(millis, withClock))
 
-    private fun timestampText(millis: Long): String {
+    private fun timestampText(millis: Long, withClock: Boolean): String {
         val calendar = Calendar.getInstance().apply { timeInMillis = millis }
         val date = JalaliDate.of(
             calendar.get(Calendar.YEAR),
@@ -154,15 +161,14 @@ object Texts {
         val today = Calendar.getInstance()
         val sameDay = today.get(Calendar.YEAR) == calendar.get(Calendar.YEAR) &&
             today.get(Calendar.DAY_OF_YEAR) == calendar.get(Calendar.DAY_OF_YEAR)
-        return if (sameDay) {
-            PersianText.persianDigits(
-                "%02d:%02d".format(
-                    calendar.get(Calendar.HOUR_OF_DAY),
-                    calendar.get(Calendar.MINUTE),
-                ),
-            )
-        } else {
-            date.formatShort()
+        val clock = "%02d:%02d".format(
+            calendar.get(Calendar.HOUR_OF_DAY),
+            calendar.get(Calendar.MINUTE),
+        )
+        return when {
+            sameDay -> clock
+            withClock -> "${date.formatShort()} $clock"
+            else -> date.formatShort()
         }
     }
 }

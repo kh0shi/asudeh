@@ -152,6 +152,22 @@ data class SenderRuleEntity(
     val createdAt: Long,
 )
 
+/**
+ * کلیدواژه‌های `Allowlist` و `Blocklist` کاربر (ADR-0012): «هر پیامکی که این
+ * واژه را دارد تبلیغ است» یا «همیشه در صندوق بماند».
+ *
+ * کلید اصلی، **شکل یکسان‌شدهٔ** واژه است (`KeywordMatch.key`)، تا «لغو ۱۱» و
+ * «لغو۱۱» دو قاعدهٔ جدا نشوند. متن خامِ آن‌طور که کاربر نوشته در [keyword]
+ * می‌ماند و همان نشان داده می‌شود.
+ */
+@Entity(tableName = "keyword_rule")
+data class KeywordRuleEntity(
+    @PrimaryKey val normalized: String,
+    val keyword: String,
+    val kind: SenderRuleKind,
+    val createdAt: Long,
+)
+
 /** خلاصهٔ یک گفتگو **در یک پوشه**. یک گفتگو می‌تواند در چند پوشه دیده شود (`SplitThread`). */
 data class ThreadSummary(
     val threadId: Long,

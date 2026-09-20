@@ -20,9 +20,12 @@ import androidx.core.view.WindowCompat
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalClipboardManager
 import ir.asudehapp.sms.data.ThemeMode
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.SmsUri
+import ir.asudehapp.sms.telephony.ActiveConversation
 import ir.asudehapp.sms.ui.AsudehTheme
 
 class MainActivity : ComponentActivity() {
@@ -51,7 +54,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        // از اندروید ۱۵ با targetSdk 35 پنجره در هر حال تا لبه‌ها کشیده می‌شود و
+        // دیگر با باز شدن کیبورد کوچک نمی‌شود. پس همه‌جا همین حالت را داریم و
+        // خود Compose با `imePadding` جای کیبورد را باز می‌کند؛ وگرنه جعبهٔ
+        // نوشتن زیر کیبورد می‌رفت.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         defaultAppState = isDefaultSmsApp()
         // کسی که آسوده را از پیش پیش‌فرض کرده، صفحهٔ خوش‌آمد را لازم ندارد.
         if (defaultAppState) model.finishOnboarding()
@@ -68,9 +75,14 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
             }
             AsudehTheme(darkTheme = dark, dynamicColor = settings.dynamicColor) {
+                val clipboard = LocalClipboardManager.current
                 CompositionLocalProvider(
                     LocalPersianDigits provides settings.persianDigits,
                     LocalContactNames provides names,
+                    // هرچه کپی شود، ارقامش لاتین است.
+                    LocalClipboardManager provides remember(clipboard) {
+                        LatinDigitsClipboard(clipboard)
+                    },
                 ) {
                     AsudehApp(
                         model = model,
@@ -96,12 +108,20 @@ class MainActivity : ComponentActivity() {
 
     /** پیش‌نویس با رفتن اپ به پس‌زمینه از دست نمی‌رود (D53). */
     override fun onStop() {
+        // اپ دیگر روی صفحه نیست، پس پیامک تازه باید اعلان بگیرد.
+        ActiveConversation.clear()
         model.saveDraftNow()
         super.onStop()
     }
 
+    override fun onStart() {
+        super.onStart()
+        ActiveConversation.set(model.openThreadId())
+    }
+
     override fun onResume() {
         super.onResume()
+        ActiveConversation.set(model.openThreadId())
         val wasDefault = defaultAppState
         defaultAppState = isDefaultSmsApp()
         // از تنظیمات گوشی پیش‌فرض شده، نه از دکمهٔ اپ.

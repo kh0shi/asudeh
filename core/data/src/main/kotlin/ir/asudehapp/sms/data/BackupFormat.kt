@@ -33,10 +33,15 @@ object BackupFormat {
         val appVersion: String,
         val settings: Map<String, String> = emptyMap(),
         val rules: List<Rule> = emptyList(),
+        /** کلیدواژه‌های «قواعد من» (ADR-0012). پشتیبان‌های قدیمی‌تر این را ندارند. */
+        val keywordRules: List<KeywordRule> = emptyList(),
     )
 
     @Serializable
     data class Rule(val address: String, val kind: String, val createdAt: Long)
+
+    @Serializable
+    data class KeywordRule(val keyword: String, val kind: String, val createdAt: Long)
 
     @Serializable
     data class Sms(

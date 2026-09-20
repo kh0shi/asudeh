@@ -14,5 +14,8 @@ kotlin {
 }
 
 dependencies {
+    // فقط برای یکسان‌سازی متن هنگام تطبیق کلیدواژه‌های «قواعد من» (ADR-0012).
+    api(project(":core:persian"))
+
     testImplementation(libs.junit)
 }

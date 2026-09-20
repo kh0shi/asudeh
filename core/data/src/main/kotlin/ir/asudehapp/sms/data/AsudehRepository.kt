@@ -10,14 +10,18 @@ import ir.asudehapp.sms.classifier.receive.RawSms
 import ir.asudehapp.sms.model.Addresses
 import ir.asudehapp.sms.model.Category
 import ir.asudehapp.sms.model.Confidence
+import ir.asudehapp.sms.model.DefaultRule
+import ir.asudehapp.sms.model.DefaultRules
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.MessageInput
 import ir.asudehapp.sms.model.Origin
 import ir.asudehapp.sms.model.ReasonCode
 import ir.asudehapp.sms.model.UserRules
+import ir.asudehapp.sms.persian.KeywordMatch
 import ir.asudehapp.sms.persian.SearchText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
@@ -70,6 +74,8 @@ class AsudehRepository(
     private val indexDatabase: IndexDatabase = IndexDatabase.get(appContext),
     private val rulesDatabase: RulesDatabase = RulesDatabase.get(appContext),
     val rules: CompiledRulePack = CompiledRulePack.bundled(),
+    /** برای دانستن اینکه کاربر کدام قاعدهٔ پیش‌فرض را خاموش کرده است (ADR-0012). */
+    private val settings: AsudehSettings = AsudehSettings(appContext),
 ) {
     val store: TelephonyProviderStore = TelephonyProviderStore(appContext)
     val mms: MmsProviderStore = MmsProviderStore(appContext)
@@ -80,6 +86,7 @@ class AsudehRepository(
     private val trashDao: TrashDao get() = indexDatabase.trash()
     private val scheduleDao: ScheduledMessageDao get() = indexDatabase.scheduled()
     private val ruleDao: SenderRuleDao get() = rulesDatabase.senderRules()
+    private val keywordDao: KeywordRuleDao get() = rulesDatabase.keywordRules()
 
     val index: MessageIndex get() = RoomMessageIndex(dao, rules.pack.version)
 
@@ -93,12 +100,74 @@ class AsudehRepository(
 
     suspend fun countNow(folder: Folder): Int = dao.count(folder)
 
-    fun userRules(): Flow<UserRules> = ruleDao.observeAll().map { it.toUserRules() }
+    fun userRules(): Flow<UserRules> =
+        combine(ruleDao.observeAll(), keywordDao.observeAll(), settings.changes()) { senders, keywords, _ ->
+            buildUserRules(senders, keywords)
+        }
 
-    suspend fun currentUserRules(): UserRules = ruleDao.all().toUserRules()
+    suspend fun currentUserRules(): UserRules = buildUserRules(ruleDao.all(), keywordDao.all())
 
     /** قواعد کاربر، برای صفحهٔ «قواعد من» (D45، اصل ۵). */
     fun senderRules(): Flow<List<SenderRuleEntity>> = ruleDao.observeAll()
+
+    /** کلیدواژه‌های کاربر، برای صفحهٔ «قواعد من» (ADR-0012). */
+    fun keywordRules(): Flow<List<KeywordRuleEntity>> = keywordDao.observeAll()
+
+    /**
+     * قواعد کاربر و قاعده‌های پیش‌فرضِ خاموش‌نشده، یک‌جا. `Router` فرقی بین این
+     * دو نمی‌گذارد؛ تفاوتشان فقط در صفحهٔ «قواعد من» دیده می‌شود (ADR-0012).
+     */
+    private fun buildUserRules(
+        senders: List<SenderRuleEntity>,
+        keywords: List<KeywordRuleEntity>,
+    ): UserRules {
+        val offKeywords = settings.disabledDefaultKeywords
+        val defaultAllow = DefaultRules.ALLOW_KEYWORDS
+            .filterNot { DefaultRules.allowKeywordId(it) in offKeywords }
+        val defaultBlock = DefaultRules.BLOCK_KEYWORDS
+            .filterNot { DefaultRules.blockKeywordId(it) in offKeywords }
+        return UserRules(
+            allowlist = senders.filter { it.kind == SenderRuleKind.ALLOW }.mapTo(mutableSetOf()) { it.address },
+            blocklist = senders.filter { it.kind == SenderRuleKind.BLOCK }.mapTo(mutableSetOf()) { it.address },
+            allowKeywords = keywords.filter { it.kind == SenderRuleKind.ALLOW }
+                .mapTo(mutableSetOf()) { it.keyword } + defaultAllow,
+            blockKeywords = keywords.filter { it.kind == SenderRuleKind.BLOCK }
+                .mapTo(mutableSetOf()) { it.keyword } + defaultBlock,
+            disabledDefaults = settings.disabledDefaultRules.mapNotNullTo(mutableSetOf()) { name ->
+                runCatching { DefaultRule.valueOf(name) }.getOrNull()
+            },
+        )
+    }
+
+    /**
+     * افزودن یک قاعدهٔ کلیدواژه (ADR-0012). خروجی `false` یعنی واژه بعد از
+     * یکسان‌سازی چیزی برای جستجو ندارد.
+     */
+    suspend fun addKeywordRule(keyword: String, kind: SenderRuleKind): Boolean {
+        val normalized = KeywordMatch.key(keyword)
+        if (normalized.isEmpty()) return false
+        keywordDao.put(
+            KeywordRuleEntity(
+                normalized = normalized,
+                keyword = keyword.trim(),
+                kind = kind,
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+        return true
+    }
+
+    suspend fun forgetKeywordRule(normalized: String) {
+        keywordDao.remove(normalized)
+    }
+
+    /** افزودن دستی یک سرشماره به فهرست سفید یا سیاه، از صفحهٔ «قواعد من». */
+    suspend fun addSenderRule(address: String, kind: SenderRuleKind): Boolean {
+        val normalized = Addresses.normalize(address.trim())
+        if (normalized.isEmpty()) return false
+        ruleDao.put(SenderRuleEntity(normalized, kind, System.currentTimeMillis()))
+        return true
+    }
 
     suspend fun markThreadRead(threadId: Long, folder: Folder) {
         val keys = dao.unreadInThread(threadId, folder)
@@ -802,7 +871,4 @@ private fun MessageEntity.toTrashed(deletedAt: Long): TrashedMessageEntity = Tra
     deletedAt = deletedAt,
 )
 
-private fun List<SenderRuleEntity>.toUserRules(): UserRules = UserRules(
-    allowlist = filter { it.kind == SenderRuleKind.ALLOW }.mapTo(mutableSetOf()) { it.address },
-    blocklist = filter { it.kind == SenderRuleKind.BLOCK }.mapTo(mutableSetOf()) { it.address },
-)
+

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -28,11 +29,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import ir.asudehapp.sms.data.BackupException
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -163,14 +164,7 @@ fun AsudehApp(
                         SelectionActions(model, destination, isDefaultApp, selectedThreads)
                     } else {
                         when (val current = destination) {
-                            Destination.Home -> {
-                                IconButton(onClick = { model.navigate(Destination.Search) }) {
-                                    Icon(Icons.Default.Search, stringResource(R.string.search))
-                                }
-                                IconButton(onClick = { model.navigate(Destination.Settings) }) {
-                                    Icon(Icons.Default.Settings, stringResource(R.string.settings))
-                                }
-                            }
+                            Destination.Home -> HomeActions(model)
                             is Destination.Conversation -> ConversationActions(model, conversation, current.folder)
                             else -> Unit
                         }
@@ -187,13 +181,15 @@ fun AsudehApp(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Box(Modifier.padding(padding)) {
+        // فاصلهٔ نوارهای سیستم را همین‌جا مصرف می‌کنیم تا صفحهٔ گفتگو بتواند با
+        // `imePadding` فقط به اندازهٔ کیبورد بالا بیاید، نه کیبورد به‌علاوهٔ
+        // نوار ناوبری.
+        Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
             when (val current = destination) {
                 Destination.Home -> HomeScreen(
                     model = model,
                     isDefaultApp = isDefaultApp,
                     onBecomeDefault = onBecomeDefault,
-                    onOpenFolder = { model.navigate(Destination.FolderView(it)) },
                     onOpenThread = {
                         model.navigate(Destination.Conversation(it, Folder.INBOX))
                     },
@@ -230,6 +226,59 @@ fun AsudehApp(
     SweepOfferDialog(model)
     SuggestionSampleDialog(model)
     CrashReportDialog(model)
+}
+
+/**
+ * نوار بالای صفحهٔ اصلی: جستجو، تنظیمات، و منوی سه‌نقطه.
+ *
+ * پوشه‌های «تبلیغات» و «کلاهبرداری» در همین منو هستند، نه بالای فهرست
+ * پیامک‌ها: آن ردیف‌ها هر روز جلوی چشم بودند بی‌آنکه هر روز به کارشان بیاید
+ * (D42 الف). شمار خوانده‌نشده‌ها کنار نامشان می‌آید تا چیزی پنهان نماند.
+ */
+@Composable
+private fun HomeActions(model: AsudehViewModel) {
+    val promoUnread by model.promoUnread.collectAsState()
+    val scamCount by model.scamCount.collectAsState()
+    var menu by remember { mutableStateOf(false) }
+
+    IconButton(onClick = { model.navigate(Destination.Search) }) {
+        Icon(Icons.Default.Search, stringResource(R.string.search))
+    }
+    IconButton(onClick = { model.navigate(Destination.Settings) }) {
+        Icon(Icons.Default.Settings, stringResource(R.string.settings))
+    }
+    IconButton(onClick = { menu = true }) {
+        Icon(Icons.Default.MoreVert, stringResource(R.string.more))
+    }
+    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        FolderMenuItem(
+            title = stringResource(R.string.folder_promo),
+            trailing = if (promoUnread > 0) Texts.count(R.plurals.new_count, promoUnread) else "",
+        ) {
+            menu = false
+            model.navigate(Destination.FolderView(Folder.PROMO))
+        }
+        FolderMenuItem(
+            title = stringResource(R.string.folder_scam),
+            trailing = if (scamCount > 0) Texts.count(R.plurals.new_count, scamCount) else "",
+        ) {
+            menu = false
+            model.navigate(Destination.FolderView(Folder.SCAM))
+        }
+    }
+}
+
+@Composable
+private fun FolderMenuItem(title: String, trailing: String, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(title) },
+        trailingIcon = {
+            if (trailing.isNotEmpty()) {
+                Text(trailing, style = MaterialTheme.typography.labelMedium)
+            }
+        },
+        onClick = onClick,
+    )
 }
 
 /** برداشتن انتخاب، هر کجا که هستیم. */
@@ -650,13 +699,10 @@ private fun HomeScreen(
     model: AsudehViewModel,
     isDefaultApp: Boolean,
     onBecomeDefault: () -> Unit,
-    onOpenFolder: (Folder) -> Unit,
     onOpenThread: (Long) -> Unit,
 ) {
     val threads by model.inboxThreads.collectAsState()
     val selectedThreads by model.selectedThreads.collectAsState()
-    val promoUnread by model.promoUnread.collectAsState()
-    val scamCount by model.scamCount.collectAsState()
     val syncing by model.syncing.collectAsState()
     val syncFailed by model.syncFailed.collectAsState()
 
@@ -677,26 +723,6 @@ private fun HomeScreen(
                 )
             }
         }
-
-        // یک ردیف ثابت بالای فهرست، بدون تب و بدون منوی کشویی (D42 الف).
-        item {
-            FolderRow(
-                title = stringResource(R.string.folder_promo),
-                trailing = if (promoUnread > 0) Texts.count(R.plurals.new_count, promoUnread) else "",
-                onClick = { onOpenFolder(Folder.PROMO) },
-            )
-        }
-        // ردیف کلاهبرداری فقط وقتی دیده می‌شود که پوشه خالی نباشد (D42 الف).
-        if (scamCount > 0) {
-            item {
-                FolderRow(
-                    title = stringResource(R.string.folder_scam),
-                    trailing = Texts.count(R.plurals.new_count, scamCount),
-                    onClick = { onOpenFolder(Folder.SCAM) },
-                )
-            }
-        }
-        item { HorizontalDivider() }
 
         if (threads.isEmpty() && !syncing) {
             item { EmptyState(stringResource(R.string.empty_inbox)) }
@@ -787,22 +813,6 @@ private fun DefaultAppCard(onBecomeDefault: () -> Unit) {
             Text(stringResource(R.string.not_default_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.not_default_body), style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = onBecomeDefault) { Text(stringResource(R.string.become_default)) }
-        }
-    }
-}
-
-@Composable
-private fun FolderRow(title: String, trailing: String, onClick: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-        if (trailing.isNotEmpty()) {
-            Text(trailing, style = MaterialTheme.typography.labelMedium)
         }
     }
 }

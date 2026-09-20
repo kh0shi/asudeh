@@ -21,9 +21,9 @@ import ir.asudehapp.sms.telephony.TelephonyHost
  */
 class AsudehApplication : Application(), TelephonyHost {
 
-    override val repository: AsudehRepository by lazy { AsudehRepository(this) }
-
     override val settings: AsudehSettings by lazy { AsudehSettings(this) }
+
+    override val repository: AsudehRepository by lazy { AsudehRepository(this, settings = settings) }
 
     override val notifier: AsudehNotifier by lazy {
         AsudehNotifier(

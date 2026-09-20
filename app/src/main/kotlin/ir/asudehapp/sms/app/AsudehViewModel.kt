@@ -10,20 +10,24 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ir.asudehapp.sms.data.BackupException
 import ir.asudehapp.sms.data.DigestFrequency
+import ir.asudehapp.sms.data.KeywordRuleEntity
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.data.MmsPartInfo
 import ir.asudehapp.sms.data.MessageKey
 import ir.asudehapp.sms.data.MoveSuggestion
 import ir.asudehapp.sms.data.ScheduledMessageEntity
 import ir.asudehapp.sms.data.SenderRuleEntity
+import ir.asudehapp.sms.data.SenderRuleKind
 import ir.asudehapp.sms.data.TrashedMessageEntity
 import ir.asudehapp.sms.data.ThemeMode
 import ir.asudehapp.sms.data.ThreadSummary
 import ir.asudehapp.sms.mms.MmsPart
 import ir.asudehapp.sms.model.Addresses
+import ir.asudehapp.sms.model.DefaultRule
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.persian.ScheduleChoice
 import ir.asudehapp.sms.persian.SendSchedule
+import ir.asudehapp.sms.telephony.ActiveConversation
 import ir.asudehapp.sms.telephony.Contacts
 import ir.asudehapp.sms.telephony.DigestScheduler
 import ir.asudehapp.sms.telephony.MmsDownloader
@@ -137,6 +141,14 @@ data class SettingsState(
     val persianDigits: Boolean = true,
     val deliveryReports: Boolean = false,
     val showReasonEverywhere: Boolean = false,
+    /** ساعت هر پیامک، زیر خودش. */
+    val showMessageClock: Boolean = true,
+    val mmsAutoDownload: Boolean = true,
+    val mmsSending: Boolean = true,
+    /** نام‌های `DefaultRule`ی که خاموش شده‌اند (ADR-0012). */
+    val disabledDefaultRules: Set<String> = emptySet(),
+    /** شناسهٔ کلیدواژه‌های پیش‌فرضی که خاموش شده‌اند (ADR-0012). */
+    val disabledDefaultKeywords: Set<String> = emptySet(),
 )
 
 /** پیام کوتاهی که پس از یک کار نشان داده می‌شود (Snackbar). */
@@ -287,6 +299,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     val senderRules: StateFlow<List<SenderRuleEntity>> = repository.senderRules()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
 
+    /** کلیدواژه‌های «قواعد من» (ADR-0012). */
+    val keywordRules: StateFlow<List<KeywordRuleEntity>> = repository.keywordRules()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -343,6 +359,11 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         persianDigits = settingsStore.persianDigits,
         deliveryReports = settingsStore.deliveryReports,
         showReasonEverywhere = settingsStore.showReasonEverywhere,
+        showMessageClock = settingsStore.showMessageClock,
+        mmsAutoDownload = settingsStore.mmsAutoDownload,
+        mmsSending = settingsStore.mmsSending,
+        disabledDefaultRules = settingsStore.disabledDefaultRules,
+        disabledDefaultKeywords = settingsStore.disabledDefaultKeywords,
     )
 
     // ——— اولین اجرا و پیشنهاد جابه‌جایی ———
@@ -493,6 +514,8 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     // ——— گفتگو ———
 
     private fun openConversation(target: Destination.Conversation) {
+        // تا وقتی این گفتگو روی صفحه است، پیامک تازه‌اش اعلان نمی‌گیرد.
+        ActiveConversation.set(target.threadId)
         viewModelScope.launch {
             repository.markThreadRead(target.threadId, target.folder)
             container.notifier.cancelThread(target.threadId)
@@ -538,6 +561,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     /** پیش‌نویس گفتگو، وقتی کاربر از آن بیرون می‌رود (D53). */
     private fun leaveConversation() {
+        ActiveConversation.clear()
         _selectedMessages.value = emptySet()
         val state = _conversation.value
         val current = _stack.value.last()
@@ -709,6 +733,34 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun forgetRule(address: String) {
         viewModelScope.launch { repository.forgetRule(address) }
+    }
+
+    // ——— «قواعد من»: افزودن دستی و قواعد پیش‌فرض (ADR-0012) ———
+
+    /** افزودن سرشماره به فهرست سفید یا سیاه، از خود صفحهٔ «قواعد من». */
+    fun addSenderRule(address: String, kind: SenderRuleKind) {
+        if (address.isBlank()) return
+        viewModelScope.launch { repository.addSenderRule(address, kind) }
+    }
+
+    fun addKeywordRule(keyword: String, kind: SenderRuleKind) {
+        if (keyword.isBlank()) return
+        viewModelScope.launch { repository.addKeywordRule(keyword, kind) }
+    }
+
+    fun forgetKeywordRule(normalized: String) {
+        viewModelScope.launch { repository.forgetKeywordRule(normalized) }
+    }
+
+    /** خاموش و روشن کردن یک قاعدهٔ پیش‌فرض. هیچ پیامکی با این کار جابه‌جا نمی‌شود. */
+    fun setDefaultRuleEnabled(rule: DefaultRule, enabled: Boolean) {
+        val current = settingsStore.disabledDefaultRules
+        settingsStore.disabledDefaultRules = if (enabled) current - rule.name else current + rule.name
+    }
+
+    fun setDefaultKeywordEnabled(id: String, enabled: Boolean) {
+        val current = settingsStore.disabledDefaultKeywords
+        settingsStore.disabledDefaultKeywords = if (enabled) current - id else current + id
     }
 
     /** `Unsub11`، فقط پس از تأیید صریح کاربر (D28). */
@@ -948,6 +1000,18 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         settingsStore.showReasonEverywhere = enabled
     }
 
+    fun setShowMessageClock(enabled: Boolean) {
+        settingsStore.showMessageClock = enabled
+    }
+
+    fun setMmsAutoDownload(enabled: Boolean) {
+        settingsStore.mmsAutoDownload = enabled
+    }
+
+    fun setMmsSending(enabled: Boolean) {
+        settingsStore.mmsSending = enabled
+    }
+
     // ——— پشتیبان (D57) ———
 
     fun exportBackup(uri: Uri) {
@@ -1006,7 +1070,12 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         resolveNames(all)
     }
 
+    /** گفتگوی بازِ همین لحظه؛ صفر یعنی هیچ‌کدام (`ActiveConversation`). */
+    fun openThreadId(): Long =
+        if (_stack.value.last() is Destination.Conversation) _conversation.value.threadId else 0L
+
     override fun onCleared() {
+        ActiveConversation.clear()
         saveDraftNow()
         runCatching { getApplication<Application>().contentResolver.unregisterContentObserver(observer) }
         super.onCleared()

@@ -9,8 +9,11 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.RemoteInput
@@ -79,11 +82,21 @@ class AsudehNotifier(
     @SuppressLint("MissingPermission")
     override suspend fun notify(message: ClassifiedMessage) {
         if (message.placement.notification == NotificationBehavior.NONE) return
-        if (!canNotify()) return
-        NotificationChannels.ensure(context)
 
         val channel = channelFor(message)
         val silent = message.placement.notification == NotificationBehavior.SILENT
+
+        // گفتگو همین حالا باز است: پیامک جلوی چشم کاربر می‌نشیند، پس اعلان
+        // چیزی اضافه نمی‌کند و فقط صدایش پخش می‌شود.
+        if (ActiveConversation.isOpen(message.threadId)) {
+            if (!silent) playChannelSound(channel)
+            cancelThread(message.threadId)
+            return
+        }
+
+        if (!canNotify()) return
+        NotificationChannels.ensure(context)
+
         val category = message.verdict.category
         val raw = message.raw
 
@@ -266,6 +279,29 @@ class AsudehNotifier(
             )
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(DIGEST_ID, notification) }
+    }
+
+    /**
+     * صدای همان کانالی که اعلان می‌گرفت، بدون خود اعلان. اگر کانال یا صدایش
+     * در دسترس نباشد، صدای پیش‌فرض اعلان گوشی پخش می‌شود.
+     */
+    private fun playChannelSound(channelId: String) {
+        runCatching {
+            val sound = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannels.ensure(context)
+                context.getSystemService(NotificationManager::class.java)
+                    ?.getNotificationChannel(channelId)
+                    ?.sound
+            } else {
+                null
+            } ?: Settings.System.DEFAULT_NOTIFICATION_URI
+            RingtoneManager.getRingtone(context, sound)?.apply {
+                audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            }?.play()
+        }
     }
 
     /** برداشتن اعلان یک گفتگو، وقتی کاربر آن را باز کرده یا از اعلان پاسخ داده است. */

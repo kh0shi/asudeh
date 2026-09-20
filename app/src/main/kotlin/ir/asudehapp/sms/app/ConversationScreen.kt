@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -29,7 +31,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -58,6 +59,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
@@ -166,7 +170,15 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
         if (last >= 0) listState.scrollToItem(last)
     }
 
-    Column(Modifier.fillMaxSize()) {
+    // جای کیبورد از خود Compose گرفته می‌شود، چون پنجره تا لبه‌ها کشیده شده و
+    // با باز شدن کیبورد کوچک نمی‌شود (MainActivity). فاصلهٔ نوار ناوبری را
+    // `Scaffold` داده و `consumeWindowInsets` آن را کم کرده است، پس اینجا دو
+    // بار حساب نمی‌شود.
+    Column(
+        Modifier
+            .fillMaxSize()
+            .imePadding(),
+    ) {
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
             items(items.size) { position ->
                 when (val item = items[position]) {
@@ -177,6 +189,7 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                         showSender = state.isGroup,
                         showSim = multiSim,
                         showReason = settings.showReasonEverywhere,
+                        showClock = settings.showMessageClock,
                         selected = MessageKey(item.message.kind, item.message.providerId) in selected,
                         selectionMode = selected.isNotEmpty(),
                         isDefaultApp = isDefaultApp,
@@ -213,6 +226,7 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                                     showSender = state.isGroup,
                                     showSim = multiSim,
                                     showReason = true,
+                                    showClock = settings.showMessageClock,
                                     selected = MessageKey(hidden.kind, hidden.providerId) in selected,
                                     selectionMode = selected.isNotEmpty(),
                                     isDefaultApp = isDefaultApp,
@@ -250,8 +264,11 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             preparing = preparing,
             sims = sims,
             multiSim = multiSim,
-            enabled = isDefaultApp && state.participants.isNotEmpty(),
+            // بدون MMS، گفتگوی گروهی فرستادنی نیست: گروه در هر حال MMS است (D26).
+            enabled = isDefaultApp && state.participants.isNotEmpty() &&
+                (!state.isGroup || settings.mmsSending),
             isDefaultApp = isDefaultApp,
+            mmsSending = settings.mmsSending,
         )
     }
 
@@ -297,12 +314,14 @@ private fun Composer(
     multiSim: Boolean,
     enabled: Boolean,
     isDefaultApp: Boolean,
+    mmsSending: Boolean,
 ) {
     val context = LocalContext.current
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let(model::attach)
     }
     var simMenu by remember { mutableStateOf(false) }
+    var sendMenu by remember { mutableStateOf(false) }
     val phonePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             model.refreshSims()
@@ -323,6 +342,14 @@ private fun Composer(
                 stringResource(R.string.new_conversation_group_hint),
                 Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                 style = MaterialTheme.typography.labelSmall,
+            )
+        }
+        if (state.isGroup && isDefaultApp && !mmsSending) {
+            Text(
+                stringResource(R.string.mms_sending_off),
+                Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
             )
         }
         if (preparing) {
@@ -398,11 +425,14 @@ private fun Composer(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-                onClick = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                enabled = enabled && !preparing,
-            ) {
-                Icon(Icons.Default.Add, stringResource(R.string.attach_image))
+            // پیوست تصویر یعنی MMS؛ با خاموش بودن MMS این دکمه هم نیست.
+            if (mmsSending) {
+                IconButton(
+                    onClick = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    enabled = enabled && !preparing,
+                ) {
+                    Icon(Icons.Default.Add, stringResource(R.string.attach_image))
+                }
             }
             OutlinedTextField(
                 value = draft,
@@ -412,22 +442,72 @@ private fun Composer(
                 placeholder = { Text(stringResource(R.string.compose_hint)) },
                 maxLines = 5,
             )
-            // «بعداً بفرست» فقط برای متن است؛ پیوست زمان‌بندی نمی‌شود (ADR-0011).
-            IconButton(
-                onClick = model::requestSchedule,
-                enabled = enabled && !preparing && draft.isNotBlank() && attachments.isEmpty(),
-            ) {
-                Icon(Icons.Default.DateRange, stringResource(R.string.schedule_send))
-            }
-            IconButton(
-                onClick = model::send,
+            SendButton(
                 enabled = enabled && !preparing && (draft.isNotBlank() || attachments.isNotEmpty()),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.send))
-            }
+                // «بعداً بفرست» فقط برای متن است؛ پیوست زمان‌بندی نمی‌شود (ADR-0011).
+                canSchedule = enabled && !preparing && draft.isNotBlank() && attachments.isEmpty(),
+                menuOpen = sendMenu,
+                onSend = model::send,
+                onOpenMenu = { sendMenu = true },
+                onDismissMenu = { sendMenu = false },
+                onSchedule = {
+                    sendMenu = false
+                    model.requestSchedule()
+                },
+            )
         }
     }
 }
+
+/**
+ * دکمهٔ ارسال. «بعداً بفرست» دکمهٔ جدا ندارد: با نگه داشتن همین دکمه دیده
+ * می‌شود، چون کار همیشگی فرستادن است و زمان‌بندی استثناست.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun SendButton(
+    enabled: Boolean,
+    canSchedule: Boolean,
+    menuOpen: Boolean,
+    onSend: () -> Unit,
+    onOpenMenu: () -> Unit,
+    onDismissMenu: () -> Unit,
+    onSchedule: () -> Unit,
+) {
+    Box {
+        Box(
+            Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .combinedClickable(
+                    enabled = enabled || canSchedule,
+                    onClick = { if (enabled) onSend() },
+                    onLongClick = { if (canSchedule) onOpenMenu() },
+                    role = Role.Button,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.Send,
+                stringResource(R.string.send),
+                tint = if (enabled) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
+                },
+            )
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = onDismissMenu) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.schedule_send)) },
+                onClick = onSchedule,
+            )
+        }
+    }
+}
+
+/** پررنگی دکمهٔ خاموش، همان عددی که Material 3 برای محتوای غیرفعال دارد. */
+private const val DISABLED_ALPHA = 0.38f
 
 /**
  * وقتی گفتگو از `Inbox` باز می‌شود، پیامک‌های پوشه‌های دیگر جمع می‌شوند. وقتی از
@@ -491,10 +571,11 @@ private fun HiddenRunBar(folder: Folder, count: Int, expanded: Boolean, onToggle
 /**
  * یک پیامک در گفتگو.
  *
- * لمس کوتاه «چرا اینجاست؟» را باز می‌کند و لمس طولانی منوی خود پیامک را
- * (کپی، انتخاب متن، اشتراک‌گذاری، حذف). وقتی چند پیامک انتخاب شده‌اند، لمس
- * کوتاه هم انتخاب را عوض می‌کند، چون در حالت انتخاب هیچ لمسی نباید صفحهٔ
- * دیگری باز کند.
+ * لمس کوتاه منوی خود پیامک را باز می‌کند (کپی، اشتراک‌گذاری، حذف، «چرا
+ * اینجاست؟»)، چون کاری که کاربر بیشتر می‌خواهد همین است. لمس طولانی مثل تلگرام
+ * پیامک را انتخاب می‌کند، و لمس طولانیِ دوباره روی پیامکِ انتخاب‌شده، انتخاب
+ * بخشی از متن را باز می‌کند. در حالت انتخاب، لمس کوتاه هم فقط انتخاب را عوض
+ * می‌کند و هیچ صفحهٔ دیگری باز نمی‌شود.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -505,6 +586,7 @@ private fun MessageBubble(
     showSender: Boolean,
     showSim: Boolean,
     showReason: Boolean,
+    showClock: Boolean,
     selected: Boolean,
     selectionMode: Boolean,
     isDefaultApp: Boolean,
@@ -559,9 +641,11 @@ private fun MessageBubble(
                             RoundedCornerShape(12.dp),
                         )
                         .combinedClickable(
-                            onClick = { if (selectionMode) model.toggleMessage(message) else onWhy() },
+                            onClick = { if (selectionMode) model.toggleMessage(message) else menu = true },
+                            // نگه داشتن: انتخاب. نگه داشتن روی پیامکِ انتخاب‌شده:
+                            // برداشتن بخشی از متن (مثل تلگرام).
                             onLongClick = {
-                                if (selectionMode) model.toggleMessage(message) else menu = true
+                                if (selected) onSelectText() else model.toggleMessage(message)
                             },
                         )
                         .padding(12.dp),
@@ -610,7 +694,10 @@ private fun MessageBubble(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(Texts.timestamp(message.dateReceived), style = MaterialTheme.typography.labelSmall)
+            Text(
+                Texts.timestamp(message.dateReceived, withClock = showClock),
+                style = MaterialTheme.typography.labelSmall,
+            )
             if (showSim) {
                 SimCards.slotOf(context, message.subId)?.let { slot ->
                     Text(
@@ -634,11 +721,10 @@ private fun MessageBubble(
                     stringResource(R.string.send_pending),
                     style = MaterialTheme.typography.labelSmall,
                 )
-                SendStatus.DELIVERED -> Text(
-                    stringResource(R.string.delivered),
-                    style = MaterialTheme.typography.labelSmall,
-                )
-                SendStatus.SENT, SendStatus.NONE -> Unit
+                // یک تیک: فرستاده شد. دو تیک: به گیرنده رسید (D53).
+                SendStatus.SENT -> Tick(SENT_TICK, stringResource(R.string.sent), dim = true)
+                SendStatus.DELIVERED -> Tick(DELIVERED_TICK, stringResource(R.string.delivered), dim = false)
+                SendStatus.NONE -> Unit
             }
             if (onRescue != null) {
                 TextButton(onClick = onRescue) { Text(stringResource(R.string.rescue)) }
@@ -647,7 +733,29 @@ private fun MessageBubble(
     }
 }
 
-/** منوی خود پیامک، روی لمس طولانی. */
+/**
+ * وضعیت ارسال، به‌صورت تیک. خود نویسه خوانده نمی‌شود، پس متنش برای صفحه‌خوان
+ * جداگانه گفته می‌شود.
+ */
+@Composable
+private fun Tick(glyph: String, label: String, dim: Boolean) {
+    Text(
+        glyph,
+        Modifier.semantics { contentDescription = label },
+        style = MaterialTheme.typography.labelSmall,
+        color = if (dim) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            MaterialTheme.colorScheme.primary
+        },
+    )
+}
+
+/** یک تیک برای «فرستاده شد» و دو تیک برای «تحویل شد». */
+private const val SENT_TICK = "✓"
+private const val DELIVERED_TICK = "✓✓"
+
+/** منوی خود پیامک، روی لمس کوتاه. */
 @Composable
 private fun MessageMenu(
     expanded: Boolean,

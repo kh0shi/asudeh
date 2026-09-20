@@ -26,6 +26,12 @@ enum class ReasonCode {
     PROMO_WORDS,
     BLOCKED_BY_USER,
     ALLOWED_BY_USER,
+
+    /** کلیدواژهٔ فهرست سفید کاربر یا پیش‌فرض (ADR-0012). */
+    ALLOWED_KEYWORD,
+
+    /** کلیدواژهٔ فهرست سیاه کاربر یا پیش‌فرض (ADR-0012). */
+    BLOCKED_KEYWORD,
     OTP_PATTERN,
     BANK_PATTERN,
     SERVICE_PATTERN,

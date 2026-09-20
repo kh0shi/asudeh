@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.provider.Telephony
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.persian.KeywordMatch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream
@@ -36,6 +37,7 @@ class BackupManager(
     suspend fun export(output: OutputStream, appVersion: String, settings: AsudehSettings): ExportResult =
         withContext(Dispatchers.IO) {
             val rules = rulesDatabase.senderRules().all()
+            val keywords = rulesDatabase.keywordRules().all()
             val folders = repository.foldersByProviderId(MessageEntity.KIND_SMS)
             var count = 0
             output.bufferedWriter(Charsets.UTF_8).use { writer ->
@@ -46,6 +48,9 @@ class BackupManager(
                         appVersion = appVersion,
                         settings = settings.export(),
                         rules = rules.map { BackupFormat.Rule(it.address, it.kind.name, it.createdAt) },
+                        keywordRules = keywords.map {
+                            BackupFormat.KeywordRule(it.keyword, it.kind.name, it.createdAt)
+                        },
                     ),
                 )
                 context.contentResolver.query(
@@ -81,7 +86,7 @@ class BackupManager(
                     }
                 } ?: error("Telephony Provider در دسترس نیست")
             }
-            ExportResult(count, rules.size)
+            ExportResult(count, rules.size + keywords.size)
         }
 
     /**
@@ -103,6 +108,16 @@ class BackupManager(
                     if (rule.address in existingRules) continue
                     val kind = runCatching { SenderRuleKind.valueOf(rule.kind) }.getOrNull() ?: continue
                     ruleDao.put(SenderRuleEntity(rule.address, kind, rule.createdAt))
+                    rules++
+                }
+
+                val keywordDao = rulesDatabase.keywordRules()
+                val existingKeywords = keywordDao.all().map { it.normalized }.toSet()
+                for (rule in header.keywordRules) {
+                    val normalized = KeywordMatch.key(rule.keyword)
+                    if (normalized.isEmpty() || normalized in existingKeywords) continue
+                    val kind = runCatching { SenderRuleKind.valueOf(rule.kind) }.getOrNull() ?: continue
+                    keywordDao.put(KeywordRuleEntity(normalized, rule.keyword, kind, rule.createdAt))
                     rules++
                 }
 

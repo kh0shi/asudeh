@@ -94,14 +94,16 @@ abstract class IndexDatabase : RoomDatabase() {
  * انتقال گوشی‌به‌گوشی منتقل می‌شوند (D57).
  */
 @Database(
-    entities = [SenderRuleEntity::class],
-    version = 1,
+    entities = [SenderRuleEntity::class, KeywordRuleEntity::class],
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
 abstract class RulesDatabase : RoomDatabase() {
 
     abstract fun senderRules(): SenderRuleDao
+
+    abstract fun keywordRules(): KeywordRuleDao
 
     companion object {
         const val NAME = "rules.db"
@@ -114,9 +116,25 @@ abstract class RulesDatabase : RoomDatabase() {
                 context.applicationContext,
                 RulesDatabase::class.java,
                 NAME,
-            ).build().also { instance = it }
+            ).addMigrations(RulesMigrations.V1_V2).build().also { instance = it }
         }
     }
+}
+
+/** migrationهای قواعد. مثل ایندکس، هیچ‌کدام داده‌ای را پاک نمی‌کند. */
+object RulesMigrations {
+
+    /** نسخهٔ ۲: کلیدواژه‌های «قواعد من» (ADR-0012). یک جدول تازه، بدون تغییر در جدول قبلی. */
+    val V1_V2: Migration = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V1_V2_SQL) db.execSQL(statement)
+        }
+    }
+
+    internal val V1_V2_SQL: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `keyword_rule` (`normalized` TEXT NOT NULL, `keyword` TEXT NOT NULL, " +
+            "`kind` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`normalized`))",
+    )
 }
 
 /**
