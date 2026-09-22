@@ -1,5 +1,6 @@
 package ir.asudehapp.sms.classifier
 
+import ir.asudehapp.sms.model.Addresses
 import ir.asudehapp.sms.persian.PersianText
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -30,7 +31,23 @@ data class RulePack(
     val scamBait: PatternGroup = PatternGroup(),
     val amount: PatternGroup = PatternGroup(),
     val brands: List<Brand> = emptyList(),
-    val urlShorteners: List<String> = emptyList(),
+    /**
+     * دامنه‌هایی که می‌شناسیمشان. لینکِ این‌ها هیچ‌وقت مشکوک نیست، و لینکی که
+     * نه اینجاست و نه دامنهٔ رسمی یک `Brand`، از فرستندهٔ ناشناس هشدار می‌گیرد.
+     * هر ورودی خودِ دامنه و زیردامنه‌هایش را می‌گیرد؛ `maps.app.goo.gl` را
+     * می‌شناسیم ولی `goo.gl` را نه، چون کوتاه‌کننده مقصدش را پنهان می‌کند.
+     */
+    val knownHosts: List<String> = emptyList(),
+    /**
+     * سرشماره‌های حرفیِ صرفاً تبلیغاتی. مثل `AdLine` رفتار می‌کنند: پیامکشان با
+     * کمترین نشانهٔ تبلیغ، تبلیغِ قطعی است.
+     */
+    val promoSenders: List<String> = emptyList(),
+    /**
+     * سرشماره‌های شناخته‌شده‌ای که در هیچ `Brand` نیستند. لینکِ این‌ها به‌تنهایی
+     * هشدار نمی‌گیرد؛ خودِ لینکِ جعلی (punycode، نویسهٔ شبیه‌هم) می‌گیرد.
+     */
+    val trustedSenders: List<String> = emptyList(),
     val bayes: BayesModel = BayesModel(),
 ) {
     companion object {
@@ -63,11 +80,24 @@ data class PatternGroup(
 @Serializable
 data class Brand(
     val name: String,
-    /** پیشوند سرشماره‌های رسمی. */
+    /** پیشوند سرشماره‌های عددی رسمی. */
     val senders: List<String> = emptyList(),
+    /**
+     * تکه‌ای از سرشماره‌های حرفی رسمی. اپراتورها از ده‌ها نام می‌فرستند
+     * (`Irancell`، `MissedCalls`، `SoratHesab`…) و `irancell` همهٔ `IrancellMKP`
+     * و `.IRANCELL.` را هم می‌گیرد.
+     */
+    val senderIds: List<String> = emptyList(),
     val domains: List<String> = emptyList(),
     /** عبارت‌هایی که یعنی پیامک خود را از این نهاد معرفی کرده است. */
     val mentions: List<String> = emptyList(),
+    /**
+     * آیا جعل این نهاد آن‌قدر پرخطر است که «سرشمارهٔ غیررسمی» به‌تنهایی شاهد
+     * شمرده شود؟ فقط بانک و نهاد دولتی. نام بردن از اپراتور یا پست در متن یک
+     * پیامک عادی است (فروشگاهی که می‌نویسد «به حساب بانک صادرات واریز کنید»)،
+     * پس برای آن‌ها فقط جعل دامنه شاهد است (اصل ۴).
+     */
+    val sensitive: Boolean = false,
 )
 
 /** مدل Bayes از پیش آموزش‌دیده. روی گوشی آموزشی انجام نمی‌شود (D32 ب). */
@@ -91,8 +121,27 @@ class CompiledRulePack(val pack: RulePack) {
     val amount: CompiledGroup = CompiledGroup(pack.amount)
 
     val brands: List<CompiledBrand> = pack.brands.map(::CompiledBrand)
-    val shorteners: Set<String> = pack.urlShorteners.mapTo(mutableSetOf()) { it.lowercase() }
     val bayes: BayesModel = pack.bayes
+
+    private val knownHosts: List<String> = pack.knownHosts.map { it.lowercase().removePrefix("www.") }
+
+    private val promoSenders: List<String> = pack.promoSenders.map { Addresses.normalize(it) }.filter { it.isNotEmpty() }
+    private val trustedSenders: List<String> =
+        pack.trustedSenders.map { Addresses.normalize(it) }.filter { it.isNotEmpty() }
+
+    /** سرشمارهٔ حرفیِ صرفاً تبلیغاتی، مثل `BaIrancell`. */
+    fun isPromoSender(normalizedAddress: String): Boolean =
+        promoSenders.any { normalizedAddress.contains(it) }
+
+    /** سرشمارهٔ شناخته‌شده: یا سرشمارهٔ رسمی یک `Brand` است یا در فهرست شناخته‌شده‌ها. */
+    fun isTrustedSender(normalizedAddress: String): Boolean =
+        trustedSenders.any { normalizedAddress.contains(it) } || brands.any { it.isOfficialSender(normalizedAddress) }
+
+    /** میزبانی که می‌شناسیمش: خودِ دامنه یا زیردامنهٔ آن، در فهرست یا در `Brand`ها. */
+    fun isKnownHost(host: String): Boolean {
+        val clean = host.lowercase().removePrefix("www.")
+        return knownHosts.any { clean == it || clean.endsWith(".$it") } || brands.any { it.isOfficialHost(clean) }
+    }
 
     companion object {
         fun bundled(): CompiledRulePack = CompiledRulePack(RulePack.bundled())
@@ -138,12 +187,16 @@ class CompiledBrand(val brand: Brand) {
     val mentions: List<String> = brand.mentions.map { PersianText.normalize(it) }.filter { it.isNotEmpty() }
     val domains: List<String> = brand.domains.map { it.lowercase().removePrefix("www.") }
     val senders: List<String> = brand.senders.map { it.filter(Char::isDigit) }.filter { it.isNotEmpty() }
+    val senderIds: List<String> = brand.senderIds.map { Addresses.normalize(it) }.filter { it.isNotEmpty() }
+
+    /** جعل این نهاد پرخطر است و «سرشمارهٔ غیررسمی» برایش شاهد شمرده می‌شود. */
+    val isSensitive: Boolean = brand.sensitive
 
     fun isMentionedIn(normalizedText: String): Boolean =
         mentions.any { PersianText.containsWord(normalizedText, it) }
 
     fun isOfficialSender(normalizedAddress: String): Boolean =
-        senders.any { normalizedAddress.startsWith(it) }
+        senders.any { normalizedAddress.startsWith(it) } || senderIds.any { normalizedAddress.contains(it) }
 
     /** میزبان، خود یکی از دامنه‌های رسمی این نهاد یا زیردامنهٔ آن است. */
     fun isOfficialHost(host: String): Boolean {

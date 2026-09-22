@@ -4,6 +4,7 @@ import ir.asudehapp.sms.model.Category
 import ir.asudehapp.sms.model.Confidence
 import ir.asudehapp.sms.model.Evidence
 import ir.asudehapp.sms.model.MessageInput
+import ir.asudehapp.sms.model.ReasonCode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -171,6 +172,127 @@ class ClassifierTest {
     fun `a stranger mentioning a bank with an unofficial link is still a sender spoof`() {
         val verdict = classify("09121234567", "بانک ملی: حساب شما مسدود شد. وارد melli-pay.com شوید")
         assertEquals(Category.PHISHING, verdict.category)
+    }
+
+    @Test
+    fun `naming an operator next to an unofficial link is not a sender spoof`() {
+        // اپراتور از ده‌ها سرشمارهٔ حرفی می‌فرستد و لینک کوتاه هم در پیامکش عادی
+        // است؛ اگر این جعل شمرده شود، هر تبلیغ اپراتور «کلاهبرداری» می‌شود.
+        val missedCall = classify(
+            "MissedCalls",
+            "شما ۱ تماس از ۰۹۱۲۱۲۳۴۵۶۷ داشته‌اید.\nاپلیکیشن ایرانسل من را از i3l.ir/abc بگیرید",
+        )
+        assertTrue(missedCall.category != Category.PHISHING)
+        assertNull(missedCall.evidence)
+    }
+
+    @Test
+    fun `the same missed call notice from the caller's own number is not phishing`() {
+        val verdict = classify(
+            "09374231024",
+            "شما ۱ تماس از ۰۹۳۷۴۲۳۱۰۲۴ داشته‌اید.\nهدیه ایرانسل: ylad.ir/abc",
+        )
+        assertEquals(Category.PERSONAL, verdict.category)
+        assertNull(verdict.evidence)
+    }
+
+    @Test
+    fun `naming a bank as a payment destination is not a sender spoof`() {
+        // فروشگاهی که می‌نویسد «به حساب بانک صادرات واریز کنید» جعل نمی‌کند.
+        val verdict = classify(
+            "09982004839",
+            "سفارش شما ثبت شد. مبلغ را به حساب بانک صادرات واریز و فیش را در delmont.ir/f بگذارید",
+        )
+        assertTrue(verdict.category != Category.PHISHING)
+    }
+
+    @Test
+    fun `a brand's own alphanumeric sender is official`() {
+        val verdict = classify(
+            "SoratHesab",
+            "ایرانسلی عزیز، بدهی خط شما ۱٬۳۵۲٬۷۵۲ ریال است. پرداخت: i3l.ir/abc",
+        )
+        assertTrue(verdict.category != Category.PHISHING)
+    }
+
+    @Test
+    fun `an official app domain of a brand is not a lookalike`() {
+        val verdict = classify("HAMRAHAVAL", "همراه اول: اپلیکیشن همراه من را از https://mymci.app بگیرید")
+        assertTrue(verdict.category != Category.PHISHING)
+        assertNull(verdict.evidence)
+    }
+
+    @Test
+    fun `a shortened link from a known contact is not suspect`() {
+        val verdict = classify("09121234567", "اینو ببین b2n.ir/abc", contact = true)
+        assertEquals(Category.PERSONAL, verdict.category)
+        assertFalse("لینک کوتاه از مخاطب ذخیره‌شده هشدار نمی‌گیرد", verdict.risk)
+    }
+
+    @Test
+    fun `a google maps link is never suspect`() {
+        val verdict = classify("09121234567", "مکان من: https://maps.app.goo.gl/qfQyxx25ug1hnsUA6")
+        assertEquals(Category.PERSONAL, verdict.category)
+        assertFalse(verdict.risk)
+    }
+
+    @Test
+    fun `a shortened link from an unknown ad line is still suspect`() {
+        val verdict = classify("50001234", "تخفیف ویژه! خرید از b2n.ir/abc")
+        assertTrue(verdict.risk)
+    }
+
+    @Test
+    fun `any unknown link from an unknown sender is suspect`() {
+        // نه کوتاه‌کننده است، نه طعمه‌ای در متن هست: همین که نه فرستنده را
+        // می‌شناسیم و نه میزبان را، برای هشدار بس است.
+        val verdict = classify("6655", "جزئیات سفارش شما: hgtrade-shop.ir/o/44")
+        assertTrue(verdict.risk)
+    }
+
+    @Test
+    fun `a known site is not suspect even from an unknown sender`() {
+        val verdict = classify("6655", "جزئیات سفارش شما: digikala.com/o/44")
+        assertFalse(verdict.risk)
+    }
+
+    @Test
+    fun `an official brand domain counts as a known site`() {
+        val verdict = classify("6655", "پیگیری مرسوله: tracking.post.ir/12345")
+        assertFalse(verdict.risk)
+    }
+
+    @Test
+    fun `a message without any link is never suspect`() {
+        val verdict = classify("6655", "اطلاعیه: ساعت کاری روز پنجشنبه تغییر کرده است")
+        assertFalse(verdict.risk)
+    }
+
+    @Test
+    fun `a disguised link is suspect even from a known contact`() {
+        val verdict = classify("09121234567", "ببین xn--bmi-rmb.ir/login", contact = true)
+        assertTrue("لینک punycode از مخاطب هم هشدار می‌گیرد", verdict.risk)
+    }
+
+    @Test
+    fun `a prize draw is a strong promo signal`() {
+        val verdict = classify("IrancelleTo", "شارژ کن، جایزه ببر! با هر شارژ یک امتیاز در قرعه‌کشی")
+        assertEquals(Category.PROMO, verdict.category)
+        assertEquals(Confidence.HIGH, verdict.confidence)
+    }
+
+    @Test
+    fun `a sender that only advertises is promo even without a keyword`() {
+        val verdict = classify("BaIrancell", "سلام! خبر تازه از ما.")
+        assertEquals(Category.PROMO, verdict.category)
+        assertEquals(Confidence.HIGH, verdict.confidence)
+        assertEquals(ReasonCode.PROMO_SENDER, verdict.reason.code)
+    }
+
+    @Test
+    fun `a one time password from an advertising sender still wins`() {
+        val verdict = classify("BaIrancell", "کد تایید شما ۴۸۲۱۳ است")
+        assertEquals(Category.OTP, verdict.category)
     }
 
     @Test

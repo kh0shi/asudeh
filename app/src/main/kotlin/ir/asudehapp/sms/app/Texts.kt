@@ -101,6 +101,7 @@ object Texts {
         return when (message.reasonCode) {
             ReasonCode.AD_LINE_AND_PROMO_WORDS -> text(R.string.reason_ad_line, sender, arg(0))
             ReasonCode.PROMO_WORDS -> text(R.string.reason_promo_words, arg(0))
+            ReasonCode.PROMO_SENDER -> text(R.string.reason_promo_sender, sender)
             ReasonCode.BLOCKED_BY_USER -> text(R.string.reason_blocked, sender)
             ReasonCode.ALLOWED_BY_USER -> text(R.string.reason_allowed, sender)
             ReasonCode.ALLOWED_KEYWORD -> text(R.string.reason_allowed_keyword, arg(0))

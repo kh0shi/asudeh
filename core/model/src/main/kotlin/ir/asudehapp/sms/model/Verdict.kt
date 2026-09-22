@@ -24,6 +24,10 @@ sealed interface Evidence {
 enum class ReasonCode {
     AD_LINE_AND_PROMO_WORDS,
     PROMO_WORDS,
+
+    /** سرشماره‌ای که کارش فقط تبلیغ است، بدون اینکه کلیدواژه‌ای لازم باشد. */
+    PROMO_SENDER,
+
     BLOCKED_BY_USER,
     ALLOWED_BY_USER,
 

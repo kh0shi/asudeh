@@ -91,7 +91,11 @@ object LinkGuard {
         if (clean == official || clean.endsWith(".$official")) return false
 
         val registrable = registrableDomain(clean)
-        val officialLabel = official.substringBefore('.')
+
+        // برچسبِ قابل ثبتِ دامنهٔ رسمی، نه اولین برچسبش: دامنهٔ رسمی خودش ممکن
+        // است زیردامنه باشد (`sana.adliran.ir`) و آن‌وقت «sana» با هر چهار
+        // حرفیِ دیگری فاصلهٔ ویرایشی ۲ دارد و همه‌چیز جعل می‌شود.
+        val officialLabel = registrableDomain(official).substringBefore('.')
 
         // دامنهٔ رسمی جایی در نام آمده ولی دامنهٔ قابل ثبت چیز دیگری است:
         // bmi-ir.com یا bmi.ir.login-secure.com
