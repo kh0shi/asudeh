@@ -27,19 +27,25 @@ class Classifier(private val rules: CompiledRulePack) {
         val senderKind = Addresses.kindOf(input.address)
         val links = LinkGuard.extract(input.body)
 
+        // فرستندهٔ شناخته‌شده: مخاطب ذخیره‌شده، یا سرشماره‌ای که رسمی بودنش را
+        // می‌شناسیم. لینکِ این‌ها به‌تنهایی هشدار نمی‌گیرد.
+        val trustedSender = input.isKnownContact || rules.isTrustedSender(address)
+
         // ۱. فیشینگ، فقط با شاهد ساختاری (اصل ۴). هیچ امتیاز احتمالی اینجا دخالت نمی‌کند.
         phishing(text, address, senderKind, input.isKnownContact, links)?.let { return it }
 
         // ۲. رمز یکبار مصرف: مستقل از هر چیز دیگری تشخیص داده می‌شود (ADR-0006).
         //    لینک مشکوک در پیامک رمز یکبار یا بانکی هم هشدار می‌گیرد؛ این دقیقاً
-        //    الگوی رایج پیامک جعلی بانکی است (`LinkGuard`، اصل ۵ استثنا).
-        otp(text, links)?.let { return it.withRisk(text, links) }
+        //    الگوی رایج پیامک جعلی بانکی است (`LinkGuard`، اصل ۵ استثنا). اینجا
+        //    «فرستندهٔ شناخته‌شده» هشدار را خاموش نمی‌کند: نام سرشماره در پیامک
+        //    جعل‌شدنی است و بانک واقعی هم در پیامک تراکنش لینک ناشناس نمی‌فرستد.
+        otp(text, links)?.let { return it.withRisk(links, trustedSender = false) }
 
         // ۳. بانکی
-        bank(text, links)?.let { return it.withRisk(text, links) }
+        bank(text, links)?.let { return it.withRisk(links, trustedSender = false) }
 
         // ۴. تبلیغاتی
-        promo(text, senderKind)?.let { return it.withRisk(text, links) }
+        promo(text, address, senderKind)?.let { return it.withRisk(links, trustedSender) }
 
         // ۵. خدماتی
         if (rules.service.matches(text)) {
@@ -48,7 +54,7 @@ class Classifier(private val rules: CompiledRulePack) {
                 confidence = Confidence.MEDIUM,
                 reason = Reason(ReasonCode.SERVICE_PATTERN, listOfNotNull(rules.service.firstHit(text))),
                 links = links,
-            ).withRisk(text, links)
+            ).withRisk(links, trustedSender)
         }
 
         // ۶. پیامک از آدم واقعی
@@ -60,7 +66,7 @@ class Classifier(private val rules: CompiledRulePack) {
                     if (input.isKnownContact) ReasonCode.KNOWN_CONTACT else ReasonCode.PERSONAL_NUMBER,
                 ),
                 links = links,
-            ).withRisk(text, links)
+            ).withRisk(links, trustedSender)
         }
 
         // ۷. در شک، نشان بده (اصل ۲).
@@ -69,7 +75,7 @@ class Classifier(private val rules: CompiledRulePack) {
             confidence = Confidence.LOW,
             reason = Reason(ReasonCode.NOT_SURE),
             links = links,
-        ).withRisk(text, links)
+        ).withRisk(links, trustedSender)
     }
 
     private fun phishing(
@@ -104,8 +110,15 @@ class Classifier(private val rules: CompiledRulePack) {
             // جعل سرشماره: نهادی که سرشمارهٔ رسمی دارد، از یک خط شخصی پیامک
             // با لینک غیررسمی نمی‌فرستد. دوستی که لینک رسمی بانک را فرستاده، یا
             // مخاطب ذخیره‌شده، جعل نیست (D31).
+            //
+            // «نام نهاد + لینک غیررسمی» به‌تنهایی شاهد نیست: پیامک اپراتور از
+            // سرشماره‌های حرفی بی‌شمار می‌آید و فروشگاه هم می‌نویسد «به حساب
+            // بانک ... واریز کنید». پس دو شرط دیگر لازم است: نهاد پرخطر باشد
+            // (`sensitive`) و متن هم طعمهٔ کلاهبرداری داشته باشد.
             if (offBrandLinks.isNotEmpty() && !isKnownContact &&
-                brand.senders.isNotEmpty() && !brand.isOfficialSender(address)
+                brand.isSensitive && rules.scamBait.matches(text) &&
+                (brand.senders.isNotEmpty() || brand.senderIds.isNotEmpty()) &&
+                !brand.isOfficialSender(address)
             ) {
                 if (senderKind == SenderKind.MOBILE || senderKind == SenderKind.ALPHANUMERIC) {
                     return phishVerdict(
@@ -166,7 +179,19 @@ class Classifier(private val rules: CompiledRulePack) {
         )
     }
 
-    private fun promo(text: String, senderKind: SenderKind): Verdict? {
+    private fun promo(text: String, address: String, senderKind: SenderKind): Verdict? {
+        // سرشماره‌ای که در `RulePack` صراحتاً «فقط تبلیغ می‌فرستد» علامت خورده
+        // (`BaIrancell`): هر پیامکش تبلیغ است و به کلیدواژه نیازی نیست. برخلاف
+        // `AdLine` که حدسِ محدودهٔ عددی است، این فهرست دستی و قطعی است. رمز
+        // یکبار و پیامک بانکی پیش از این نقطه جدا شده‌اند، پس از دست نمی‌روند.
+        if (rules.isPromoSender(address)) {
+            return Verdict(
+                category = Category.PROMO,
+                confidence = Confidence.HIGH,
+                reason = Reason(ReasonCode.PROMO_SENDER),
+            )
+        }
+
         val strong = rules.promoStrong.hits(text)
         val weak = rules.promo.hits(text)
         val score = strong * 2 + weak
@@ -204,16 +229,24 @@ class Classifier(private val rules: CompiledRulePack) {
     /**
      * نشانهٔ مشکوک بدون `Evidence` (اصل ۴). پیامک در `Inbox` می‌ماند، ولی با
      * هشدار و بدون لینک فعال.
+     *
+     * دو سنجه، و هر دو دربارهٔ خودِ لینک‌اند، نه دربارهٔ متن:
+     *
+     * ۱. لینکی که میزبانش را نمی‌شناسیم، از فرستنده‌ای که او را هم نمی‌شناسیم،
+     *    هشدار می‌گیرد. «شناختن» یعنی میزبان در [RulePack.knownHosts] یا از
+     *    دامنه‌های رسمی یک `Brand` است، و فرستنده مخاطب ذخیره‌شده یا سرشمارهٔ
+     *    شناخته‌شده است ([trustedSender]).
+     * ۲. لینکی که خودش را جعل کرده (punycode یا نویسهٔ شبیه‌هم) همیشه هشدار
+     *    می‌گیرد، حتی از مخاطب؛ چون شاید خود او هم فریب خورده باشد.
      */
-    private fun Verdict.withRisk(text: String, links: List<DetectedLink>): Verdict {
+    private fun Verdict.withRisk(links: List<DetectedLink>, trustedSender: Boolean): Verdict {
         if (risk) return this
-        val baitedLink = links.isNotEmpty() && rules.scamBait.matches(text)
-        val shortened = links.any { LinkGuard.registrableDomain(it.host) in rules.shorteners }
-        val disguised = links.any { it.isPunycode || it.hasConfusableChars }
-        if (!baitedLink && !shortened && !disguised) return this
+        val unknownLinks = links.filterNot { rules.isKnownHost(it.host) }
+        val disguised = unknownLinks.any { it.isPunycode || it.hasConfusableChars }
+        if (!disguised && (trustedSender || unknownLinks.isEmpty())) return this
         return copy(
             risk = true,
-            reason = Reason(ReasonCode.SUSPICIOUS_LINK, listOfNotNull(links.firstOrNull()?.displayHost)),
+            reason = Reason(ReasonCode.SUSPICIOUS_LINK, listOfNotNull(unknownLinks.firstOrNull()?.displayHost)),
             links = links,
         )
     }

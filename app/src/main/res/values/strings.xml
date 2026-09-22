@@ -98,6 +98,7 @@
     <!-- «چرا اینجاست؟» (D44) -->
     <string name="reason_ad_line">از خط تبلیغاتی %1$s و شامل «%2$s» است.</string>
     <string name="reason_promo_words">شامل «%1$s» است.</string>
+    <string name="reason_promo_sender">سرشمارهٔ %1$s فقط تبلیغ می‌فرستد.</string>
     <string name="reason_blocked">شما گفته‌اید تبلیغ‌های %1$s همیشه پنهان شود.</string>
     <string name="reason_allowed">شما %1$s را به فهرست سفید اضافه کرده‌اید.</string>
     <string name="reason_allowed_keyword">شامل «%1$s» است و این واژه در فهرست سفید شماست.</string>

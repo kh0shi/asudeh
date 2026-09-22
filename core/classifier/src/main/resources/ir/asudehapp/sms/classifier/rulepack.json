@@ -1,5 +1,5 @@
 {
-  "version": "1405.06",
+  "version": "1405.08",
   "adLinePrefixes": ["1000", "2000", "3000", "5000", "9000"],
   "otp": {
     "keywords": [
@@ -96,6 +96,8 @@
       "لغو 11",
       "قرعه کشی",
       "بلیت رایگان",
+      "جایزه",
+      "جوایز",
       "هدیه ویژه",
       "پیشنهاد شگفت انگیز",
       "با ما تماس بگیرید",
@@ -125,66 +127,127 @@
     "keywords": [],
     "regexes": ["\\d{1,3}(?:[,٬]\\d{3})+\\s*(?:ریال|تومان|ر)", "مبلغ\\s*\\d+"]
   },
-  "urlShorteners": [
-    "bit.ly",
-    "tinyurl.com",
-    "t.co",
-    "goo.gl",
-    "is.gd",
-    "cutt.ly",
-    "yun.ir",
-    "mihanlink.ir",
-    "b2n.ir",
-    "zaya.io"
+  "knownHosts": [
+    "maps.app.goo.gl",
+    "maps.google.com",
+    "rightel.ir",
+    "shatelmobile.ir",
+    "shatel.ir",
+    "tci.ir",
+    "mgov.ir",
+    "ssaa.ir",
+    "ice.ir",
+    "ipro.ir",
+    "cra.ir",
+    "inta.gov.ir",
+    "my.gov.ir",
+    "sabtahval.ir",
+    "snapp.ir",
+    "snappfood.ir",
+    "snappmarket.ir",
+    "snapptrip.com",
+    "okala.ir",
+    "okala.com",
+    "digikala.com",
+    "divar.ir",
+    "basalam.com",
+    "alibaba.ir",
+    "tapsi.ir",
+    "torob.com",
+    "filimo.com",
+    "namava.ir",
+    "aparat.com",
+    "paziresh24.com",
+    "tapin.ir",
+    "eitaa.com",
+    "ble.ir",
+    "rubika.ir",
+    "t.me",
+    "instagram.com"
+  ],
+  "promoSenders": ["bairancell"],
+  "trustedSenders": [
+    "rightel",
+    "shatel",
+    "mokhaberat",
+    "snapp",
+    "digikala",
+    "divar",
+    "basalam",
+    "alibaba",
+    "tapsi",
+    "rubika",
+    "okala",
+    "filimo",
+    "namava",
+    "lenz",
+    "mgov",
+    "hamta",
+    "policefata",
+    "pishgiri",
+    "khabar"
   ],
   "brands": [
     {
       "name": "بانک ملی ایران",
       "senders": ["200011", "10001100", "50001100"],
+      "senderIds": ["bankmelli", "bankmeli", "mellibank"],
       "domains": ["bmi.ir", "bankmelli-iran.ir", "sadad.ir"],
-      "mentions": ["بانک ملی", "بانک ملي"]
+      "mentions": ["بانک ملی", "بانک ملي"],
+      "sensitive": true
     },
     {
       "name": "بانک ملت",
       "senders": ["2000", "100020"],
+      "senderIds": ["bankmellat", "mellatbank"],
       "domains": ["bankmellat.ir", "behpardakht.com"],
-      "mentions": ["بانک ملت", "به پرداخت ملت"]
+      "mentions": ["بانک ملت", "به پرداخت ملت"],
+      "sensitive": true
     },
     {
       "name": "بانک صادرات",
       "senders": ["20002030", "100020030"],
+      "senderIds": ["banksaderat", "saderatbank"],
       "domains": ["bsi.ir"],
-      "mentions": ["بانک صادرات"]
+      "mentions": ["بانک صادرات"],
+      "sensitive": true
     },
     {
       "name": "همراه اول",
       "senders": ["9990", "8999", "307"],
-      "domains": ["mci.ir", "mymci.ir"],
+      "senderIds": ["hamrahaval", "hamraheaval", "hamrahman", "mymci"],
+      "domains": ["mci.ir", "mymci.ir", "mymci.app"],
       "mentions": ["همراه اول"]
     },
     {
       "name": "ایرانسل",
       "senders": ["7575", "8999"],
+      "senderIds": ["irancell", "missedcalls", "sorathesab", "sourathesab", "irnroaming", "pishvaz", "echarge", "charkhoneh", "jibjet"],
       "domains": ["irancell.ir", "mtnirancell.ir"],
       "mentions": ["ایرانسل", "irancell"]
     },
     {
       "name": "پست ایران",
       "senders": ["200030", "3000"],
+      "senderIds": ["iranpost", "tapin"],
       "domains": ["post.ir", "tracking.post.ir"],
       "mentions": ["پست جمهوری اسلامی", "شرکت ملی پست", "پست ایران"]
     },
     {
       "name": "سامانه ثنا",
       "senders": ["200020", "100020"],
+      "senderIds": ["adliran", "eadlir", "pishgiri"],
       "domains": ["adliran.ir", "eadl.ir", "sana.adliran.ir"],
-      "mentions": ["سامانه ثنا", "قوه قضاییه", "ابلاغیه قضایی", "عدل ایران"]
+      "mentions": ["سامانه ثنا", "قوه قضاییه", "ابلاغیه قضایی", "عدل ایران"],
+      "sensitive": true
     },
     {
       "name": "پلیس راهور",
       "senders": ["110", "200110"],
+      "senderIds": ["rahvar"],
       "domains": ["rahvar120.ir", "police.ir"],
-      "mentions": ["پلیس راهور", "راهور ناجا", "خلافی خودرو"]
+      "mentions": ["پلیس راهور", "راهور ناجا", "خلافی خودرو"],
+      "sensitive": true
     }
   ],
   "bayes": {
