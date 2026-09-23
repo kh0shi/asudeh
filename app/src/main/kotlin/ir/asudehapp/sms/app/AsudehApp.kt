@@ -44,6 +44,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -978,6 +980,26 @@ private fun EmptyFolderDialog(model: AsudehViewModel) {
     )
 }
 
+/**
+ * `LazyColumn` وقتی ردیفی بالای ردیف اول اضافه می‌شود، صفحه را روی همان ردیف
+ * قبلی نگه می‌دارد و ردیف تازه (مثلاً بعد از «بازگرداندن» یک بایگانی) بالای لبهٔ
+ * صفحه پنهان می‌ماند. اگر کاربر بالای فهرست بود، به بالا برمی‌گردیم.
+ */
+@Composable
+private fun rememberTopAnchoredListState(items: LazyPagingItems<ThreadSummary>): LazyListState {
+    val state = rememberLazyListState()
+    val firstId = if (items.itemCount > 0) items.peek(0)?.threadId else null
+    var previous by remember { mutableStateOf(firstId) }
+    LaunchedEffect(firstId) {
+        val old = previous
+        previous = firstId
+        val atTop = state.layoutInfo.visibleItemsInfo.firstOrNull()?.key == old &&
+            state.firstVisibleItemScrollOffset == 0
+        if (old != null && firstId != old && atTop) state.scrollToItem(0)
+    }
+    return state
+}
+
 @Composable
 private fun HomeScreen(
     model: AsudehViewModel,
@@ -993,7 +1015,8 @@ private fun HomeScreen(
     val syncing by model.syncing.collectAsState()
     val syncFailed by model.syncFailed.collectAsState()
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    val listState = rememberTopAnchoredListState(lazyThreads)
+    LazyColumn(Modifier.fillMaxSize(), listState) {
         if (!isDefaultApp) {
             item { DefaultAppCard(onBecomeDefault) }
         }
@@ -1095,7 +1118,8 @@ private fun FolderScreen(
             }
             HorizontalDivider()
         }
-        LazyColumn(Modifier.fillMaxSize()) {
+        val listState = rememberTopAnchoredListState(lazyThreads)
+    LazyColumn(Modifier.fillMaxSize(), listState) {
             if (threads.isEmpty()) {
                 item {
                     EmptyState(
@@ -1132,7 +1156,8 @@ private fun ArchiveScreen(
     val lazyThreads = model.pagedArchivedThreads.collectAsLazyPagingItems()
     val selectedThreads by model.selectedThreads.collectAsState()
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    val listState = rememberTopAnchoredListState(lazyThreads)
+    LazyColumn(Modifier.fillMaxSize(), listState) {
         if (threads.isEmpty()) {
             item { EmptyState(stringResource(R.string.empty_archive)) }
         }
