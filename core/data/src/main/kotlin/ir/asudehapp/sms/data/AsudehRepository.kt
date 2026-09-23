@@ -196,26 +196,34 @@ class AsudehRepository(
 
     suspend fun setPinned(threadId: Long, pinned: Boolean) {
         val current = prefDao.get(threadId)
-        savePref(threadId, pinned = pinned, draft = current?.draft.orEmpty())
+        savePref(threadId, pinned = pinned, draft = current?.draft.orEmpty(), muted = current?.muted ?: false)
     }
 
     suspend fun draft(threadId: Long): String = prefDao.get(threadId)?.draft.orEmpty()
 
     suspend fun isPinned(threadId: Long): Boolean = prefDao.get(threadId)?.pinned ?: false
 
+    /** بی‌صدا کردن یک گفتگو: پیامک‌های تازه‌اش هیچ اعلانی نمی‌گیرند، ولی جایی پنهان نمی‌شوند. */
+    suspend fun setMuted(threadId: Long, muted: Boolean) {
+        val current = prefDao.get(threadId)
+        savePref(threadId, pinned = current?.pinned ?: false, draft = current?.draft.orEmpty(), muted = muted)
+    }
+
+    suspend fun isMuted(threadId: Long): Boolean = prefDao.get(threadId)?.muted ?: false
+
     /** پیش‌نویس گفتگو (D53). متن خالی پیش‌نویس را برمی‌دارد. */
     suspend fun saveDraft(threadId: Long, text: String) {
         if (threadId <= 0) return
         val current = prefDao.get(threadId)
         if ((current?.draft ?: "") == text) return
-        savePref(threadId, pinned = current?.pinned ?: false, draft = text)
+        savePref(threadId, pinned = current?.pinned ?: false, draft = text, muted = current?.muted ?: false)
     }
 
-    private suspend fun savePref(threadId: Long, pinned: Boolean, draft: String) {
-        if (!pinned && draft.isEmpty()) {
+    private suspend fun savePref(threadId: Long, pinned: Boolean, draft: String, muted: Boolean) {
+        if (!pinned && draft.isEmpty() && !muted) {
             prefDao.remove(threadId)
         } else {
-            prefDao.put(ThreadPrefEntity(threadId, pinned, draft, System.currentTimeMillis()))
+            prefDao.put(ThreadPrefEntity(threadId, pinned, draft, System.currentTimeMillis(), muted))
         }
     }
 

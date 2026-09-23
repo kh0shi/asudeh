@@ -77,11 +77,15 @@ class AsudehNotifier(
     private val context: Context,
     private val openConversation: (Long) -> Intent,
     private val openFolder: (Folder) -> Intent,
+    private val isMuted: suspend (Long) -> Boolean = { false },
 ) : Notifier {
 
     @SuppressLint("MissingPermission")
     override suspend fun notify(message: ClassifiedMessage) {
         if (message.placement.notification == NotificationBehavior.NONE) return
+        // گفتگوی بی‌صداشده هیچ اعلانی نمی‌گیرد، ولی پیامک مثل همیشه ذخیره و
+        // نمایش داده می‌شود؛ چیزی پنهان نمی‌شود.
+        if (isMuted(message.threadId)) return
 
         val channel = channelFor(message)
         val silent = message.placement.notification == NotificationBehavior.SILENT

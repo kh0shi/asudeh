@@ -43,7 +43,8 @@ interface MessageDao {
                m.recipients AS recipients,
                m.attachments AS attachments,
                COALESCE(p.pinned, 0) AS pinned,
-               COALESCE(p.draft, '') AS draft
+               COALESCE(p.draft, '') AS draft,
+               COALESCE(p.muted, 0) AS muted
           FROM message m
           LEFT JOIN thread_pref p ON p.threadId = m.threadId
          WHERE m.folder = :folder

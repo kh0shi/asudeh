@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
@@ -385,13 +386,16 @@ private fun ThreadSelectionActions(
     }.collectAsState()
     val chosen = threads.filter { it.threadId in selectedThreads }
     val pinning = chosen.any { !it.pinned }
+    val muting = chosen.any { !it.muted }
     val marksRead = chosen.any { it.unread > 0 }
     var menu by remember { mutableStateOf(false) }
 
     val pinLabel = stringResource(if (pinning) R.string.pin else R.string.unpin)
+    val muteLabel = stringResource(if (muting) R.string.mute else R.string.unmute)
     val readLabel = stringResource(if (marksRead) R.string.mark_read else R.string.mark_unread)
     val readIcon = if (marksRead) Icons.Default.Email else Icons.Default.MailOutline
     val pin = { model.setPinnedThreads(selectedThreads, pinning) }
+    val mute = { model.setMutedThreads(selectedThreads, muting) }
     val markRead = {
         if (marksRead) {
             model.markThreadsRead(selectedThreads, folder)
@@ -420,6 +424,10 @@ private fun ThreadSelectionActions(
         ActionMenuItem(pinLabel, Icons.Default.Star) {
             menu = false
             pin()
+        }
+        ActionMenuItem(muteLabel, Icons.Default.Notifications) {
+            menu = false
+            mute()
         }
         ActionMenuItem(readLabel, readIcon) {
             menu = false
@@ -1036,6 +1044,14 @@ private fun ThreadRow(
                         stringResource(R.string.pinned),
                         Modifier.size(16.dp).padding(end = 4.dp),
                         tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                if (thread.muted) {
+                    Icon(
+                        Icons.Default.Notifications,
+                        stringResource(R.string.muted),
+                        Modifier.size(16.dp).padding(end = 4.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (thread.hasRisk) {

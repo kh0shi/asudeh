@@ -58,7 +58,7 @@ class AsudehConverters {
         TrashedMessageEntity::class,
         ScheduledMessageEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
@@ -83,7 +83,8 @@ abstract class IndexDatabase : RoomDatabase() {
                 context.applicationContext,
                 IndexDatabase::class.java,
                 NAME,
-            ).addMigrations(IndexMigrations.V1_V2, IndexMigrations.V2_V3).build().also { instance = it }
+            ).addMigrations(IndexMigrations.V1_V2, IndexMigrations.V2_V3, IndexMigrations.V3_V4)
+                .build().also { instance = it }
         }
     }
 }
@@ -179,6 +180,20 @@ object IndexMigrations {
             "`state` TEXT NOT NULL)",
         "CREATE INDEX IF NOT EXISTS `index_scheduled_message_sendAt` ON `scheduled_message` (`sendAt`)",
         "CREATE INDEX IF NOT EXISTS `index_scheduled_message_threadId` ON `scheduled_message` (`threadId`)",
+    )
+
+    /**
+     * نسخهٔ ۴: بی‌صدا کردن یک گفتگو (PARITY §الف). یک ستون تازه روی
+     * `thread_pref`، هیچ ستونی عوض یا پاک نمی‌شود.
+     */
+    val V3_V4: Migration = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V3_V4_SQL) db.execSQL(statement)
+        }
+    }
+
+    internal val V3_V4_SQL: List<String> = listOf(
+        "ALTER TABLE `thread_pref` ADD COLUMN `muted` INTEGER NOT NULL DEFAULT 0",
     )
 
     internal val V1_V2_SQL: List<String> = listOf(

@@ -125,6 +125,9 @@
     <string name="pin">سنجاق کن</string>
     <string name="unpin">برداشتن سنجاق</string>
     <string name="pinned">سنجاق‌شده</string>
+    <string name="mute">بی‌صدا کن</string>
+    <string name="unmute">صدادار کن</string>
+    <string name="muted">بی‌صدا</string>
     <string name="mark_unread">علامت خوانده‌نشده</string>
     <string name="mark_read">خوانده شد</string>
     <string name="mark_all_read">همه خوانده شد</string>

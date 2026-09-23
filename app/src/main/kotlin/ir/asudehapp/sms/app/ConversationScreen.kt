@@ -104,6 +104,13 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
                 },
             )
             DropdownMenuItem(
+                text = { Text(stringResource(if (state.muted) R.string.unmute else R.string.mute)) },
+                onClick = {
+                    menu = false
+                    model.setMuted(state.threadId, !state.muted)
+                },
+            )
+            DropdownMenuItem(
                 text = { Text(stringResource(R.string.mark_unread)) },
                 onClick = {
                     menu = false

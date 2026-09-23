@@ -30,6 +30,7 @@ class AsudehApplication : Application(), TelephonyHost {
             context = this,
             openConversation = { threadId -> conversationIntent(threadId) },
             openFolder = { folder -> folderIntent(folder) },
+            isMuted = { threadId -> repository.isMuted(threadId) },
         )
     }
 

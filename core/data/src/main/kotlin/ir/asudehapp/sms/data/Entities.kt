@@ -125,6 +125,9 @@ data class ThreadPrefEntity(
     /** متن نوشته‌شده ولی فرستاده‌نشده. خالی یعنی پیش‌نویسی نیست. */
     val draft: String,
     val updatedAt: Long,
+    /** بی‌صدا: اعلانی برای پیامک‌های تازهٔ این گفتگو نمی‌آید، ولی هیچ‌چیز پنهان نمی‌شود. */
+    @ColumnInfo(defaultValue = "0")
+    val muted: Boolean = false,
 )
 
 enum class SendStatus {
@@ -184,6 +187,7 @@ data class ThreadSummary(
     val attachments: Int = 0,
     val pinned: Boolean = false,
     val draft: String = "",
+    val muted: Boolean = false,
 )
 
 /** خلاصهٔ پیشنهاد جابه‌جایی پیامک‌های قدیمی (اصل ۸). */

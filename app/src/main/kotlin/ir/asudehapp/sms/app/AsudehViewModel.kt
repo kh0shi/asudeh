@@ -89,6 +89,8 @@ data class ConversationUiState(
     val isMixedSender: Boolean = false,
     val isAdLine: Boolean = false,
     val pinned: Boolean = false,
+    /** بی‌صدا: پیامک‌های تازهٔ این گفتگو اعلان نمی‌گیرند. */
+    val muted: Boolean = false,
     /** پاسخ از سیم‌کارتی می‌رود که پیامک آخر به آن رسیده است، مگر کاربر عوضش کند (D27). */
     val subscriptionId: Int = -1,
 ) {
@@ -590,6 +592,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             val savedDraft = repository.draft(target.threadId)
             if (savedDraft.isNotEmpty() && _draft.value.isEmpty()) _draft.value = savedDraft
             val pinned = repository.isPinned(target.threadId)
+            val muted = repository.isMuted(target.threadId)
             repository.conversation(target.threadId).collect { messages ->
                 val last = messages.lastOrNull()
                 val participants = when {
@@ -610,6 +613,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
                     isMixedSender = address.isNotBlank() && participants.size == 1 && repository.isMixedSender(address),
                     isAdLine = participants.size == 1 && repository.isAdLine(address),
                     pinned = if (previous.threadId == target.threadId) previous.pinned || pinned else pinned,
+                    muted = if (previous.threadId == target.threadId) previous.muted else muted,
                     subscriptionId = previous.subscriptionId.takeIf { it >= 0 && previous.threadId == target.threadId }
                         ?: lastIncoming?.subId
                         ?: last?.subId
@@ -739,6 +743,14 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.setPinned(threadId, pinned) }
         if (_conversation.value.threadId == threadId) {
             _conversation.value = _conversation.value.copy(pinned = pinned)
+        }
+    }
+
+    /** بی‌صدا کردن یک گفتگو: اعلان پیامک‌های تازه‌اش خاموش می‌شود، چیزی پنهان نمی‌شود. */
+    fun setMuted(threadId: Long, muted: Boolean) {
+        viewModelScope.launch { repository.setMuted(threadId, muted) }
+        if (_conversation.value.threadId == threadId) {
+            _conversation.value = _conversation.value.copy(muted = muted)
         }
     }
 
@@ -894,6 +906,12 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     fun setPinnedThreads(threadIds: Set<Long>, pinned: Boolean) {
         if (threadIds.isEmpty()) return
         for (threadId in threadIds) setPinned(threadId, pinned)
+        clearThreadSelection()
+    }
+
+    fun setMutedThreads(threadIds: Set<Long>, muted: Boolean) {
+        if (threadIds.isEmpty()) return
+        for (threadId in threadIds) setMuted(threadId, muted)
         clearThreadSelection()
     }
 
