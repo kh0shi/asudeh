@@ -7,7 +7,8 @@
 ## پیاده شده
 
 **M0 — اسکلت**
-- هفت ماژول ADR-0004 و D54 (بدون `:benchmark` و `:baselineprofile`)
+- هفت ماژول ADR-0004 و D54. `:benchmark` و `:baselineprofile` بعداً در M9
+  اضافه شدند (D63)
 - CI با بررسی `NoNet` روی manifest ادغام‌شدهٔ **debug و release** (ADR-0002، D62)
 - فهرست ثابت مجوزها؛ هر مجوز تازه CI را متوقف می‌کند (D62)
 - تم و رنگ برند، با گزینهٔ رنگ پویا (D49)
@@ -277,6 +278,42 @@
   شود)، بازیابی `Promo`، `FalsePos` برای `Phish`، و زمان طبقه‌بندی هر پیامک.
   چون `:core:classifier:test` از قبل در `core` job اجرا می‌شد، CI بدون تغییر
   همین حالا این معیارها را می‌سنجد.
+- **Macrobenchmark و Baseline Profile** (D63): دو ماژول تازه،
+  `:benchmark` (`com.android.test` خالص) و `:baselineprofile`
+  (`com.android.test` + پلاگین `androidx.baselineprofile`، نسخهٔ ۱.۳.۴، سازگار
+  با AGP 8.7.3). پلاگین خودش دو build-type «benchmarkRelease» و
+  «nonMinifiedRelease» را به `:app` اضافه می‌کند (بدون کوچک‌سازی/دیباگ لازم و
+  profileable)؛ چون `app/build.gradle.kts` اصلاً `signingConfig` ندارد، پلاگین
+  این build-typeها را خودکار با کلید دیباگ استاندارد امضا می‌کند (تأییدشده با
+  `signingReport`)، پس نیازی به کلید امضای تازه یا لمس کلید انتشار نبود.
+  `StartupBenchmark` زمان راه‌اندازی سرد را با `StartupTimingMetric` روی
+  `CompilationMode.None()` و `CompilationMode.Partial()` می‌سنجد؛
+  `ThreadListScrollBenchmark` هم یک بنچمارک ساده با `FrameTimingMetric` روی
+  فهرست Paging 3 اضافه شد (جایزه، نه الزام).
+  `BaselineProfileGenerator` در `:baselineprofile` مسیر باز شدن اپ تا فهرست
+  گفتگوها را یک بار طی می‌کند و `app/src/main/generated/baselineProfiles/baseline-prof.txt`
+  را می‌سازد (مسیر واقعی پلاگین با `mergeIntoMain = true`، نه یک فایل تخت در
+  `src/main`).
+
+  روی گوشی واقعی وصل‌شده اجرا و تأیید شد: `./gradlew :app:generateBaselineProfile`
+  یک پروفایل ۱۲٬۴۰۸ خطی واقعی ساخت (۹۱۵ قاعدهٔ مخصوص `ir/asudehapp`، بقیه از
+  کتابخانه‌ها)، و `:app:assembleRelease` بدون خطا آن را در باینری کامپایل کرد
+  (`compileReleaseArtProfile`). `StartupBenchmark` هم واقعاً اجرا شد:
+  میانهٔ راه‌اندازی سرد بدون پروفایل **۱۶۸۴ میلی‌ثانیه**، با پروفایل (Partial
+  compilation) **۱۱۴۹ میلی‌ثانیه** — حدود ۳۲٪ سریع‌تر. `ThreadListScrollBenchmark`
+  (جایزه) در همین اجرا هیچ عنصر قابل‌پیمایشی پیدا نکرد و شکست خورد؛ چون این
+  بنچمارک الزامی نبود، رفع دقیقش به بعد موکول شد.
+
+  دربارهٔ CI: طبق D63، بنچمارک در `ci.yml` اجرا **نمی‌شود** — runnerهای
+  GitHub Actions شبیه‌سازِ قابل‌اعتماد برای زمان‌بندی سرد ندارند و D63 از اول
+  همین را پیش‌بینی کرده بود («بنچمارک روی شبیه‌ساز قابل اعتماد نیست»). این
+  ماژول‌ها فقط دستی روی گوشی واقعی اجرا می‌شوند: `./gradlew
+  :benchmark:connectedBenchmarkReleaseAndroidTest` برای سنجش کارایی و
+  `./gradlew :app:generateBaselineProfile` برای تازه‌سازی پروفایل. سنجش
+  Gradle sync (`:benchmark:tasks`/`:baselineprofile:tasks`) در `android` job
+  فعلی هم دست‌نخورده نمی‌ماند چون اصلاً به آن اضافه نشد؛ افزودن بعداً اگر یک
+  self-hosted runner با گوشی واقعی به‌کار رفت (D63، جایگزین ذکرشده) منطقی‌تر
+  است.
 
 ## پیاده نشده
 
@@ -287,7 +324,6 @@
 - MMS در پشتیبان فایل؛ `M-Acknowledge.ind` و گزارش خوانده‌شدن MMS (ADR-0009)
 - Foreground Service و `checkpoint` برای `HistorySweep` (D48): فعلاً بررسی در
   ViewModel انجام می‌شود و نوار پیشرفتش درصد ندارد
-- Macrobenchmark و Baseline Profile (D63)
 - ترجمهٔ انگلیسی (`values-en`، D12)
 - لینک‌ها در متن پیامک اصلاً قابل لمس نیستند (امن‌ترین حالت)؛ برگهٔ هشدار با
   دامنهٔ واقعی (D37) هنوز نیست

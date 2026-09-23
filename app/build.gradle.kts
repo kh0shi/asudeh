@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -61,6 +62,23 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.paging.compose)
+    implementation(libs.androidx.profileinstaller)
+
+    baselineProfile(project(":baselineprofile"))
+}
+
+// D63: پلاگین androidx.baselineprofile خودش build-typeهای «benchmarkRelease»
+// و «nonMinifiedRelease» را به این ماژول اضافه می‌کند (بدون کوچک‌سازی یا
+// غیرقابل دیباگ به‌ترتیب لازم، و profileable)، دقیقاً برای اینکه لازم نباشد
+// اینجا signingConfig یا build-type دستی اضافه شود؛ امضا همان کلید دیباگ
+// استاندارد اندروید است.
+baselineProfile {
+    // چون این اپ فقط یک build-type اصلی دارد و flavor ندارد، پروفایل زیر
+    // src/release/generated/... (یک به‌ازای هر build-type) ذخیره نشود؛ به‌جایش
+    // در app/src/main/generated/baselineProfiles/baseline-prof.txt کنار کد
+    // اصلی بماند (مسیر واقعی پلاگین با mergeIntoMain، نه یک فایل تخت).
+    saveInSrc = true
+    mergeIntoMain = true
 }
 
 /**

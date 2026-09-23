@@ -12,6 +12,14 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# :benchmark و :baselineprofile (D63) عمداً اینجا نیستند. طبق خودِ D63،
+# runnerهای این CI گوشی واقعی ندارند و شبیه‌ساز برای زمان‌بندی سرد قابل
+# اعتماد نیست؛ عدد اصل ۷ باید دستی روی گوشی مرجع سنجیده شود. این ماژول‌ها
+# فقط با دستور دستی اجرا می‌شوند:
+#   ./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest   (سنجش کارایی)
+#   ./gradlew :app:generateBaselineProfile                      (تازه‌سازی پروفایل)
+# جزئیات و اعداد واقعی اندازه‌گیری‌شده در docs/STATUS.md، بخش M9.
+
 jobs:
   # ماژول‌های خالص Kotlin: مدل، فارسی و طبقه‌بند. اینجا معیارهای طبقه‌بند و
   # قاعدهٔ «اول ذخیره» آزموده می‌شوند (D64).
