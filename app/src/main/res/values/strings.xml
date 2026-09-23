@@ -262,6 +262,13 @@
     <string name="select_text_done">تمام</string>
     <string name="share_message">اشتراک‌گذاری</string>
     <string name="forward">فرستادن برای کسی دیگر</string>
+    <string name="message_details">جزئیات پیامک</string>
+    <string name="details_sent_at">زمان ارسال</string>
+    <string name="details_received_at">زمان دریافت</string>
+    <string name="details_type">نوع پیامک</string>
+    <string name="details_type_sms">پیامک متنی</string>
+    <string name="details_type_mms">پیامک چندرسانه‌ای (MMS)</string>
+    <string name="details_sim">سیم‌کارت</string>
     <string name="delete">حذف</string>
     <string name="delete_thread">حذف گفتگو</string>
     <string name="spam">اسپم</string>

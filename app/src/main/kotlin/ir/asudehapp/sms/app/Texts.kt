@@ -155,6 +155,23 @@ object Texts {
     fun timestamp(millis: Long, withClock: Boolean = false): String =
         digits(timestampText(millis, withClock))
 
+    /** تاریخ و ساعت کامل، بدون خلاصه شدن به فقط-ساعت برای امروز؛ برای «جزئیات پیامک». */
+    @Composable
+    fun exactTimestamp(millis: Long): String {
+        val calendar = Calendar.getInstance().apply { timeInMillis = millis }
+        val date = JalaliDate.of(
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH) + 1,
+            calendar.get(Calendar.DAY_OF_MONTH),
+        )
+        val clock = "%02d:%02d:%02d".format(
+            calendar.get(Calendar.HOUR_OF_DAY),
+            calendar.get(Calendar.MINUTE),
+            calendar.get(Calendar.SECOND),
+        )
+        return digits("${date.formatLong()} $clock")
+    }
+
     private fun timestampText(millis: Long, withClock: Boolean): String {
         val calendar = Calendar.getInstance().apply { timeInMillis = millis }
         val date = JalaliDate.of(

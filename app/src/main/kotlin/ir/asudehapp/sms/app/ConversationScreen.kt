@@ -161,6 +161,7 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
     val scheduled by model.scheduledHere.collectAsState()
     var expandedRuns by remember { mutableStateOf(setOf<Long>()) }
     var reasonFor by remember { mutableStateOf<MessageEntity?>(null) }
+    var detailsFor by remember { mutableStateOf<MessageEntity?>(null) }
     // انتخاب بخشی از متن در جای خودِ پیامک انجام می‌شود، نه در یک مودال؛ این
     // فقط می‌گوید کدام پیامک الان در آن حال است (هر بار یکی). با عوض شدن
     // گفتگو از نو شروع می‌شود.
@@ -217,6 +218,7 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                         showPickHint = showPickHint,
                         isDefaultApp = isDefaultApp,
                         onWhy = { reasonFor = item.message },
+                        onDetails = { detailsFor = item.message },
                         onPickText = {
                             pickText(MessageKey(item.message.kind, item.message.providerId))
                         },
@@ -259,6 +261,7 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                                     showPickHint = showPickHint,
                                     isDefaultApp = isDefaultApp,
                                     onWhy = { reasonFor = hidden },
+                                    onDetails = { detailsFor = hidden },
                                     onPickText = { pickText(MessageKey(hidden.kind, hidden.providerId)) },
                                     onDonePickingText = { pickingTextIn = null },
                                     // پیامک مشکوک به کلاهبرداری با یک لمس برنمی‌گردد؛
@@ -325,6 +328,10 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                 model.block(message.address)
             },
         )
+    }
+
+    detailsFor?.let { message ->
+        DetailsDialog(message = message, onDismiss = { detailsFor = null })
     }
 }
 
@@ -623,6 +630,7 @@ private fun MessageBubble(
     showPickHint: Boolean,
     isDefaultApp: Boolean,
     onWhy: () -> Unit,
+    onDetails: () -> Unit,
     onPickText: () -> Unit,
     onDonePickingText: () -> Unit,
     onResend: () -> Unit,
@@ -719,6 +727,7 @@ private fun MessageBubble(
                         model.requestDeleteSelectedMessages()
                     },
                     onWhy = onWhy,
+                    onDetails = onDetails,
                 )
             }
         }
@@ -840,6 +849,7 @@ private fun MessageMenu(
     onSelect: () -> Unit,
     onDelete: () -> Unit,
     onWhy: () -> Unit,
+    onDetails: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         if (message.body.isNotEmpty()) {
@@ -876,6 +886,10 @@ private fun MessageMenu(
                 onDismiss()
                 onWhy()
             }
+        }
+        MessageMenuItem(stringResource(R.string.message_details)) {
+            onDismiss()
+            onDetails()
         }
     }
 }
@@ -974,6 +988,46 @@ private fun ReasonSheet(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
+}
+
+/**
+ * «جزئیات پیامک»: زمان دقیق ارسال و دریافت (بدون خلاصه شدن به فقط-ساعت)، سیم
+ * فرستنده یا گیرنده، و نوع پیامک. همهٔ این‌ها روی `MessageEntity` هست؛ اینجا
+ * فقط یک‌جا نشانشان می‌دهد.
+ */
+@Composable
+private fun DetailsDialog(message: MessageEntity, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val slot = remember(message.subId) { SimCards.slotOf(context, message.subId) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.message_details)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val typeLabel = stringResource(
+                    if (message.kind == MessageEntity.KIND_MMS) R.string.details_type_mms else R.string.details_type_sms,
+                )
+                DetailRow(stringResource(R.string.details_type), typeLabel)
+                DetailRow(stringResource(R.string.details_sent_at), Texts.exactTimestamp(message.date))
+                DetailRow(stringResource(R.string.details_received_at), Texts.exactTimestamp(message.dateReceived))
+                if (slot != null) {
+                    val simLabel = Texts.digits(stringResource(R.string.sim_label, slot))
+                    DetailRow(stringResource(R.string.details_sim), simLabel)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
 }
 
 /** «اشتراک‌گذاری» متن پیامک با اپ‌های دیگر؛ خود اپ چیزی نمی‌فرستد. */
