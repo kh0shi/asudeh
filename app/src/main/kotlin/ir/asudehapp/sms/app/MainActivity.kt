@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by model.settings.collectAsState()
             val names by model.contactNames.collectAsState()
+            val photos by model.contactPhotos.collectAsState()
             val dark = when (settings.theme) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
@@ -93,6 +94,7 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(
                     LocalPersianDigits provides settings.persianDigits,
                     LocalContactNames provides names,
+                    LocalContactPhotos provides photos,
                     // هرچه کپی شود، ارقامش لاتین است.
                     LocalClipboardManager provides remember(clipboard) {
                         LatinDigitsClipboard(clipboard)

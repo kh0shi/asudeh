@@ -305,6 +305,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     private val _contactNames = MutableStateFlow<Map<String, String>>(emptyMap())
     val contactNames: StateFlow<Map<String, String>> = _contactNames.asStateFlow()
 
+    /** عکس بند‌انگشتی مخاطب هر سرشماره، اگر اجازهٔ مخاطب‌ها داده شده باشد. */
+    private val _contactPhotos = MutableStateFlow<Map<String, Uri>>(emptyMap())
+    val contactPhotos: StateFlow<Map<String, Uri>> = _contactPhotos.asStateFlow()
+
     /** فهرست مخاطب‌ها برای «گفتگوی تازه»؛ بدون مجوز خالی می‌ماند. */
     private val _contacts = MutableStateFlow<List<ContactPhone>>(emptyList())
     val contacts: StateFlow<List<ContactPhone>> = _contacts.asStateFlow()
@@ -313,6 +317,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     private val _textPickHintSeen = MutableStateFlow(prefs.textPickHintSeen)
     val textPickHintSeen: StateFlow<Boolean> = _textPickHintSeen.asStateFlow()
     private val lookedUp = HashSet<String>()
+    private val lookedUpPhotos = HashSet<String>()
 
     val settings: StateFlow<SettingsState> = settingsStore.changes()
         .map { snapshotSettings() }
@@ -369,7 +374,9 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         ScheduledSendScheduler.reschedule(application)
         viewModelScope.launch {
             combine(inboxThreads, promoThreads, scamThreads) { a, b, c -> a + b + c }.collect { threads ->
-                resolveNames(threads.flatMap { summary -> participantsOf(summary.address, summary.recipients) })
+                val addresses = threads.flatMap { summary -> participantsOf(summary.address, summary.recipients) }
+                resolveNames(addresses)
+                resolvePhotos(addresses)
             }
         }
     }
@@ -591,6 +598,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
                     else -> listOf(messages.firstOrNull { !it.outgoing }?.address ?: last.address)
                 }
                 resolveNames(participants)
+                resolvePhotos(participants)
                 val lastIncoming = messages.lastOrNull { !it.outgoing }
                 val address = participants.firstOrNull().orEmpty()
                 val previous = _conversation.value
@@ -1177,6 +1185,18 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun resolvePhotos(addresses: List<String>) {
+        val fresh = addresses.filter { it.isNotBlank() && lookedUpPhotos.add(it) }
+        if (fresh.isEmpty()) return
+        viewModelScope.launch {
+            val found = HashMap<String, Uri>()
+            for (address in fresh) {
+                Contacts.photoThumbnailUri(getApplication(), address)?.let { found[address] = it }
+            }
+            if (found.isNotEmpty()) _contactPhotos.value = _contactPhotos.value + found
+        }
+    }
+
     /** وقتی کاربر اجازهٔ مخاطب‌ها را تازه داده است. */
     /** یک بار خواندن فهرست مخاطب‌ها، وقتی «گفتگوی تازه» باز می‌شود. */
     fun refreshContacts() {
@@ -1191,9 +1211,11 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun refreshContactNames() {
         lookedUp.clear()
+        lookedUpPhotos.clear()
         val all = (inboxThreads.value + promoThreads.value + scamThreads.value)
             .flatMap { participantsOf(it.address, it.recipients) }
         resolveNames(all)
+        resolvePhotos(all)
     }
 
     /** گفتگوی بازِ همین لحظه؛ صفر یعنی هیچ‌کدام (`ActiveConversation`). */

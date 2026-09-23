@@ -98,4 +98,30 @@ object Contacts {
             }.getOrNull()
         }
     }
+
+    /** نشانی عکس بند‌انگشتی مخاطب، برای فهرست گفتگوها. */
+    suspend fun photoThumbnailUri(context: Context, address: String): Uri? {
+        if (address.isBlank() || !canRead(context)) return null
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val uri = Uri.withAppendedPath(
+                    ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                    Uri.encode(address),
+                )
+                context.contentResolver.query(
+                    uri,
+                    arrayOf(ContactsContract.PhoneLookup.PHOTO_THUMBNAIL_URI),
+                    null,
+                    null,
+                    null,
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        cursor.getString(0)?.let(Uri::parse)
+                    } else {
+                        null
+                    }
+                }
+            }.getOrNull()
+        }
+    }
 }

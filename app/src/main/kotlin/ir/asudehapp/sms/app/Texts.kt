@@ -26,6 +26,9 @@ val LocalPersianDigits = compositionLocalOf { true }
 /** نام مخاطب هر سرشماره، اگر اجازهٔ مخاطب‌ها داده شده باشد. */
 val LocalContactNames = compositionLocalOf<Map<String, String>> { emptyMap() }
 
+/** عکس بند‌انگشتی مخاطب هر سرشماره، اگر اجازهٔ مخاطب‌ها داده شده باشد. */
+val LocalContactPhotos = compositionLocalOf<Map<String, android.net.Uri>> { emptyMap() }
+
 /**
  * کمک‌کننده‌های متن رابط. خود متن‌ها در `strings.xml` هستند (D12)؛ اینجا فقط
  * ارقام فارسی (D50) و ساختن جمله از روی `ReasonCode` انجام می‌شود.

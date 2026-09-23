@@ -1021,6 +1021,12 @@ private fun ThreadRow(
     ) {
         if (selectionMode) {
             Checkbox(checked = selected, onCheckedChange = { model.toggleThread(thread.threadId) })
+        } else {
+            val primaryAddress = thread.recipients
+                .split(MessageEntity.RECIPIENT_SEPARATOR)
+                .firstOrNull { it.isNotEmpty() }
+                ?: thread.address
+            ThreadAvatar(primaryAddress, Modifier.padding(end = 12.dp))
         }
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
