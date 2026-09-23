@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Asudeh" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+      نوارهای سامانه شفاف‌اند چون پنجره همه‌جا تا لبه‌ها کشیده می‌شود
+      (MainActivity.onCreate). روی اندروید ۱۵ سامانه خودش این کار را می‌کند و
+      این دو مقدار نادیده گرفته می‌شوند؛ برای API ۲۶ تا ۳۴ لازم‌اند، وگرنه
+      رنگِ پیش‌فرضِ تمِ روشن زیرِ محتوا می‌ماند.
+
+      روشن یا تاریک بودنِ آیکون‌های نوار اینجا تعیین نمی‌شود: پوسته را کاربر
+      انتخاب می‌کند، پس MainActivity آن را در زمان اجرا تنظیم می‌کند.
+    -->
+    <style name="Theme.Asudeh" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>
