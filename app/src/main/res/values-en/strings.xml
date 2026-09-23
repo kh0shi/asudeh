@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UI strings (D12). English translation of values/strings.xml.
+-->
+<resources>
+    <string name="app_name">Asudeh</string>
+
+    <string name="folder_inbox">Inbox</string>
+    <string name="folder_promo">Promotions</string>
+    <string name="folder_scam">Scams</string>
+
+    <string name="become_default">Set Asudeh as your default SMS app</string>
+    <string name="not_default_title">Asudeh isn\'t your default SMS app yet</string>
+    <string name="not_default_body">Until it\'s the default, new texts won\'t reach Asudeh and you won\'t be able to send messages. You can still view your existing messages here.</string>
+    <!-- First run (D47) -->
+    <string name="welcome_title">Important messages, without the ad clutter</string>
+    <string name="welcome_body">Asudeh sets ads aside so important messages don\'t get lost. No data ever leaves your phone, and no message is deleted without your permission.</string>
+    <string name="welcome_default_hint">For new texts to reach Asudeh, it needs to become your phone\'s default SMS app. You can switch back anytime.</string>
+    <string name="continue_read_only">Just view messages for now</string>
+
+    <!-- HistorySweep result (Principle 8) -->
+    <string name="sweep_title">Checking previous messages</string>
+    <plurals name="sweep_found">
+        <item quantity="one">Found %1$d promotional or suspicious message in %2$d conversation among your previous messages.</item>
+        <item quantity="other">Found %1$d promotional or suspicious messages in %2$d conversations among your previous messages.</item>
+    </plurals>
+    <plurals name="sweep_found_scams">
+        <item quantity="one">%d message looks like a scam and will go to the Scams folder.</item>
+        <item quantity="other">%d messages look like scams and will go to the Scams folder.</item>
+    </plurals>
+    <string name="sweep_explain">These messages arrived before Asudeh, so they won\'t be moved without your permission. Moving them deletes nothing, and you can always bring any message back.</string>
+    <string name="sweep_move">Move them</string>
+    <string name="sweep_samples">Examples</string>
+    <string name="sweep_not_now">Not now</string>
+    <string name="sweep_keep">Keep in Inbox</string>
+    <string name="close">Close</string>
+
+    <string name="syncing">Checking messages…</string>
+    <string name="sync_failed">Couldn\'t read the phone\'s messages. Please grant access to messages.</string>
+
+    <string name="empty_inbox">No messages</string>
+    <string name="empty_promo">No ads have been hidden</string>
+    <string name="empty_scam">No scam messages found</string>
+    <string name="empty_archive">No conversations archived</string>
+    <string name="unknown_sender">Unknown sender</string>
+
+    <string name="why_here">Why is this here?</string>
+    <string name="rescue">This isn\'t an ad</string>
+    <string name="block">Always an ad</string>
+    <string name="unsub">Unsubscribe with \"11\"</string>
+    <string name="cancel">Never mind</string>
+    <string name="yes">Yes</string>
+    <string name="only_this">Just this one</string>
+    <string name="rescue_follow_up">Should future messages from this sender always go to the Inbox too?</string>
+    <string name="mixed_sender">This sender sends both important messages and ads.</string>
+    <string name="scam_rescue_hint">To bring this message back, tap it and see why it was flagged.</string>
+
+    <string name="suspect_warning">Careful: this message has signs of a scam</string>
+    <string name="links_disabled">Links in this message won\'t open until you confirm.</string>
+    <string name="show_on_doubt">A message Asudeh isn\'t sure about stays in the Inbox. We\'d rather let one ad through than hide one important message.</string>
+
+    <!-- D45: emptying a folder, two steps, with a count shown. -->
+    <string name="empty_folder">Empty folder</string>
+    <plurals name="empty_folder_step1">
+        <item quantity="one">There is %1$d message in \"%2$s\". Delete it?</item>
+        <item quantity="other">There are %1$d messages in \"%2$s\". Delete them all?</item>
+    </plurals>
+    <plurals name="empty_folder_step2">
+        <item quantity="one">%1$d message will be permanently deleted from your phone and can\'t be brought back. Are you sure?</item>
+        <item quantity="other">%1$d messages will be permanently deleted from your phone and can\'t be brought back. Are you sure?</item>
+    </plurals>
+    <string name="empty_folder_nothing">This folder is empty.</string>
+    <string name="continue_">Continue</string>
+    <string name="confirm_delete">Delete permanently</string>
+
+    <plurals name="new_count">
+        <item quantity="one">%d new</item>
+        <item quantity="other">%d new</item>
+    </plurals>
+    <plurals name="hidden_promo_run">
+        <item quantity="one">%d promotional message</item>
+        <item quantity="other">%d promotional messages</item>
+    </plurals>
+    <plurals name="hidden_scam_run">
+        <item quantity="one">%d suspected scam message</item>
+        <item quantity="other">%d suspected scam messages</item>
+    </plurals>
+
+    <!-- Sending -->
+    <string name="compose_hint">Message</string>
+    <string name="send">Send</string>
+    <string name="send_not_default">To send messages, Asudeh needs to be the default SMS app.</string>
+    <string name="send_failed">Not sent</string>
+    <string name="send_pending">Sending…</string>
+    <string name="resend">Resend</string>
+    <string name="send_error">The message wasn\'t saved or sent.</string>
+
+    <!-- "Why is this here?" (D44) -->
+    <string name="reason_ad_line">From the promotional line %1$s and contains \"%2$s\".</string>
+    <string name="reason_promo_words">Contains \"%1$s\".</string>
+    <string name="reason_promo_sender">The number %1$s only sends ads.</string>
+    <string name="reason_blocked">You said ads from %1$s should always be hidden.</string>
+    <string name="reason_allowed">You added %1$s to your allow list.</string>
+    <string name="reason_allowed_keyword">Contains \"%1$s\", and that word is on your allow list.</string>
+    <string name="reason_blocked_keyword">Contains \"%1$s\", and that word is on your block list.</string>
+    <string name="reason_otp">It\'s a one-time code, so it always stays in the Inbox.</string>
+    <string name="reason_bank">It\'s a bank message, so it always stays in the Inbox.</string>
+    <string name="reason_service">It\'s a service message and is notified silently.</string>
+    <string name="reason_personal">It came from a mobile number, so it isn\'t hidden automatically.</string>
+    <string name="reason_contact">It\'s from one of your contacts, so it isn\'t hidden automatically.</string>
+    <string name="reason_sender_spoof">It identifies itself as \"%1$s\", but its sender number isn\'t official.</string>
+    <string name="reason_domain_spoof">The link \"%1$s\" looks like the official domain \"%2$s\", but isn\'t.</string>
+    <string name="reason_suspicious_link">The link \"%1$s\" is suspicious.</string>
+    <string name="reason_classifier_failed">Checking this message didn\'t finish, so it stayed in the Inbox.</string>
+    <string name="reason_suggest_move">This message arrived before Asudeh, so it wasn\'t moved without your permission.</string>
+
+    <string name="list_separator">, </string>
+    <string name="back">Back</string>
+    <string name="more">More</string>
+
+    <!-- Home screen and conversation list -->
+    <string name="search">Search</string>
+    <string name="settings">Settings</string>
+    <string name="new_conversation">New conversation</string>
+    <string name="pin">Pin</string>
+    <string name="unpin">Unpin</string>
+    <string name="pinned">Pinned</string>
+    <string name="mute">Mute</string>
+    <string name="unmute">Unmute</string>
+    <string name="muted">Muted</string>
+    <string name="mark_unread">Mark as unread</string>
+    <string name="mark_read">Mark as read</string>
+    <string name="mark_all_read">Mark all as read</string>
+    <string name="draft_prefix">Draft: %1$s</string>
+    <string name="snippet_image">🖼 Image</string>
+    <string name="snippet_attachment">📎 Attachment</string>
+
+    <!-- New conversation -->
+    <string name="new_conversation_hint">Number or numbers, separated by commas</string>
+    <string name="pending_share">This text will go into the draft once you pick a recipient, and won\'t be sent until you send it yourself:</string>
+    <string name="pending_share_image">An image will come along with it.</string>
+    <string name="contacts_permission_hint">To show your contacts here, Asudeh needs permission to read contacts. Without it, you can still type a number or pick one from the phone\'s picker.</string>
+    <string name="contacts_show">Show contacts</string>
+    <string name="contacts_empty">No contacts found.</string>
+    <string name="contacts_no_match">No contact matches that name or number.</string>
+    <string name="pick_contact">Choose from contacts</string>
+    <string name="start_conversation">Start conversation</string>
+    <string name="new_conversation_group_hint">With more than one recipient, the message is sent as a group (MMS) and may cost more.</string>
+
+    <!-- Search (D20) -->
+    <string name="search_hint">Search all messages</string>
+    <string name="search_empty">Nothing found</string>
+    <string name="search_in_folder">In \"%1$s\"</string>
+
+    <!-- Conversation -->
+    <string name="attach_image">Add image or video</string>
+    <string name="attach_file">Add file</string>
+    <string name="attachment_preparing">Preparing attachment…</string>
+    <string name="attachment_failed">This attachment can\'t be sent; it might be too large.</string>
+    <string name="remove_attachment">Remove</string>
+    <string name="mms_download">Download multimedia message</string>
+    <string name="mms_pending">This multimedia message hasn\'t been downloaded yet.</string>
+    <string name="mms_download_requested">Download started.</string>
+    <string name="mms_download_failed">Couldn\'t download it. Check your mobile data or network.</string>
+    <string name="open_attachment">Open attachment</string>
+    <string name="no_app_for_attachment">No app can open this attachment.</string>
+    <string name="sent">Sent</string>
+    <string name="delivered">Delivered</string>
+    <string name="sim_label">SIM %1$d</string>
+    <string name="send_from_sim">Send from %1$s</string>
+    <string name="choose_sim">Choose SIM card</string>
+    <!-- D28 -->
+    <string name="unsub_confirm_title">Unsubscribe with \"11\"</string>
+    <string name="unsub_confirm_body">A message saying \"11\" will be sent to %1$s. It may cost the same as a regular text.</string>
+    <string name="unsub_send">Send</string>
+
+    <!-- Settings (D52) -->
+    <string name="settings_display">Display</string>
+    <string name="settings_spam">Ads and hidden messages</string>
+    <string name="settings_digest">Digest of hidden messages</string>
+    <string name="digest_daily">Every day at 9 PM</string>
+    <string name="digest_weekly">Every week, Friday at 9 PM</string>
+    <string name="digest_off">Off</string>
+    <string name="settings_digits">Persian numerals</string>
+    <string name="settings_digits_hint">The text of the messages themselves never changes.</string>
+    <string name="theme_system">Match device</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_rules">My rules</string>
+    <string name="settings_rules_hint">Numbers and words that always go to the Inbox or always count as ads</string>
+    <string name="settings_message_clock">Message time</string>
+    <string name="settings_message_clock_hint">Show the time under each message.</string>
+    <string name="settings_sending">Sending</string>
+    <string name="settings_delivery">Delivery reports</string>
+    <string name="settings_delivery_hint">Show \"Delivered\" once a message reaches its recipient.</string>
+    <!-- Multimedia messages; turning these off never loses a message. -->
+    <string name="settings_mms">Multimedia messages</string>
+    <string name="settings_mms_auto">Automatic download</string>
+    <string name="settings_mms_auto_hint">Download multimedia messages as soon as they\'re announced. When off, they stay in the conversation with a Download button and are never lost.</string>
+    <string name="settings_mms_sending">Sending attachments and group messages</string>
+    <string name="settings_mms_sending_hint">Image attachments and group conversations are sent as MMS and may cost more.</string>
+    <string name="mms_sending_off">Sending multimedia messages is off in settings, so this group message won\'t be sent.</string>
+
+    <string name="settings_backup">Backup</string>
+    <string name="backup_export">Create a backup file</string>
+    <string name="backup_import">Restore from a file</string>
+    <string name="backup_hint">Your messages, rules, and settings go into a file you choose. Asudeh never sends this file anywhere. Multimedia messages aren\'t included in the backup yet.</string>
+    <plurals name="backup_exported">
+        <item quantity="one">Backup created: %d message.</item>
+        <item quantity="other">Backup created: %d messages.</item>
+    </plurals>
+    <string name="backup_imported">%1$s messages restored; %2$s were already on the phone.</string>
+    <string name="backup_imported_corrupt">%1$s damaged lines were skipped.</string>
+    <string name="backup_failed">The backup didn\'t work.</string>
+    <string name="backup_not_a_backup">This isn\'t an Asudeh backup file.</string>
+    <string name="backup_newer">This backup was made by a newer version of Asudeh. Please update Asudeh.</string>
+    <string name="backup_not_default">To restore messages, Asudeh needs to be the default SMS app.</string>
+    <string name="settings_advanced">Advanced</string>
+    <string name="settings_dynamic_color">Android dynamic color</string>
+    <string name="settings_show_reason">Show the reason on every message</string>
+    <string name="settings_about">About</string>
+    <string name="about_version">Asudeh version: %1$s</string>
+    <string name="about_rules">Rules version: %1$s</string>
+    <string name="about_promise">Asudeh is open source (GPL-3.0) and has no internet permission. No data ever leaves your phone.</string>
+
+    <!-- My rules (D45, Principle 5, ADR-0012) -->
+    <string name="rules_empty">You haven\'t set any rules yet. Use \"Add rule\", or tap \"This isn\'t an ad\" / \"Always an ad\" on a message, and it\'ll show up here.</string>
+    <string name="rule_allow">Always in Inbox</string>
+    <string name="rule_block">Always an ad</string>
+    <string name="rule_keyword_allow">Messages containing this word always stay in the Inbox</string>
+    <string name="rule_keyword_block">Messages containing this word count as ads</string>
+    <string name="rule_forget">Forget it</string>
+    <string name="rules_mine">My rules</string>
+    <string name="rules_defaults">Default rules</string>
+    <string name="rules_defaults_hint">These were set by Asudeh. You can turn off any of them; turning one off never deletes or moves a message.</string>
+    <string name="rules_add">Add rule</string>
+    <string name="rules_add_title">New rule</string>
+    <string name="rules_add_confirm">Add</string>
+    <string name="rules_kind_keyword">Keyword</string>
+    <string name="rules_kind_sender">Number or sender ID</string>
+    <string name="rules_list_allow">Always stay in Inbox</string>
+    <string name="rules_list_block">Count as an ad</string>
+    <string name="rules_value_keyword">Word or phrase</string>
+    <string name="rules_value_sender">Number or sender ID</string>
+    <string name="rules_keyword_hint">Case, Persian vs. Latin digits, and spaces don\'t matter: \"لغو ۱۱\" and \"لغو11\" are the same. \"{لینک}\" means a URL is present, as in \"لغو{لینک}\" — type it exactly, including the curly braces.</string>
+    <string name="default_rule_contacts">Contacts always in Inbox</string>
+    <string name="default_rule_contacts_hint">Messages from someone in your phone\'s contacts are never hidden automatically.</string>
+    <string name="default_rule_mobile">Mobile numbers always in Inbox</string>
+    <string name="default_rule_mobile_hint">Messages from a number starting with 09 are never hidden automatically.</string>
+    <string name="default_rule_otp">One-time codes and bank messages always in Inbox</string>
+    <string name="default_rule_otp_hint">Even if their text contains a word from your block list. But a sender you\'ve blocked yourself never sends anything to the Inbox.</string>
+    <string name="default_rule_promo">Hide ads</string>
+    <string name="default_rule_promo_hint">A clear ad goes to the Promotions folder. When off, everything stays in the Inbox.</string>
+    <string name="default_rule_scam">Hide scams</string>
+    <string name="default_rule_scam_hint">A message with a clear sign of forgery goes to the Scams folder. When off, it stays in the Inbox, but the warning still shows.</string>
+
+    <!-- Selection, delete, and trash (ADR-0010) -->
+    <string name="select">Select</string>
+    <string name="select_all">Select all</string>
+    <string name="copy_message">Copy text</string>
+    <string name="select_text">Select part of the text</string>
+    <string name="select_text_hint">Drag the handles to pick out just the part you want.</string>
+    <string name="select_text_done">Done</string>
+    <string name="share_message">Share</string>
+    <string name="forward">Forward to someone else</string>
+    <string name="message_details">Message details</string>
+    <string name="details_sent_at">Sent</string>
+    <string name="details_received_at">Received</string>
+    <string name="details_type">Message type</string>
+    <string name="details_type_sms">Text message</string>
+    <string name="details_type_mms">Multimedia message (MMS)</string>
+    <string name="details_sim">SIM card</string>
+    <string name="delete">Delete</string>
+    <string name="delete_thread">Delete conversation</string>
+    <string name="spam">Spam</string>
+    <plurals name="spam_body">
+        <item quantity="one">Messages from the sender of %d conversation will go to the Promotions folder from now on.</item>
+        <item quantity="other">Messages from the senders of %d conversations will go to the Promotions folder from now on.</item>
+    </plurals>
+    <string name="spam_explain">Earlier messages from the same senders will also move to Promotions, and you\'ll no longer get notified about them. Nothing is deleted, and you can bring them back anytime from \"My rules\". From now on, no message from these senders will reach the Inbox, not even a one-time code.</string>
+    <string name="spam_confirm">Mark as spam</string>
+    <plurals name="notice_spam">
+        <item quantity="one">%d sender moved to Promotions.</item>
+        <item quantity="other">%d senders moved to Promotions.</item>
+    </plurals>
+    <string name="spam_nothing">This conversation has no incoming sender to mark as spam.</string>
+    <plurals name="selected_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <string name="delete_title">Delete</string>
+    <plurals name="delete_messages_body">
+        <item quantity="one">%d message will be deleted.</item>
+        <item quantity="other">%d messages will be deleted.</item>
+    </plurals>
+    <plurals name="delete_threads_body">
+        <item quantity="one">%1$d conversation with %2$d message will be deleted.</item>
+        <item quantity="other">%1$d conversations with %2$d messages will be deleted.</item>
+    </plurals>
+    <string name="delete_explain">Deleted messages go to \"Trash\", and you can bring them back until you empty it yourself.</string>
+    <string name="delete_confirm">Delete</string>
+    <plurals name="notice_deleted">
+        <item quantity="one">%d message moved to Trash.</item>
+        <item quantity="other">%d messages moved to Trash.</item>
+    </plurals>
+    <string name="notice_nothing_deleted">Nothing was deleted. To delete messages, Asudeh needs to be the default SMS app.</string>
+    <plurals name="notice_restored">
+        <item quantity="one">%d message restored.</item>
+        <item quantity="other">%d messages restored.</item>
+    </plurals>
+    <string name="notice_restore_failed">Couldn\'t restore it.</string>
+    <string name="undo">Undo</string>
+
+    <!-- "Trash" -->
+    <string name="trash">Trash</string>
+    <string name="trash_hint">These have been deleted from the phone and only remain in Asudeh. You can restore them as long as they\'re here.</string>
+    <string name="trash_empty_state">You haven\'t deleted anything.</string>
+    <string name="archive">Archive</string>
+    <string name="unarchive">Remove from archive</string>
+    <string name="trash_restore">Restore</string>
+    <string name="trash_not_restorable">Multimedia messages can\'t be restored; only their text is kept.</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d message</item>
+        <item quantity="other">%d messages</item>
+    </plurals>
+    <string name="empty_trash">Empty Trash</string>
+    <plurals name="empty_trash_step1">
+        <item quantity="one">%d message is here. Delete it permanently?</item>
+        <item quantity="other">%d messages are here. Delete them all permanently?</item>
+    </plurals>
+    <plurals name="empty_trash_step2">
+        <item quantity="one">%d message will be permanently deleted and can\'t be brought back. Are you sure?</item>
+        <item quantity="other">%d messages will be permanently deleted and can\'t be brought back. Are you sure?</item>
+    </plurals>
+
+    <!-- Scheduled send (ADR-0011) -->
+    <string name="schedule_send">Send later</string>
+    <string name="schedule_title">When should it be sent?</string>
+    <string name="schedule_tonight">Tonight, at %1$s</string>
+    <string name="schedule_tomorrow_morning">Tomorrow morning, at %1$s</string>
+    <string name="schedule_tomorrow_afternoon">Tomorrow afternoon, at %1$s</string>
+    <string name="schedule_custom">Custom time…</string>
+    <string name="schedule_pick_day">Send day</string>
+    <string name="schedule_pick_time">Send time</string>
+    <string name="schedule_note">Until then, the text stays in Asudeh and isn\'t sent anywhere. If your phone is off, it\'ll be sent once you turn it back on.</string>
+    <string name="schedule_too_soon">That time has already passed.</string>
+    <string name="scheduled_today">Will be sent today at %1$s</string>
+    <string name="scheduled_tomorrow">Will be sent tomorrow at %1$s</string>
+    <string name="scheduled_later">Will be sent %1$s at %2$s</string>
+    <string name="schedule_missed">Not sent; the scheduled time had already passed</string>
+    <string name="schedule_cancel">Cancel</string>
+    <string name="schedule_send_now">Send now</string>
+    <string name="notice_schedule_sending">Sending…</string>
+
+    <!-- D58 -->
+    <string name="crash_title">Asudeh closed unexpectedly last time</string>
+    <string name="crash_body">Send a report? The report contains no message text or phone numbers; you can see its full text below.</string>
+    <string name="crash_send">Send report</string>
+    <string name="crash_dismiss">No</string>
+</resources>
