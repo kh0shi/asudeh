@@ -56,9 +56,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -915,6 +918,8 @@ private fun HomeScreen(
             ThreadRow(
                 model = model,
                 thread = thread,
+                folder = Folder.INBOX,
+                isDefaultApp = isDefaultApp,
                 selected = thread.threadId in selectedThreads,
                 selectionMode = selectedThreads.isNotEmpty(),
                 onClick = { onOpenThread(thread.threadId) },
@@ -974,6 +979,8 @@ private fun FolderScreen(
                 ThreadRow(
                     model = model,
                     thread = thread,
+                    folder = folder,
+                    isDefaultApp = isDefaultApp,
                     selected = thread.threadId in selectedThreads,
                     selectionMode = selectedThreads.isNotEmpty(),
                     onClick = { onOpenThread(thread.threadId) },
@@ -1000,14 +1007,82 @@ private fun DefaultAppCard(onBecomeDefault: () -> Unit) {
 }
 
 /**
- * یک گفتگو در فهرست. لمس طولانی مثل تلگرام خود گفتگو را **انتخاب** می‌کند و
- * کارها روی نوار بالا می‌آیند ([SelectionActions])، نه در منویی که فقط روی
- * همان یک گفتگو کار می‌کرد. لمس کوتاه در حالت انتخاب هم فقط انتخاب را عوض
- * می‌کند و گفتگو را باز نمی‌کند (D53، ADR-0010).
+ * یک گفتگو در فهرست، با کشیدن انگشت هم. کشیدن به یک طرف علامت خوانده/
+ * خوانده‌نشده را عوض می‌کند؛ کشیدن به طرف دیگر حذف را می‌پرسد (فقط اپ
+ * پیش‌فرض)، با همان `DeleteDialog` که دکمهٔ حذف نوار انتخاب هم استفاده
+ * می‌کند. هیچ‌کدام کارت را واقعاً از صفحه برنمی‌دارد؛ کارت به جای خودش
+ * برمی‌گردد و کار از راه ViewModel انجام می‌شود، چون حذف به تأیید نیاز دارد.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThreadRow(
+    model: AsudehViewModel,
+    thread: ThreadSummary,
+    folder: Folder,
+    isDefaultApp: Boolean,
+    selected: Boolean,
+    selectionMode: Boolean,
+    onClick: () -> Unit,
+) {
+    if (selectionMode) {
+        ThreadRowContent(model, thread, selected, selectionMode, onClick)
+        return
+    }
+    val marksRead = thread.unread > 0
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    if (marksRead) {
+                        model.markThreadsRead(setOf(thread.threadId), folder)
+                    } else {
+                        model.markThreadsUnread(setOf(thread.threadId), folder)
+                    }
+                }
+                SwipeToDismissBoxValue.EndToStart -> {
+                    if (isDefaultApp) model.requestDeleteThreads(setOf(thread.threadId), folder)
+                }
+                SwipeToDismissBoxValue.Settled -> Unit
+            }
+            false
+        },
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromEndToStart = isDefaultApp,
+        backgroundContent = { SwipeBackground(dismissState.targetValue, marksRead) },
+    ) {
+        ThreadRowContent(model, thread, selected, selectionMode, onClick)
+    }
+}
+
+/** پس‌زمینهٔ کشیدن انگشت: سمتی که به آن کشیده می‌شود، رنگ و آیکونش را نشان می‌دهد. */
+@Composable
+private fun SwipeBackground(target: SwipeToDismissBoxValue, marksRead: Boolean) {
+    val (color, icon, alignment) = when (target) {
+        SwipeToDismissBoxValue.StartToEnd -> Triple(
+            MaterialTheme.colorScheme.primaryContainer,
+            if (marksRead) Icons.Default.Email else Icons.Default.MailOutline,
+            Alignment.CenterStart,
+        )
+        SwipeToDismissBoxValue.EndToStart -> Triple(
+            MaterialTheme.colorScheme.errorContainer,
+            Icons.Default.Delete,
+            Alignment.CenterEnd,
+        )
+        SwipeToDismissBoxValue.Settled -> Triple(Color.Unspecified, null, Alignment.Center)
+    }
+    Box(
+        Modifier.fillMaxSize().background(color).padding(horizontal = 24.dp),
+        contentAlignment = alignment,
+    ) {
+        if (icon != null) Icon(icon, null)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ThreadRowContent(
     model: AsudehViewModel,
     thread: ThreadSummary,
     selected: Boolean,
