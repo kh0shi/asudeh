@@ -28,6 +28,7 @@ import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.persian.ScheduleChoice
 import ir.asudehapp.sms.persian.SendSchedule
 import ir.asudehapp.sms.telephony.ActiveConversation
+import ir.asudehapp.sms.telephony.ContactPhone
 import ir.asudehapp.sms.telephony.Contacts
 import ir.asudehapp.sms.telephony.DigestScheduler
 import ir.asudehapp.sms.telephony.MmsDownloader
@@ -126,6 +127,13 @@ data class DeleteRequest(
 /** «خالی کردن سطل»: حذف قطعی، پس مثل D45 دو مرحله دارد. */
 data class EmptyTrashRequest(val count: Int, val confirmed: Boolean = false)
 
+/**
+ * «اسپم» روی یک یا چند گفتگوی فهرست: همان `Block` (ADR-0006 بند ۲) روی همهٔ
+ * فرستنده‌های ورودیِ آن گفتگوها. چیزی حذف نمی‌شود، پس یک مرحله تأیید بس است؛
+ * متن تأیید می‌گوید دقیقاً چه اتفاقی می‌افتد (اصل ۵).
+ */
+data class SpamRequest(val threads: Int, val senders: List<String>)
+
 /** برگهٔ انتخاب زمان ارسال (ADR-0011). */
 data class ScheduleRequest(
     val presets: List<ScheduleChoice>,
@@ -164,6 +172,8 @@ sealed interface UiNotice {
     data class BackupExported(val messages: Int) : UiNotice
     data class BackupImported(val added: Int, val duplicates: Int, val corrupt: Int) : UiNotice
     data class BackupFailed(val reason: BackupException.Reason?) : UiNotice
+    data class MarkedSpam(val senders: Int) : UiNotice
+    data object SpamNothing : UiNotice
     data object AttachmentFailed : UiNotice
     data object DownloadRequested : UiNotice
     data object DownloadFailed : UiNotice
@@ -231,6 +241,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     private val _emptyTrash = MutableStateFlow<EmptyTrashRequest?>(null)
     val emptyTrash: StateFlow<EmptyTrashRequest?> = _emptyTrash.asStateFlow()
 
+    /** «اسپم» روی گفتگوهای انتخاب‌شده، پیش از تأیید. */
+    private val _spamRequest = MutableStateFlow<SpamRequest?>(null)
+    val spamRequest: StateFlow<SpamRequest?> = _spamRequest.asStateFlow()
+
     val trash: StateFlow<List<TrashedMessageEntity>> = repository.trash()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
 
@@ -290,6 +304,14 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     /** نام مخاطب هر سرشماره، اگر اجازهٔ مخاطب‌ها داده شده باشد. */
     private val _contactNames = MutableStateFlow<Map<String, String>>(emptyMap())
     val contactNames: StateFlow<Map<String, String>> = _contactNames.asStateFlow()
+
+    /** فهرست مخاطب‌ها برای «گفتگوی تازه»؛ بدون مجوز خالی می‌ماند. */
+    private val _contacts = MutableStateFlow<List<ContactPhone>>(emptyList())
+    val contacts: StateFlow<List<ContactPhone>> = _contacts.asStateFlow()
+
+    /** راهنمای انتخاب بخشی از متن، فقط بار اول (AppPrefs). */
+    private val _textPickHintSeen = MutableStateFlow(prefs.textPickHintSeen)
+    val textPickHintSeen: StateFlow<Boolean> = _textPickHintSeen.asStateFlow()
     private val lookedUp = HashSet<String>()
 
     val settings: StateFlow<SettingsState> = settingsStore.changes()
@@ -428,6 +450,8 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     fun back(): Boolean {
         val stack = _stack.value
         if (stack.size <= 1) return false
+        // متنی که منتظر گیرنده بود، با بیرون آمدن از «گفتگوی تازه» منتظر نمی‌ماند.
+        if (stack.last() is Destination.NewConversation) _pendingShare.value = null
         leaveConversation()
         _stack.value = stack.dropLast(1)
         enter(_stack.value.last())
@@ -471,18 +495,46 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /** متن یا تصویری که از اپ دیگری به اشتراک گذاشته شده و منتظر گیرنده است. */
-    private var pendingShare: Share? = null
+    /**
+     * متن یا تصویری که منتظر گیرنده است: اشتراک‌گذاری از اپ دیگر، یا فوروارد.
+     * «گفتگوی تازه» آن را نشان می‌دهد تا کاربر بداند چه چیزی در راه است.
+     */
+    private val _pendingShare = MutableStateFlow<Share?>(null)
+    val pendingShare: StateFlow<Share?> = _pendingShare.asStateFlow()
 
     fun shareIntoNewConversation(share: Share) {
-        pendingShare = share
+        _pendingShare.value = share
         resetTo(Destination.NewConversation)
+    }
+
+    /**
+     * فوروارد: متن پیامک‌ها به «گفتگوی تازه» می‌رود و آنجا فقط گیرنده پرسیده
+     * می‌شود. برخلاف اشتراک‌گذاری از اپ دیگر، پشتهٔ ناوبری نگه داشته می‌شود تا
+     * «بازگشت» به همان گفتگو برگردد. هیچ پیامکی بدون فشردن «فرستادن» نمی‌رود.
+     */
+    fun forward(text: String) {
+        if (text.isEmpty()) return
+        _pendingShare.value = Share(text, null)
+        navigate(Destination.NewConversation)
+    }
+
+    /** فوروارد پیامک‌های انتخاب‌شدهٔ همین گفتگو، به ترتیب زمانی. */
+    fun forwardSelectedMessages() {
+        val keys = _selectedMessages.value
+        if (keys.isEmpty()) return
+        val text = _conversation.value.messages
+            .filter { MessageKey(it.kind, it.providerId) in keys }
+            .map { it.body }
+            .filter { it.isNotEmpty() }
+            .joinToString("\n\n")
+        clearMessageSelection()
+        forward(text)
     }
 
     /** «شروع گفتگو»: متن یا تصویر اشتراک‌گذاشته‌شده، اگر باشد، به پیش‌نویس می‌رود. */
     fun startConversation(recipients: List<String>) {
-        val share = pendingShare
-        pendingShare = null
+        val share = _pendingShare.value
+        _pendingShare.value = null
         composeTo(recipients, share?.text, share?.image)
     }
 
@@ -821,8 +873,71 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         _selectedThreads.value = if (threadId in current) current - threadId else current + threadId
     }
 
+    fun selectAllThreads(threadIds: Collection<Long>) {
+        _selectedThreads.value = threadIds.toSet()
+    }
+
     fun clearThreadSelection() {
         _selectedThreads.value = emptySet()
+    }
+
+    // ——— کارهای گروهی روی گفتگوهای انتخاب‌شده ———
+
+    fun setPinnedThreads(threadIds: Set<Long>, pinned: Boolean) {
+        if (threadIds.isEmpty()) return
+        for (threadId in threadIds) setPinned(threadId, pinned)
+        clearThreadSelection()
+    }
+
+    fun markThreadsRead(threadIds: Set<Long>, folder: Folder) {
+        if (threadIds.isEmpty()) return
+        for (threadId in threadIds) markRead(threadId, folder)
+        clearThreadSelection()
+    }
+
+    fun markThreadsUnread(threadIds: Set<Long>, folder: Folder) {
+        if (threadIds.isEmpty()) return
+        for (threadId in threadIds) markUnread(threadId, folder)
+        clearThreadSelection()
+    }
+
+    /**
+     * مرحلهٔ اول «اسپم»: پیدا کردن فرستنده‌های ورودیِ این گفتگوها. گفتگوی
+     * گروهی و پیامک‌های خود کاربر حساب نمی‌شوند، چون `Block` روی آن‌ها کاری
+     * نمی‌کند (D26).
+     */
+    fun requestSpamThreads(threadIds: Set<Long>) {
+        if (threadIds.isEmpty()) return
+        viewModelScope.launch {
+            val senders = threadIds
+                .flatMap { repository.messagesOfThread(it, folder = null) }
+                .filter { !it.outgoing && !it.isGroup && it.address.isNotBlank() }
+                .map { it.address }
+                .distinctBy(Addresses::normalize)
+            _spamRequest.value = SpamRequest(threads = threadIds.size, senders = senders)
+        }
+    }
+
+    fun cancelSpam() {
+        _spamRequest.value = null
+    }
+
+    /**
+     * «اسپم»، فقط پس از تأیید صریح: همان `Block` روی هر فرستنده. قاعده در
+     * «قواعد من» دیده می‌شود و برداشتنی است (اصل ۵، ADR-0006 بند ۲).
+     */
+    fun confirmSpam() {
+        val request = _spamRequest.value ?: return
+        _spamRequest.value = null
+        clearThreadSelection()
+        if (request.senders.isEmpty()) {
+            _notice.value = UiNotice.SpamNothing
+            return
+        }
+        viewModelScope.launch {
+            for (address in request.senders) repository.block(address)
+            _notice.value = UiNotice.MarkedSpam(request.senders.size)
+        }
     }
 
     // ——— حذف، با سطل (ADR-0010) ———
@@ -1063,6 +1178,17 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /** وقتی کاربر اجازهٔ مخاطب‌ها را تازه داده است. */
+    /** یک بار خواندن فهرست مخاطب‌ها، وقتی «گفتگوی تازه» باز می‌شود. */
+    fun refreshContacts() {
+        viewModelScope.launch { _contacts.value = Contacts.all(getApplication()) }
+    }
+
+    fun markTextPickHintSeen() {
+        if (_textPickHintSeen.value) return
+        prefs.textPickHintSeen = true
+        _textPickHintSeen.value = true
+    }
+
     fun refreshContactNames() {
         lookedUp.clear()
         val all = (inboxThreads.value + promoThreads.value + scamThreads.value)
