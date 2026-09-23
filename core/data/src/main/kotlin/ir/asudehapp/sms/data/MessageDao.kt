@@ -1,5 +1,6 @@
 package ir.asudehapp.sms.data
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -25,70 +26,134 @@ interface MessageDao {
      * خلاصهٔ گفتگوها **در یک پوشه**. یک گفتگو می‌تواند هم‌زمان در چند پوشه دیده
      * شود (`SplitThread`)، و در هر پوشه فقط پیامک‌های همان پوشه در پیش‌نمایش،
      * تعداد خوانده‌نشده و زمان آخرین پیامک حساب می‌شوند (ADR-0005).
+     *
+     * از نسخهٔ ۶ به بعد، این کوئری روی جدول محاسبه‌شدهٔ `thread_summary`
+     * است، نه `message` با چند subquery همبسته در هر ردیف (توضیح کامل در
+     * doc comment بالای [ThreadSummaryEntity] و `IndexMigrations.V5_V6`).
+     * سنجاق/پیش‌نویس/بی‌صدا/بایگانی هنوز فقط در `thread_pref` هستند و اینجا
+     * با `LEFT JOIN` اضافه می‌شوند؛ چیزی در آن‌ها تکرار نشده.
+     *
+     * این نسخهٔ **بدون صفحه‌بندی** (همهٔ ردیف‌ها یک‌جا) عمداً نگه داشته شده
+     * برای مصرف‌کننده‌هایی که به کل فهرست نیاز دارند، نه فقط ردیف‌های دیده‌شده:
+     * «انتخاب همه» (M8) و رزولوشن نام/عکس مخاطب هر گفتگوی قابل‌مشاهده. چون
+     * حالا خواندن این جدول دیگر O(n) subquery در هر ردیف نیست، این کوئری خودش
+     * هم ارزان شده؛ جدا از `pagingSource` که برای رندر خود فهرست است (پایین).
      */
     @Query(
         """
-        SELECT m.threadId AS threadId,
-               m.folder AS folder,
-               m.address AS address,
-               m.body AS snippet,
-               m.dateReceived AS lastDate,
-               (SELECT COUNT(*) FROM message u
-                 WHERE u.threadId = m.threadId AND u.folder = m.folder
-                   AND u.read = 0 AND u.outgoing = 0) AS unread,
-               (SELECT COUNT(*) FROM message t
-                 WHERE t.threadId = m.threadId AND t.folder = m.folder) AS total,
-               (SELECT MAX(r.risk) FROM message r
-                 WHERE r.threadId = m.threadId AND r.folder = m.folder) AS hasRisk,
-               m.recipients AS recipients,
-               m.attachments AS attachments,
+        SELECT ts.threadId AS threadId,
+               ts.folder AS folder,
+               ts.address AS address,
+               ts.snippet AS snippet,
+               ts.lastDate AS lastDate,
+               ts.unread AS unread,
+               ts.total AS total,
+               ts.hasRisk AS hasRisk,
+               ts.recipients AS recipients,
+               ts.attachments AS attachments,
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
                COALESCE(p.muted, 0) AS muted,
                COALESCE(p.archived, 0) AS archived
-          FROM message m
-          LEFT JOIN thread_pref p ON p.threadId = m.threadId
-         WHERE m.folder = :folder
+          FROM thread_summary ts
+          LEFT JOIN thread_pref p ON p.threadId = ts.threadId
+         WHERE ts.folder = :folder
            AND COALESCE(p.archived, 0) = 0
-           AND m.dateReceived = (SELECT MAX(x.dateReceived) FROM message x
-                                  WHERE x.threadId = m.threadId AND x.folder = m.folder)
-         GROUP BY m.threadId
          ORDER BY pinned DESC, lastDate DESC
         """,
     )
     fun observeThreads(folder: Folder): Flow<List<ThreadSummary>>
 
     /**
-     * گفتگوهای بایگانی‌شده، از هر پوشه‌ای که باشند (PARITY §الف). برخلاف
-     * [observeThreads]، به یک پوشه محدود نیست: پیش‌نمایش و شمار خوانده‌نشده از
-     * **همهٔ** پیامک‌های گفتگو حساب می‌شوند، نه فقط یک پوشه.
+     * همان [observeThreads]، ولی به‌جای بارگذاری کل فهرست در حافظه، صفحه‌به‌صفحه
+     * می‌دهد (Paging 3، برای هدف ~۱۰٬۰۰۰ گفتگو در مانیفست). خود Room این نوع
+     * خروجی را از یک `@Query` عادی می‌سازد (`androidx.room:room-paging`).
      */
     @Query(
         """
-        SELECT m.threadId AS threadId,
-               m.folder AS folder,
-               m.address AS address,
-               m.body AS snippet,
-               m.dateReceived AS lastDate,
-               (SELECT COUNT(*) FROM message u
-                 WHERE u.threadId = m.threadId AND u.read = 0 AND u.outgoing = 0) AS unread,
-               (SELECT COUNT(*) FROM message t WHERE t.threadId = m.threadId) AS total,
-               (SELECT MAX(r.risk) FROM message r WHERE r.threadId = m.threadId) AS hasRisk,
-               m.recipients AS recipients,
-               m.attachments AS attachments,
+        SELECT ts.threadId AS threadId,
+               ts.folder AS folder,
+               ts.address AS address,
+               ts.snippet AS snippet,
+               ts.lastDate AS lastDate,
+               ts.unread AS unread,
+               ts.total AS total,
+               ts.hasRisk AS hasRisk,
+               ts.recipients AS recipients,
+               ts.attachments AS attachments,
+               COALESCE(p.pinned, 0) AS pinned,
+               COALESCE(p.draft, '') AS draft,
+               COALESCE(p.muted, 0) AS muted,
+               COALESCE(p.archived, 0) AS archived
+          FROM thread_summary ts
+          LEFT JOIN thread_pref p ON p.threadId = ts.threadId
+         WHERE ts.folder = :folder
+           AND COALESCE(p.archived, 0) = 0
+         ORDER BY pinned DESC, lastDate DESC
+        """,
+    )
+    fun pagingSource(folder: Folder): PagingSource<Int, ThreadSummary>
+
+    /**
+     * گفتگوهای بایگانی‌شده، از هر پوشه‌ای که باشند (PARITY §الف). برخلاف
+     * [observeThreads]، به یک پوشه محدود نیست: پیش‌نمایش و شمار خوانده‌نشده از
+     * **همهٔ** پیامک‌های گفتگو حساب می‌شوند، نه فقط یک پوشه. چون `thread_summary`
+     * به ازای هر (threadId, folder) یک ردیف دارد، این کوئری روی ردیف‌های همان
+     * گفتگو (معمولاً ۱ تا ۳ ردیف، یکی به ازای هر پوشه) SUM/MAX می‌گیرد — باز هم
+     * روی جدول کوچک محاسبه‌شده، نه روی کل `message`.
+     */
+    @Query(
+        """
+        SELECT ts.threadId AS threadId,
+               ts.folder AS folder,
+               ts.address AS address,
+               ts.snippet AS snippet,
+               ts.lastDate AS lastDate,
+               (SELECT COALESCE(SUM(u.unread), 0) FROM thread_summary u WHERE u.threadId = ts.threadId) AS unread,
+               (SELECT COALESCE(SUM(u.total), 0) FROM thread_summary u WHERE u.threadId = ts.threadId) AS total,
+               (SELECT MAX(u.hasRisk) FROM thread_summary u WHERE u.threadId = ts.threadId) AS hasRisk,
+               ts.recipients AS recipients,
+               ts.attachments AS attachments,
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
                COALESCE(p.muted, 0) AS muted,
                p.archived AS archived
-          FROM message m
-          JOIN thread_pref p ON p.threadId = m.threadId
+          FROM thread_summary ts
+          JOIN thread_pref p ON p.threadId = ts.threadId
          WHERE p.archived = 1
-           AND m.dateReceived = (SELECT MAX(x.dateReceived) FROM message x WHERE x.threadId = m.threadId)
-         GROUP BY m.threadId
-         ORDER BY lastDate DESC
+           AND ts.lastDate = (SELECT MAX(x.lastDate) FROM thread_summary x WHERE x.threadId = ts.threadId)
+         GROUP BY ts.threadId
+         ORDER BY ts.lastDate DESC
         """,
     )
     fun observeArchivedThreads(): Flow<List<ThreadSummary>>
+
+    /** همان [observeArchivedThreads]، صفحه‌به‌صفحه (Paging 3). */
+    @Query(
+        """
+        SELECT ts.threadId AS threadId,
+               ts.folder AS folder,
+               ts.address AS address,
+               ts.snippet AS snippet,
+               ts.lastDate AS lastDate,
+               (SELECT COALESCE(SUM(u.unread), 0) FROM thread_summary u WHERE u.threadId = ts.threadId) AS unread,
+               (SELECT COALESCE(SUM(u.total), 0) FROM thread_summary u WHERE u.threadId = ts.threadId) AS total,
+               (SELECT MAX(u.hasRisk) FROM thread_summary u WHERE u.threadId = ts.threadId) AS hasRisk,
+               ts.recipients AS recipients,
+               ts.attachments AS attachments,
+               COALESCE(p.pinned, 0) AS pinned,
+               COALESCE(p.draft, '') AS draft,
+               COALESCE(p.muted, 0) AS muted,
+               p.archived AS archived
+          FROM thread_summary ts
+          JOIN thread_pref p ON p.threadId = ts.threadId
+         WHERE p.archived = 1
+           AND ts.lastDate = (SELECT MAX(x.lastDate) FROM thread_summary x WHERE x.threadId = ts.threadId)
+         GROUP BY ts.threadId
+         ORDER BY ts.lastDate DESC
+        """,
+    )
+    fun archivedPagingSource(): PagingSource<Int, ThreadSummary>
 
     /** همهٔ پیامک‌های یک گفتگو، از همهٔ پوشه‌ها، برای نمایش `HiddenRun` (D43). */
     @Query("SELECT * FROM message WHERE threadId = :threadId ORDER BY dateReceived ASC")

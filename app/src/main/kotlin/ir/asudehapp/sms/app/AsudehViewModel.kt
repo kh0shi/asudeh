@@ -8,6 +8,8 @@ import android.os.Looper
 import android.provider.Telephony
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import ir.asudehapp.sms.data.BackupException
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.KeywordRuleEntity
@@ -40,6 +42,7 @@ import ir.asudehapp.sms.telephony.SimCard
 import ir.asudehapp.sms.telephony.SimCards
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -199,6 +202,25 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         .map { it.last() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, Destination.Home)
 
+    /**
+     * فهرست کامل گفتگوهای هر پوشه، هنوز به‌عنوان `StateFlow<List<...>>` (نه
+     * صفحه‌بندی‌شده). این‌ها برای دو مصرف‌کنندهٔ زیر لازم‌اند که با
+     * `PagingData` جور نیستند (نمی‌شود روی آن `.map`/`.filter` زد):
+     *
+     * 1. «انتخاب همه» (M8، `selectAllThreads`) — معنی‌اش را عمداً عوض نکردیم:
+     *    «انتخاب همهٔ گفتگوهای همین پوشه» است، نه فقط ردیف‌های همین لحظه در
+     *    صفحهٔ بارگذاری‌شده؛ چون پیش از این کار هم چون کل فهرست همیشه در
+     *    حافظه بود، این دو یکی بودند. حالا که `thread_summary` ارزان است،
+     *    نگه‌داشتن همین فهرست کامل برای این یک مصرف، رفتار قبلی را کامل حفظ
+     *    می‌کند، به‌جای اینکه با کوئری‌ای دیگر روی «فیلتر فعلی» شبیه‌سازی شود.
+     * 2. رزولوشن نام/عکس مخاطب هر گفتگوی موجود (پایین‌تر، `combine`) —
+     *    نیازمند آدرس همهٔ گفتگوهاست، نه فقط دیده‌شده‌ها.
+     *
+     * `LazyColumn` خود فهرست‌ها از [pagedInboxThreads]/[pagedPromoThreads]/
+     * [pagedScamThreads]/[pagedArchivedThreads] می‌خواند؛ آنجا هزینهٔ واقعی در
+     * مقیاس ۱۰هزارتایی است (رندر/recomposition هزاران ردیف Compose، نه خود
+     * کوئری که با جدول محاسبه‌شده دیگر ارزان است).
+     */
     val inboxThreads: StateFlow<List<ThreadSummary>> = threadsIn(Folder.INBOX)
     val promoThreads: StateFlow<List<ThreadSummary>> = threadsIn(Folder.PROMO)
     val scamThreads: StateFlow<List<ThreadSummary>> = threadsIn(Folder.SCAM)
@@ -206,6 +228,16 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     /** بایگانی (PARITY §الف): خارج از سه پوشهٔ اصلی، از هر پوشه‌ای که باشند. */
     val archivedThreads: StateFlow<List<ThreadSummary>> = repository.archivedThreads()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
+
+    /** نسخهٔ صفحه‌بندی‌شده (Paging 3) همان چهار فهرست بالا، فقط برای رندر فهرست. */
+    val pagedInboxThreads: Flow<PagingData<ThreadSummary>> =
+        repository.pagedThreads(Folder.INBOX).cachedIn(viewModelScope)
+    val pagedPromoThreads: Flow<PagingData<ThreadSummary>> =
+        repository.pagedThreads(Folder.PROMO).cachedIn(viewModelScope)
+    val pagedScamThreads: Flow<PagingData<ThreadSummary>> =
+        repository.pagedThreads(Folder.SCAM).cachedIn(viewModelScope)
+    val pagedArchivedThreads: Flow<PagingData<ThreadSummary>> =
+        repository.pagedArchivedThreads().cachedIn(viewModelScope)
 
     val promoUnread: StateFlow<Int> = repository.unreadCount(Folder.PROMO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), 0)
@@ -449,6 +481,13 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     private fun threadsIn(folder: Folder): StateFlow<List<ThreadSummary>> =
         repository.threads(folder)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
+
+    /** نسخهٔ صفحه‌بندی‌شدهٔ از پیش‌محاسبه‌شدهٔ یک پوشه، برای `FolderScreen`. */
+    fun pagedThreadsIn(folder: Folder): Flow<PagingData<ThreadSummary>> = when (folder) {
+        Folder.INBOX -> pagedInboxThreads
+        Folder.PROMO -> pagedPromoThreads
+        Folder.SCAM -> pagedScamThreads
+    }
 
     // ——— ناوبری ———
 

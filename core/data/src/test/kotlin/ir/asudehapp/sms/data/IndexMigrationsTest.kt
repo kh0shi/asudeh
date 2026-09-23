@@ -18,6 +18,7 @@ class IndexMigrationsTest {
     private val schema3 = schema(3)
     private val schema4 = schema(4)
     private val schema5 = schema(5)
+    private val schema6 = schema(6)
 
     private fun schema(version: Int) =
         File("schemas/ir.asudehapp.sms.data.IndexDatabase/$version.json").readText()
@@ -89,11 +90,33 @@ class IndexMigrationsTest {
         }
     }
 
-    /** هیچ دستور migration نباید داده‌ای را پاک کند. */
+    /**
+     * جدول و ایندکس تازهٔ نسخهٔ ۶: `thread_summary` (توضیح کامل در
+     * doc comment بالای `IndexMigrations.V5_V6`). triggerهای این نسخه (برخلاف
+     * triggerهای هم‌گام‌سازی FTS در نسخهٔ ۲) در schema صادرشدهٔ Room نیستند،
+     * چون Room فقط triggerهای خودکار `@Fts4(contentEntity=...)` را رصد
+     * می‌کند، نه triggerهای دستی روی یک جدول معمولی؛ برای همین اینجا فقط
+     * `CREATE TABLE`/`CREATE INDEX` با schema مقایسه می‌شوند، و درستی خود
+     * triggerها در `ThreadSummaryTriggerTest` با اجرای واقعی SQL بررسی
+     * می‌شود.
+     */
+    @Test
+    fun `version six creates exactly what room expects`() {
+        val creates = IndexMigrations.V5_V6_SQL.filter {
+            it.startsWith("CREATE TABLE") || it.startsWith("CREATE INDEX")
+        }
+        assertTrue(creates.size == 2)
+        for (statement in creates) {
+            val comparable = statement.replace("`thread_summary`", "``")
+            assertTrue("در schema نیست: $statement", comparable in schema6)
+        }
+    }
+
+    /** هیچ دستور migration نباید داده‌ای را پاک کند (نه به‌عنوان دستور مستقل). */
     @Test
     fun `no migration drops or deletes anything`() {
         val all = IndexMigrations.V1_V2_SQL + IndexMigrations.V2_V3_SQL + IndexMigrations.V3_V4_SQL +
-            IndexMigrations.V4_V5_SQL
+            IndexMigrations.V4_V5_SQL + IndexMigrations.V5_V6_SQL
         for (statement in all) {
             val upper = statement.uppercase()
             assertTrue("migration مخرب: $statement", !upper.startsWith("DROP"))

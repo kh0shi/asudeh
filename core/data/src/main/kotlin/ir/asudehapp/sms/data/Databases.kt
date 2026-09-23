@@ -57,8 +57,9 @@ class AsudehConverters {
         ThreadPrefEntity::class,
         TrashedMessageEntity::class,
         ScheduledMessageEntity::class,
+        ThreadSummaryEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
@@ -88,6 +89,7 @@ abstract class IndexDatabase : RoomDatabase() {
                 IndexMigrations.V2_V3,
                 IndexMigrations.V3_V4,
                 IndexMigrations.V4_V5,
+                IndexMigrations.V5_V6,
             ).build().also { instance = it }
         }
     }
@@ -212,6 +214,106 @@ object IndexMigrations {
 
     internal val V4_V5_SQL: List<String> = listOf(
         "ALTER TABLE `thread_pref` ADD COLUMN `archived` INTEGER NOT NULL DEFAULT 0",
+    )
+
+    /**
+     * نسخهٔ ۶: جدول محاسبه‌شدهٔ (materialized) `thread_summary` (PARITY/STATUS:
+     * صفحه‌بندی فهرست گفتگوها با Paging 3). این migration:
+     *
+     * 1. جدول تازه `thread_summary` را می‌سازد (یک ردیف برای هر جفت
+     *    threadId+folder، دقیقاً مثل چیزی که `observeThreads` قبلاً هر بار با
+     *    subquery حساب می‌کرد).
+     * 2. چهار trigger روی `message` می‌سازد که این جدول را **همان لحظهٔ
+     *    نوشتن** به‌روز نگه می‌دارند؛ الگو همان چیزی است که خود Room برای
+     *    `message_fts` در نسخهٔ ۲ ساخته (`room_fts_content_sync_*`): چند
+     *    trigger روی درج/به‌روزرسانی/حذف، به‌جای صدا زدن یک تابع Kotlin در هر
+     *    محل نوشتن (که با تعداد زیاد مسیر نوشتن در `AsudehRepository` شکننده
+     *    می‌بود). چون `upsert`/`insertMissing` با `OnConflictStrategy.REPLACE`
+     *    در SQLite به یک DELETE و سپس INSERT ترجمه می‌شوند (نه UPDATE) — دقیقاً
+     *    همان دلیلی که triggerهای FTS بالا هم BEFORE_DELETE/AFTER_INSERT جدا
+     *    دارند — این چهار trigger هر دو مسیر (UPDATE مستقیم SQL، و
+     *    INSERT OR REPLACE) را می‌پوشانند:
+     *      - AFTER INSERT: ردیف (NEW.threadId, NEW.folder) را حساب می‌کند.
+     *      - AFTER UPDATE: همیشه (NEW.threadId, NEW.folder) را دوباره حساب
+     *        می‌کند (برای خواندن/نخوانده و ریسک که ممکن است بدون تغییر پوشه
+     *        عوض شوند).
+     *      - AFTER UPDATE...WHEN جفت عوض شده باشد: ردیف قدیمی
+     *        (OLD.threadId, OLD.folder) را هم دوباره حساب می‌کند یا اگر دیگر
+     *        پیامکی در آن نمانده حذفش می‌کند (برای `reclassify`/`moveMessage`
+     *        که `folder` پیامک را عوض می‌کنند).
+     *      - AFTER DELETE: مثل بالا برای (OLD.threadId, OLD.folder).
+     *    تضمین سازگاری **فوری** است: triggerها بخشی از همان تراکنش نوشتن‌اند،
+     *    نه یک پاک‌سازی بعدی؛ توضیح کامل در doc comment بالای
+     *    `ThreadSummaryEntity`.
+     * 3. جدول تازه را برای پیامک‌های موجود پر می‌کند (چون triggerها فقط روی
+     *    نوشتن‌های *بعدی* اثر دارند).
+     *
+     * سنجاق/پیش‌نویس/بی‌صدا/بایگانی اینجا تکرار نمی‌شوند؛ کوئری‌های DAO آن‌ها را
+     * هنوز با `LEFT JOIN` از `thread_pref` می‌خوانند.
+     */
+    val V5_V6: Migration = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V5_V6_SQL) db.execSQL(statement)
+        }
+    }
+
+    /** ستون‌های خروجی مشترک بین triggerها و پر کردن اولیهٔ `thread_summary`. */
+    private const val THREAD_SUMMARY_COLUMNS =
+        "`threadId`,`folder`,`address`,`snippet`,`lastDate`,`unread`,`total`,`hasRisk`,`recipients`,`attachments`"
+
+    /** بدنهٔ SELECT محاسبهٔ ردیف خلاصه برای جفت (tid, fol) از روی `message`. */
+    private fun recomputeSelect(tid: String, fol: String): String =
+        "SELECT $tid, $fol, " +
+            "(SELECT `address` FROM `message` WHERE `threadId` = $tid AND `folder` = $fol ORDER BY `dateReceived` DESC LIMIT 1), " +
+            "(SELECT `body` FROM `message` WHERE `threadId` = $tid AND `folder` = $fol ORDER BY `dateReceived` DESC LIMIT 1), " +
+            "(SELECT MAX(`dateReceived`) FROM `message` WHERE `threadId` = $tid AND `folder` = $fol), " +
+            "(SELECT COUNT(*) FROM `message` WHERE `threadId` = $tid AND `folder` = $fol AND `read` = 0 AND `outgoing` = 0), " +
+            "(SELECT COUNT(*) FROM `message` WHERE `threadId` = $tid AND `folder` = $fol), " +
+            "(SELECT MAX(`risk`) FROM `message` WHERE `threadId` = $tid AND `folder` = $fol), " +
+            "(SELECT `recipients` FROM `message` WHERE `threadId` = $tid AND `folder` = $fol ORDER BY `dateReceived` DESC LIMIT 1), " +
+            "(SELECT `attachments` FROM `message` WHERE `threadId` = $tid AND `folder` = $fol ORDER BY `dateReceived` DESC LIMIT 1) " +
+            "WHERE EXISTS (SELECT 1 FROM `message` WHERE `threadId` = $tid AND `folder` = $fol)"
+
+    /** حذف ردیف خلاصهٔ (tid, fol) اگر دیگر هیچ پیامکی در آن جفت نمانده باشد. */
+    private fun deleteIfEmpty(tid: String, fol: String): String =
+        "DELETE FROM `thread_summary` WHERE `threadId` = $tid AND `folder` = $fol " +
+            "AND NOT EXISTS (SELECT 1 FROM `message` WHERE `threadId` = $tid AND `folder` = $fol)"
+
+    internal val V5_V6_SQL: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `thread_summary` (`threadId` INTEGER NOT NULL, `folder` TEXT NOT NULL, " +
+            "`address` TEXT NOT NULL, `snippet` TEXT NOT NULL, `lastDate` INTEGER NOT NULL, " +
+            "`unread` INTEGER NOT NULL, `total` INTEGER NOT NULL, `hasRisk` INTEGER NOT NULL, " +
+            "`recipients` TEXT NOT NULL, `attachments` INTEGER NOT NULL, PRIMARY KEY(`threadId`, `folder`))",
+        "CREATE INDEX IF NOT EXISTS `index_thread_summary_folder_lastDate` ON `thread_summary` (`folder`, `lastDate`)",
+        "CREATE TRIGGER IF NOT EXISTS trg_thread_summary_ai AFTER INSERT ON `message` BEGIN " +
+            "INSERT OR REPLACE INTO `thread_summary` ($THREAD_SUMMARY_COLUMNS) " +
+            "${recomputeSelect("NEW.`threadId`", "NEW.`folder`")}; END",
+        "CREATE TRIGGER IF NOT EXISTS trg_thread_summary_au AFTER UPDATE ON `message` BEGIN " +
+            "INSERT OR REPLACE INTO `thread_summary` ($THREAD_SUMMARY_COLUMNS) " +
+            "${recomputeSelect("NEW.`threadId`", "NEW.`folder`")}; END",
+        "CREATE TRIGGER IF NOT EXISTS trg_thread_summary_au_move AFTER UPDATE ON `message` " +
+            "WHEN OLD.`threadId` != NEW.`threadId` OR OLD.`folder` != NEW.`folder` BEGIN " +
+            "${deleteIfEmpty("OLD.`threadId`", "OLD.`folder`")}; " +
+            "INSERT OR REPLACE INTO `thread_summary` ($THREAD_SUMMARY_COLUMNS) " +
+            "${recomputeSelect("OLD.`threadId`", "OLD.`folder`")}; END",
+        "CREATE TRIGGER IF NOT EXISTS trg_thread_summary_ad AFTER DELETE ON `message` BEGIN " +
+            "${deleteIfEmpty("OLD.`threadId`", "OLD.`folder`")}; " +
+            "INSERT OR REPLACE INTO `thread_summary` ($THREAD_SUMMARY_COLUMNS) " +
+            "${recomputeSelect("OLD.`threadId`", "OLD.`folder`")}; END",
+        // پر کردن اولیه برای پیامک‌های موجود، چون triggerهای بالا فقط روی
+        // نوشتن‌های بعدی اثر می‌گذارند. همان منطق انتخاب «آخرین پیامک هر جفت»
+        // که `observeThreads` قبلاً داشت (GROUP BY برای هم‌زمانی مساوی).
+        "INSERT INTO `thread_summary` ($THREAD_SUMMARY_COLUMNS) " +
+            "SELECT m.`threadId`, m.`folder`, m.`address`, m.`body`, m.`dateReceived`, " +
+            "(SELECT COUNT(*) FROM `message` u WHERE u.`threadId` = m.`threadId` AND u.`folder` = m.`folder` " +
+            "AND u.`read` = 0 AND u.`outgoing` = 0), " +
+            "(SELECT COUNT(*) FROM `message` t WHERE t.`threadId` = m.`threadId` AND t.`folder` = m.`folder`), " +
+            "(SELECT MAX(r.`risk`) FROM `message` r WHERE r.`threadId` = m.`threadId` AND r.`folder` = m.`folder`), " +
+            "m.`recipients`, m.`attachments` " +
+            "FROM `message` m " +
+            "WHERE m.`dateReceived` = (SELECT MAX(x.`dateReceived`) FROM `message` x " +
+            "WHERE x.`threadId` = m.`threadId` AND x.`folder` = m.`folder`) " +
+            "GROUP BY m.`threadId`, m.`folder`",
     )
 
     internal val V1_V2_SQL: List<String> = listOf(

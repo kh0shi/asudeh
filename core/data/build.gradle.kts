@@ -41,5 +41,11 @@ dependencies {
     testImplementation(libs.junit)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.room.paging)
+    implementation(libs.androidx.paging.runtime.ktx)
     ksp(libs.androidx.room.compiler)
+
+    // برای آزمون SQL خام triggerهای `thread_summary` روی یک sqlite واقعی در JVM،
+    // بدون نیاز به Robolectric یا دستگاه (این ماژول تا الان آزمون Room در JVM نداشت).
+    testImplementation("org.xerial:sqlite-jdbc:3.41.2.2")
 }

@@ -250,6 +250,24 @@
   گفتگو با پوشهٔ خودش انجام می‌شود، نه یک پوشهٔ مشترک، و حذف همهٔ پیامک‌های آن
   گفتگو را از هر پوشه‌ای که باشند برمی‌دارد. از منوی سه‌نقطهٔ خودِ گفتگو هم
   قابل بایگانی/خروج از بایگانی است.
+- **جدول محاسبه‌شدهٔ `thread_summary` و `Paging 3` برای فهرست گفتگوها** (D20،
+  D56، هدف مانیفست «۱۰ هزار گفتگو»): پیش از این، `observeThreads` خلاصهٔ هر
+  گفتگو (`unread`/`total`/`hasRisk`) را با چند subquery همبسته روی `message`
+  در **هر** خواندن حساب می‌کرد، و کل فهرست هر پوشه یک‌جا در یک
+  `Flow<List<ThreadSummary>>` بار می‌شد. حالا `thread_summary` (`index.db`
+  نسخهٔ ۶) یک ردیف برای هر جفت (threadId, folder) نگه می‌دارد و چهار trigger
+  روی `message` — با همان الگوی triggerهای هم‌گام‌سازی `message_fts` که خود
+  Room می‌سازد، نه صدا زدن یک تابع Kotlin در هر مسیر نوشتن — آن را **همان
+  لحظهٔ نوشتن** به‌روز نگه می‌دارند (سازگاری فوری، نه eventually-consistent؛
+  جزئیات در doc comment بالای `ThreadSummaryEntity` و `IndexMigrations.V5_V6`،
+  و آزمونش در `ThreadSummaryTriggerTest` با اجرای واقعی SQL). خود `LazyColumn`
+  فهرست گفتگوها (`HomeScreen`/`FolderScreen`/`ArchiveScreen`) حالا از
+  `MessageDao.pagingSource`/`archivedPagingSource` با Paging 3
+  (`androidx.room:room-paging`، `androidx.paging:paging-compose`) می‌خواند، پس
+  فقط ردیف‌های دیده‌شده رندر می‌شوند. «انتخاب همه» و رزولوشن نام/عکس مخاطب
+  همچنان از فهرست کامل (غیرصفحه‌بندی‌شده، ولی حالا ارزان چون دیگر subquery در
+  هر ردیف ندارد) می‌خوانند، چون معنی «انتخاب همه» عمداً همان «همهٔ گفتگوهای این
+  پوشه» ماند، نه فقط ردیف‌های همین لحظه بارگذاری‌شده.
 - **`GoldenSet` و معیارهای پذیرش طبقه‌بند در CI** (D34، D35):
   `GoldenSetTest` در `:core:classifier` یک پیکرهٔ ۱۱۴تایی کاملاً دست‌نویس و
   ساختگی (`GoldenSet.kt`، مثل `ClassifierTest`، بدون هیچ پیامک واقعی کسی) را
@@ -279,16 +297,11 @@
 - **MMS (D26):** بدون `mmslib`؛ ADR-0009 را ببینید.
 - **ناوبری (D56):** به‌جای Navigation 3، یک `sealed interface` و یک پشتهٔ ساده
   که در ViewModel نگه داشته می‌شود.
-- **Paging 3 (D56):** هنوز نیست؛ کل فهرست گفتگوها یک‌جا بار می‌شود. برای هدف
-  «۱۰ هزار گفتگو» پیش از M5 لازم است.
 - **`UiState` هر صفحه (D56):** صفحهٔ گفتگو و تنظیمات یک `UiState` دارند؛ صفحهٔ
   اصلی هنوز چند `StateFlow` جدا دارد.
 - **تنظیمات (D52):** در `SharedPreferences` (`AsudehSettings`)، نه DataStore، تا
   گیرنده‌ها بدون coroutine به آن برسند. «چیپ‌های فیلتر `Inbox`» و «خروجی گزارش
   خطا» به‌عنوان تنظیم نیستند؛ گزارش خطا خودش پس از کرش پیشنهاد می‌شود.
-- **جدول `thread_summary` (D20):** به‌جای جدول جدا، خلاصهٔ هر گفتگو با یک کوئری
-  `GROUP BY` حساب می‌شود. برای هدف «۱۰ هزار گفتگو» باید به جدول تبدیل شود؛ این
-  حالا با یک `Migration` واقعی ممکن است.
 - **`sender_stats` (D20):** تشخیص `MixedSender` هم با کوئری روی
   `normalizedAddress` انجام می‌شود.
 - **جای `RulePack` (D33):** به‌جای `assets` در `:app`، در `resources` ماژول

@@ -1,6 +1,9 @@
 package ir.asudehapp.sms.data
 
 import android.content.Context
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import ir.asudehapp.sms.classifier.Classifier
 import ir.asudehapp.sms.classifier.CompiledRulePack
 import ir.asudehapp.sms.classifier.Router
@@ -94,6 +97,26 @@ class AsudehRepository(
 
     /** بایگانی: خارج از سه پوشهٔ اصلی، هر جا که باشند (PARITY §الف). */
     fun archivedThreads(): Flow<List<ThreadSummary>> = dao.observeArchivedThreads()
+
+    /**
+     * همان فهرست [threads]، ولی صفحه‌به‌صفحه (Paging 3): برای رندر خود
+     * `LazyColumn`، تا با هزاران گفتگو فقط ردیف‌های دیده‌شده بارگذاری/ترکیب
+     * (compose) شوند. `pageSize`/`prefetchDistance` طوری تنظیم شده که یک
+     * پیمایش معمولی به‌ندرت منتظر صفحهٔ بعد بماند.
+     *
+     * [threads] (فهرست کامل) هنوز برای «انتخاب همه» و رزولوشن نام/عکس مخاطب
+     * لازم است؛ توضیح در `AsudehViewModel` و `MessageDao.observeThreads`.
+     */
+    fun pagedThreads(folder: Folder): Flow<PagingData<ThreadSummary>> =
+        Pager(PagingConfig(pageSize = PAGE_SIZE, prefetchDistance = PAGE_SIZE, enablePlaceholders = true)) {
+            dao.pagingSource(folder)
+        }.flow
+
+    /** همان [archivedThreads]، صفحه‌به‌صفحه. */
+    fun pagedArchivedThreads(): Flow<PagingData<ThreadSummary>> =
+        Pager(PagingConfig(pageSize = PAGE_SIZE, prefetchDistance = PAGE_SIZE, enablePlaceholders = true)) {
+            dao.archivedPagingSource()
+        }.flow
 
     fun conversation(threadId: Long): Flow<List<MessageEntity>> = dao.observeConversation(threadId)
 
@@ -894,6 +917,7 @@ class AsudehRepository(
     private companion object {
         const val SYNC_CHUNK = 500
         const val SEARCH_LIMIT = 200
+        const val PAGE_SIZE = 30
     }
 }
 

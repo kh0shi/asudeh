@@ -178,6 +178,44 @@ data class KeywordRuleEntity(
     val createdAt: Long,
 )
 
+/**
+ * نسخهٔ محاسبه‌شده (materialized) و ذخیره‌شدهٔ خلاصهٔ هر گفتگو **در یک پوشه**
+ * (نسخهٔ ۶ ایندکس، PARITY/STATUS: صفحه‌بندی فهرست گفتگوها). پیش از این نسخه،
+ * `observeThreads` این ستون‌ها را با چند subquery همبسته روی جدول `message`
+ * برای هر ردیف حساب می‌کرد؛ روی چند هزار گفتگو این O(n) در هر خواندن بود. حالا
+ * یک ردیف اینجا برای هر جفت (threadId, folder) نگه داشته می‌شود و triggerهای
+ * SQL روی `message` (در `IndexMigrations.V5_V6_SQL`، مثل الگوی همگام‌سازی
+ * `message_fts`) آن را همان لحظهٔ نوشتن به‌روز نگه می‌دارند؛ خواندن دیگر هیچ
+ * subquery‌ای لازم ندارد.
+ *
+ * سنجاق/پیش‌نویس/بی‌صدا/بایگانی اینجا **تکرار نمی‌شوند**؛ آن‌ها فقط در
+ * `thread_pref` هستند و در کوئری با `LEFT JOIN` اضافه می‌شوند، دقیقاً مثل قبل.
+ *
+ * تضمین سازگاری: **فوری**، نه eventually-consistent. triggerها بخشی از همان
+ * تراکنش نوشتن‌اند (`AFTER INSERT/UPDATE/DELETE`)، پس هر خواننده‌ای که بعد از
+ * commit شدن نوشتن می‌خواند، ردیف را به‌روز می‌بیند؛ هیچ پنجرهٔ داده‌کهنه‌ای
+ * وجود ندارد.
+ */
+@Entity(
+    tableName = "thread_summary",
+    primaryKeys = ["threadId", "folder"],
+    indices = [Index(value = ["folder", "lastDate"])],
+)
+data class ThreadSummaryEntity(
+    val threadId: Long,
+    val folder: Folder,
+    val address: String,
+    /** متن آخرین پیامک همان پوشه. */
+    val snippet: String,
+    /** زمان آخرین پیامک همان پوشه. */
+    val lastDate: Long,
+    val unread: Int,
+    val total: Int,
+    val hasRisk: Boolean,
+    val recipients: String,
+    val attachments: Int,
+)
+
 /** خلاصهٔ یک گفتگو **در یک پوشه**. یک گفتگو می‌تواند در چند پوشه دیده شود (`SplitThread`). */
 data class ThreadSummary(
     val threadId: Long,

@@ -41,8 +41,13 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemKey
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -975,7 +980,10 @@ private fun HomeScreen(
     onBecomeDefault: () -> Unit,
     onOpenThread: (Long) -> Unit,
 ) {
+    // فهرست کامل فقط برای «خالی است؟» (زیر) لازم است؛ خود ردیف‌ها از نسخهٔ
+    // صفحه‌بندی‌شده می‌آیند (توضیح در AsudehViewModel.inboxThreads).
     val threads by model.inboxThreads.collectAsState()
+    val lazyThreads = model.pagedInboxThreads.collectAsLazyPagingItems()
     val selectedThreads by model.selectedThreads.collectAsState()
     val syncing by model.syncing.collectAsState()
     val syncFailed by model.syncFailed.collectAsState()
@@ -1001,15 +1009,44 @@ private fun HomeScreen(
         if (threads.isEmpty() && !syncing) {
             item { EmptyState(stringResource(R.string.empty_inbox)) }
         }
-        items(threads, key = { it.threadId }) { thread ->
+        pagedThreadItems(
+            items = lazyThreads,
+            model = model,
+            isDefaultApp = isDefaultApp,
+            selectedThreads = selectedThreads,
+            folderFor = { Folder.INBOX },
+            onOpenThread = { thread -> onOpenThread(thread.threadId) },
+        )
+    }
+}
+
+/**
+ * ردیف‌های یک `LazyColumn` از یک `LazyPagingItems`. Paging 3 هنگام
+ * بارگذاری، `null` برمی‌گرداند (placeholder)؛ چون ارتفاع [ThreadRow] با
+ * محتوایش کمی فرق می‌کند و از پرش صفحه در پیمایش سریع جلوگیری می‌کند، به‌جای
+ * حذف کامل ردیف یک جای خالی هم‌ارتفاع نشان می‌دهیم، نه کرش.
+ */
+private fun LazyListScope.pagedThreadItems(
+    items: LazyPagingItems<ThreadSummary>,
+    model: AsudehViewModel,
+    isDefaultApp: Boolean,
+    selectedThreads: Set<Long>,
+    folderFor: (ThreadSummary) -> Folder,
+    onOpenThread: (ThreadSummary) -> Unit,
+) {
+    items(items.itemCount, key = items.itemKey { it.threadId }) { index ->
+        val thread = items[index]
+        if (thread == null) {
+            Box(Modifier.fillMaxWidth().height(72.dp))
+        } else {
             ThreadRow(
                 model = model,
                 thread = thread,
-                folder = Folder.INBOX,
+                folder = folderFor(thread),
                 isDefaultApp = isDefaultApp,
                 selected = thread.threadId in selectedThreads,
                 selectionMode = selectedThreads.isNotEmpty(),
-                onClick = { onOpenThread(thread.threadId) },
+                onClick = { onOpenThread(thread) },
             )
         }
     }
@@ -1027,6 +1064,7 @@ private fun FolderScreen(
         Folder.SCAM -> model.scamThreads
         Folder.INBOX -> model.inboxThreads
     }.collectAsState()
+    val lazyThreads = model.pagedThreadsIn(folder).collectAsLazyPagingItems()
     val selectedThreads by model.selectedThreads.collectAsState()
     val suggestions by model.suggestions.collectAsState()
 
@@ -1062,17 +1100,14 @@ private fun FolderScreen(
                     )
                 }
             }
-            items(threads, key = { it.threadId }) { thread ->
-                ThreadRow(
-                    model = model,
-                    thread = thread,
-                    folder = folder,
-                    isDefaultApp = isDefaultApp,
-                    selected = thread.threadId in selectedThreads,
-                    selectionMode = selectedThreads.isNotEmpty(),
-                    onClick = { onOpenThread(thread.threadId) },
-                )
-            }
+            pagedThreadItems(
+                items = lazyThreads,
+                model = model,
+                isDefaultApp = isDefaultApp,
+                selectedThreads = selectedThreads,
+                folderFor = { folder },
+                onOpenThread = { thread -> onOpenThread(thread.threadId) },
+            )
         }
     }
 }
@@ -1089,23 +1124,21 @@ private fun ArchiveScreen(
     onOpenThread: (Long, Folder) -> Unit,
 ) {
     val threads by model.archivedThreads.collectAsState()
+    val lazyThreads = model.pagedArchivedThreads.collectAsLazyPagingItems()
     val selectedThreads by model.selectedThreads.collectAsState()
 
     LazyColumn(Modifier.fillMaxSize()) {
         if (threads.isEmpty()) {
             item { EmptyState(stringResource(R.string.empty_archive)) }
         }
-        items(threads, key = { it.threadId }) { thread ->
-            ThreadRow(
-                model = model,
-                thread = thread,
-                folder = thread.folder,
-                isDefaultApp = isDefaultApp,
-                selected = thread.threadId in selectedThreads,
-                selectionMode = selectedThreads.isNotEmpty(),
-                onClick = { onOpenThread(thread.threadId, thread.folder) },
-            )
-        }
+        pagedThreadItems(
+            items = lazyThreads,
+            model = model,
+            isDefaultApp = isDefaultApp,
+            selectedThreads = selectedThreads,
+            folderFor = { it.folder },
+            onOpenThread = { thread -> onOpenThread(thread.threadId, thread.folder) },
+        )
     }
 }
 
