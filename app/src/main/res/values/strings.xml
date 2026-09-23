@@ -205,7 +205,7 @@
     <string name="settings_backup">پشتیبان</string>
     <string name="backup_export">ساختن فایل پشتیبان</string>
     <string name="backup_import">بازگردانی از فایل</string>
-    <string name="backup_hint">پیامک‌ها، قواعد من و تنظیمات در فایلی که خودتان انتخاب می‌کنید. آسوده این فایل را به هیچ جا نمی‌فرستد. پیام‌های چندرسانه‌ای هنوز در پشتیبان نیستند.</string>
+    <string name="backup_hint">پیامک‌ها، پیام‌های چندرسانه‌ای، قواعد من و تنظیمات در فایلی که خودتان انتخاب می‌کنید. آسوده این فایل را به هیچ جا نمی‌فرستد.</string>
     <plurals name="backup_exported">
         <item quantity="one">پشتیبان ساخته شد: %d پیامک.</item>
         <item quantity="other">پشتیبان ساخته شد: %d پیامک.</item>

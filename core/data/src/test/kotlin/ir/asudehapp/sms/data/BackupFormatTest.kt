@@ -1,5 +1,6 @@
 package ir.asudehapp.sms.data
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -72,5 +73,71 @@ class BackupFormatTest {
             BackupFormat.dedupeKey("+989121111111", 5, 1, "x"),
             BackupFormat.dedupeKey("09121111111", 5, 1, "x"),
         )
+    }
+
+    @Test
+    fun `an mms round trips including a multi-part attachment`() {
+        val out = StringWriter()
+        BackupFormat.writeHeader(out, header)
+        val photoBytes = byteArrayOf(1, 2, 3, 4, 5, -1, 0, 127)
+        val mms = BackupFormat.Mms(
+            address = "09121111111",
+            recipients = "09121111111|09123333333",
+            date = 100,
+            dateSent = 90,
+            outgoing = false,
+            read = false,
+            subId = 1,
+            folder = "INBOX",
+            parts = listOf(
+                BackupFormat.Part(
+                    contentType = "text/plain",
+                    data = BackupFormat.encodePartData("سلام".toByteArray(Charsets.UTF_8)),
+                    name = "text.txt",
+                ),
+                BackupFormat.Part(
+                    contentType = "image/jpeg",
+                    data = BackupFormat.encodePartData(photoBytes),
+                    name = "photo.jpg",
+                    contentId = "<photo>",
+                    charset = 0,
+                ),
+            ),
+        )
+        BackupFormat.writeMms(out, mms)
+
+        val reader = StringReader(out.toString()).buffered()
+        assertEquals(header, BackupFormat.readHeader(reader))
+        val read = BackupFormat.readMms(reader).toList()
+        assertEquals(listOf(mms), read)
+
+        val restoredPhoto = BackupFormat.decodePartData(read.single().parts[1].data)
+        assertArrayEquals(photoBytes, restoredPhoto)
+        assertEquals("سلام", String(BackupFormat.decodePartData(read.single().parts[0].data), Charsets.UTF_8))
+    }
+
+    @Test
+    fun `sms and mms lines interleave correctly through readMessages`() {
+        val out = StringWriter()
+        BackupFormat.writeHeader(out, header)
+        val sms = BackupFormat.Sms("09121111111", "متن", 1, type = 1)
+        val mms = BackupFormat.Mms(address = "09123333333", date = 2, outgoing = true)
+        BackupFormat.writeSms(out, sms)
+        BackupFormat.writeMms(out, mms)
+
+        val reader = StringReader(out.toString()).buffered()
+        BackupFormat.readHeader(reader)
+        val messages = BackupFormat.readMessages(reader).toList()
+        assertEquals(listOf(sms, mms), messages)
+    }
+
+    @Test
+    fun `a version-1 sms-only backup line without kind still decodes as Sms`() {
+        // شبیه‌سازی پشتیبان نسخهٔ ۱: خط پیامک بدون کلید «kind».
+        val v1Line = """{"address":"09121111111","body":"سلام","date":1,"dateSent":0,"type":1,"read":true,"subId":-1,"folder":null}"""
+        val reader = StringReader("$v1Line\n").buffered()
+        val messages = BackupFormat.readMessages(reader).toList()
+        assertEquals(1, messages.size)
+        assertEquals(BackupFormat.Sms("09121111111", "سلام", 1, type = 1), messages.single())
     }
 }

@@ -271,6 +271,97 @@ class MmsProviderStore(private val context: Context) {
     fun partUri(partId: Long): Uri = ContentUris.withAppendedId(PART_URI, partId)
 
     /**
+     * همهٔ partهای یک MMS با دادهٔ کامل‌شان، برای پشتیبان (D57 دنباله). برخلاف
+     * [attachmentData]، اینجا part متنی و SMIL هم برمی‌گردد، چون بازگردانی
+     * باید همان چیزی را بنویسد که provider نگه داشته، نه فقط پیوست‌ها.
+     */
+    suspend fun allParts(providerId: Long): List<MmsPart> = withContext(Dispatchers.IO) {
+        resolver.query(
+            partsUri(providerId),
+            arrayOf(
+                Telephony.Mms.Part._ID, Telephony.Mms.Part.CONTENT_TYPE, Telephony.Mms.Part.NAME,
+                Telephony.Mms.Part.CONTENT_LOCATION, Telephony.Mms.Part.CONTENT_ID,
+                Telephony.Mms.Part.CHARSET, Telephony.Mms.Part.TEXT,
+            ),
+            null,
+            null,
+            "${Telephony.Mms.Part.SEQ} ASC, ${Telephony.Mms.Part._ID} ASC",
+        )?.use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    val partId = cursor.getLong(0)
+                    val contentType = cursor.getString(1)?.lowercase().orEmpty()
+                    val name = cursor.getString(2) ?: cursor.getString(3)
+                    val contentId = cursor.getString(4)
+                    val charsetIndex = 5
+                    val charset = if (cursor.isNull(charsetIndex)) CHARSET_UTF8 else cursor.getInt(charsetIndex)
+                    val text = cursor.getString(6)
+                    val isTextLike = contentType == "text/plain" || contentType == "application/smil"
+                    val data = if (isTextLike) {
+                        text.orEmpty().toByteArray(Charsets.UTF_8)
+                    } else {
+                        runCatching { resolver.openInputStream(partUri(partId))?.use { it.readBytes() } }.getOrNull()
+                    }
+                    if (data == null) continue
+                    add(MmsPart(contentType, data, name = name, contentId = contentId, charset = charset))
+                }
+            }
+        }.orEmpty()
+    }
+
+    /**
+     * نوشتن یک MMS کامل از پشتیبان (D57 دنباله). برخلاف [completeDownload] که
+     * روی ردیف «اعلان»ی از پیش موجود می‌نویسد، اینجا خود ردیف پیام هم از صفر
+     * ساخته می‌شود چون پشتیبان هیچ اعلان WAPی ندارد که از قبل نوشته شده باشد.
+     * partها و نشانی‌ها با همان [insertPart]/[insertAddress]ی نوشته می‌شوند که
+     * مسیر دریافت و ارسال هم استفاده می‌کنند.
+     */
+    suspend fun restore(
+        address: String,
+        recipients: List<String>,
+        date: Long,
+        dateSent: Long,
+        outgoing: Boolean,
+        read: Boolean,
+        subId: Int,
+        parts: List<MmsPart>,
+    ): StoredMms = withContext(Dispatchers.IO) {
+        val participants = if (recipients.size > 1) recipients else listOf(address)
+        val threadId = if (participants.size > 1) {
+            Telephony.Threads.getOrCreateThreadId(context, participants.toSet())
+        } else {
+            Telephony.Threads.getOrCreateThreadId(context, address)
+        }
+        val values = ContentValues().apply {
+            put(Telephony.Mms.THREAD_ID, threadId)
+            // زمان در جدول MMS بر حسب ثانیه است.
+            put(Telephony.Mms.DATE, date / 1_000)
+            if (dateSent > 0) put(Telephony.Mms.DATE_SENT, dateSent / 1_000)
+            put(Telephony.Mms.READ, if (read) 1 else 0)
+            put(Telephony.Mms.SEEN, 1)
+            put(Telephony.Mms.MESSAGE_BOX, if (outgoing) Telephony.Mms.MESSAGE_BOX_SENT else Telephony.Mms.MESSAGE_BOX_INBOX)
+            put(Telephony.Mms.MESSAGE_TYPE, if (outgoing) TYPE_SEND_REQ else TYPE_RETRIEVE_CONF)
+            put(Telephony.Mms.MESSAGE_CLASS, "personal")
+            put(Telephony.Mms.MMS_VERSION, MMS_VERSION_1_2)
+            put(Telephony.Mms.MESSAGE_SIZE, parts.sumOf { it.data.size })
+            if (subId >= 0) put(Telephony.Mms.SUBSCRIPTION_ID, subId)
+        }
+        val contentUri = if (outgoing) Telephony.Mms.Sent.CONTENT_URI else Telephony.Mms.Inbox.CONTENT_URI
+        val uri = resolver.insert(contentUri, values) ?: error("نوشتن MMS بازگردانی‌شده در provider ناموفق بود")
+        val id = ContentUris.parseId(uri)
+        for (part in parts) insertPart(id, part)
+        if (outgoing) {
+            insertAddress(id, INSERT_ADDRESS_TOKEN, ADDRESS_FROM)
+            participants.forEach { insertAddress(id, it, ADDRESS_TO) }
+        } else {
+            insertAddress(id, address, ADDRESS_FROM)
+            participants.filterNot { Addresses.normalize(it) == Addresses.normalize(address) }
+                .forEach { insertAddress(id, it, ADDRESS_TO) }
+        }
+        StoredMms(id, threadId, participants)
+    }
+
+    /**
      * حذف از provider. فقط با اقدام صریح کاربر صدا زده می‌شود (ADR-0003 بند ۳).
      * خروجی، شناسه‌هایی است که واقعاً حذف شدند.
      */
