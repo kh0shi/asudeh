@@ -53,6 +53,9 @@ fun ThreadAvatar(address: String, modifier: Modifier = Modifier, size: Dp = 40.d
     val photoUri = LocalContactPhotos.current[address]
     val name = LocalContactNames.current[address] ?: address
     val context = LocalContext.current
+    // لینت این را نادرست «هیچ‌وقت value را عوض نمی‌کند» می‌داند، چون آرگومان‌های
+    // نام‌دار الگوی مورد انتظارش را گم می‌کند؛ همان خط بعد value را عوض می‌کند.
+    @Suppress("ProduceStateDoesNotAssignValue")
     val bitmap by produceState<Bitmap?>(initialValue = photoUri?.let(avatarBitmapCache::get), key1 = photoUri) {
         value = photoUri?.let { uri ->
             avatarBitmapCache.get(uri) ?: runCatching {
