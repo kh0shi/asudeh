@@ -63,6 +63,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.MessageEntity
@@ -352,6 +354,10 @@ private fun Composer(
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let(model::attach)
     }
+    // ویدیو، صدا و کارت مخاطب: انتخابگر فایل عمومی اندروید، بدون مجوز تازه.
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let(model::attach)
+    }
     var simMenu by remember { mutableStateOf(false) }
     var sendMenu by remember { mutableStateOf(false) }
     val phonePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -393,6 +399,7 @@ private fun Composer(
                 items(attachments) { attachment ->
                     Box {
                         val bitmap = remember(attachment) {
+                            if (!attachment.part.contentType.startsWith("image/")) return@remember null
                             runCatching {
                                 android.graphics.BitmapFactory.decodeByteArray(attachment.part.data, 0, attachment.part.data.size)
                                     ?.asImageBitmap()
@@ -405,6 +412,24 @@ private fun Composer(
                                 Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)),
                                 contentScale = ContentScale.Crop,
                             )
+                        } else {
+                            // ویدیو، صدا یا کارت مخاطب: به‌جای پیش‌نمایش، فقط نام فایل.
+                            Box(
+                                Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(4.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    attachment.part.name.orEmpty(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
                         }
                         IconButton(
                             onClick = { model.removeAttachment(attachment) },
@@ -457,13 +482,25 @@ private fun Composer(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // پیوست تصویر یعنی MMS؛ با خاموش بودن MMS این دکمه هم نیست.
+            // پیوست یعنی MMS؛ با خاموش بودن MMS این دکمه‌ها هم نیستند.
             if (mmsSending) {
                 IconButton(
-                    onClick = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    onClick = {
+                        pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                    },
                     enabled = enabled && !preparing,
                 ) {
                     Icon(Icons.Default.Add, stringResource(R.string.attach_image))
+                }
+                val attachFileLabel = stringResource(R.string.attach_file)
+                IconButton(
+                    onClick = { pickFile.launch("*/*") },
+                    enabled = enabled && !preparing,
+                ) {
+                    // آیکون اختصاصی «فایل» در بستهٔ core نیست؛ مثل «snippet_attachment»
+                    // از همان نویسهٔ گیره‌کاغذ استفاده می‌شود، نه بستهٔ سنگین آیکون‌های
+                    // گسترده (اصل ۷: حجم اپ).
+                    Text("📎", Modifier.semantics { contentDescription = attachFileLabel })
                 }
             }
             OutlinedTextField(

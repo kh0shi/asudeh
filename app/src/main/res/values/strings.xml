@@ -153,9 +153,10 @@
     <string name="search_in_folder">در «%1$s»</string>
 
     <!-- گفتگو -->
-    <string name="attach_image">افزودن تصویر</string>
-    <string name="attachment_preparing">در حال آماده کردن تصویر…</string>
-    <string name="attachment_failed">این تصویر را نمی‌شود فرستاد.</string>
+    <string name="attach_image">افزودن تصویر یا ویدیو</string>
+    <string name="attach_file">افزودن فایل</string>
+    <string name="attachment_preparing">در حال آماده کردن پیوست…</string>
+    <string name="attachment_failed">این پیوست را نمی‌شود فرستاد؛ شاید حجمش زیاد است.</string>
     <string name="remove_attachment">برداشتن</string>
     <string name="mms_download">دریافت پیام چندرسانه‌ای</string>
     <string name="mms_pending">پیام چندرسانه‌ای هنوز دریافت نشده است.</string>

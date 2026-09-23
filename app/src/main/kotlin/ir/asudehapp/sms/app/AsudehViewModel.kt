@@ -32,6 +32,7 @@ import ir.asudehapp.sms.telephony.ContactPhone
 import ir.asudehapp.sms.telephony.Contacts
 import ir.asudehapp.sms.telephony.DigestScheduler
 import ir.asudehapp.sms.telephony.MmsDownloader
+import ir.asudehapp.sms.telephony.MmsAttachments
 import ir.asudehapp.sms.telephony.MmsImages
 import ir.asudehapp.sms.telephony.ScheduledSend
 import ir.asudehapp.sms.telephony.ScheduledSendScheduler
@@ -648,12 +649,22 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         _draft.value = text
     }
 
-    /** انتخاب تصویر برای MMS؛ تصویر روی گوشی کوچک می‌شود تا زیر سقف اپراتور برود. */
+    /**
+     * انتخاب پیوست برای MMS. تصویر روی گوشی کوچک می‌شود تا زیر سقف اپراتور
+     * برود (`MmsImages`)؛ ویدیو، صدا و کارت مخاطب کوچک‌شدنی نیستند و اگر از
+     * سقف بگذرند رد می‌شوند (`MmsAttachments`، PARITY §الف).
+     */
     fun attach(uri: Uri) {
         viewModelScope.launch {
             _preparingAttachment.value = true
+            val app = getApplication<Application>()
+            val type = app.contentResolver.getType(uri)?.lowercase().orEmpty()
             val part = runCatching {
-                MmsImages.prepare(getApplication(), uri, _conversation.value.subscriptionId)
+                if (type.startsWith("image/")) {
+                    MmsImages.prepare(app, uri, _conversation.value.subscriptionId)
+                } else {
+                    MmsAttachments.prepare(app, uri, _conversation.value.subscriptionId)
+                }
             }.getOrNull()
             _preparingAttachment.value = false
             if (part == null) {
