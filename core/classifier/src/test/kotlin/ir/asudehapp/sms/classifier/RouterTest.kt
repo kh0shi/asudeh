@@ -54,17 +54,34 @@ class RouterTest {
     }
 
     @Test
-    fun `a confident one time password survives the blocklist`() {
+    fun `a blocked sender hides even a confident one time password`() {
+        // اصلاح ADR-0006 بند ۲: از سرشماره‌ای که کاربر خودش مسدود کرده هیچ
+        // پیامکی به صندوق نمی‌آید.
         val rules = UserRules(blocklist = setOf("30001234"))
         val placement = Router.route(verdict(Category.OTP), adLine, rules)
+        assertEquals(Folder.PROMO, placement.folder)
+        assertEquals(ReasonCode.BLOCKED_BY_USER, placement.reason.code)
+    }
+
+    @Test
+    fun `a blocked sender hides even a confident bank message`() {
+        val rules = UserRules(blocklist = setOf("30001234"))
+        val placement = Router.route(verdict(Category.BANK), adLine, rules)
+        assertEquals(Folder.PROMO, placement.folder)
+    }
+
+    @Test
+    fun `an allowlisted sender wins over a contradictory block`() {
+        val rules = UserRules(allowlist = setOf("30001234"), blocklist = setOf("30001234"))
+        val placement = Router.route(verdict(Category.PROMO), adLine, rules)
         assertEquals(Folder.INBOX, placement.folder)
     }
 
     @Test
-    fun `a confident bank message survives the blocklist`() {
-        val rules = UserRules(blocklist = setOf("30001234"))
-        val placement = Router.route(verdict(Category.BANK), adLine, rules)
-        assertEquals(Folder.INBOX, placement.folder)
+    fun `an allowlisted keyword does not rescue a blocked sender`() {
+        val rules = UserRules(blocklist = setOf("30001234"), allowKeywords = setOf("قرار"))
+        val message = MessageInput("30001234", "قرار فردا سر جاشه")
+        assertEquals(Folder.PROMO, Router.route(verdict(Category.UNKNOWN), message, rules).folder)
     }
 
     @Test

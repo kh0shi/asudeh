@@ -238,7 +238,7 @@
     <string name="default_rule_mobile">شماره‌های موبایل همیشه در صندوق</string>
     <string name="default_rule_mobile_hint">پیامک شماره‌ای که با ۰۹ شروع می‌شود هرگز خودکار پنهان نمی‌شود.</string>
     <string name="default_rule_otp">رمز یکبار و پیامک بانکی همیشه در صندوق</string>
-    <string name="default_rule_otp_hint">حتی از فرستنده‌ای که آن را تبلیغ شمرده‌اید.</string>
+    <string name="default_rule_otp_hint">حتی اگر کلیدواژه‌ای از فهرست سیاه در متنشان باشد. ولی سرشماره‌ای که خودتان مسدود کرده‌اید، هیچ پیامکی به صندوق نمی‌فرستد.</string>
     <string name="default_rule_promo">پنهان کردن تبلیغ‌ها</string>
     <string name="default_rule_promo_hint">تبلیغ قطعی به پوشهٔ تبلیغات می‌رود. خاموش که باشد، همه‌چیز در صندوق می‌ماند.</string>
     <string name="default_rule_scam">پنهان کردن کلاهبرداری‌ها</string>

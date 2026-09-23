@@ -296,6 +296,47 @@ class ClassifierTest {
     }
 
     @Test
+    fun `a dynamic password is an otp even with no otp keyword`() {
+        // پیامک رمز پویای بانک: نه «کد تایید» دارد نه «رمز پویا»، و چون «خريد»
+        // دارد تا پیش از این تبلیغ شمرده می‌شد و اعلان بی‌صدا می‌گرفت.
+        val verdict = classify("09999920000", "بانک سامان\nخريد\nپاسچی\nمبلغ 592,250 ريال\nرمز 081771")
+        assertEquals(Category.OTP, verdict.category)
+        assertEquals(Confidence.HIGH, verdict.confidence)
+    }
+
+    @Test
+    fun `a discount code is not an otp because it has letters`() {
+        val verdict = classify("30001234", "تخفیف ۱۶۰ هزار تومانی اُکالا\nکد: QXB8C7\nتا ۴ روز")
+        assertEquals(Category.PROMO, verdict.category)
+    }
+
+    @Test
+    fun `a letters only code right after a colon is not an otp`() {
+        val verdict = classify("30001234", "کد: milka\nاعتبار تا ۳۰ آبان")
+        assertTrue(verdict.category != Category.OTP)
+    }
+
+    @Test
+    fun `a code word that means something else is not an otp`() {
+        val tracking = classify("30001234", "مرسوله شما با کد رهگیری 12345678 ارسال شد")
+        assertTrue(tracking.category != Category.OTP)
+        val discount = classify("30001234", "کد تخفیف 123456 را هنگام خرید وارد کنید")
+        assertTrue(discount.category != Category.OTP)
+    }
+
+    @Test
+    fun `the expiry time next to a password is not mistaken for the code`() {
+        val verdict = classify("30001234", "زمان اعتبار رمز 16:02:34")
+        assertTrue(verdict.category != Category.OTP)
+    }
+
+    @Test
+    fun `a code separated from its word by a few words is still found`() {
+        val verdict = classify("My_Irancell", "کد ورود به حساب کاربری ایرانسل من: 2575")
+        assertEquals(Category.OTP, verdict.category)
+    }
+
+    @Test
     fun `a one time password with a bait link is suspect`() {
         val verdict = classify("10001", "کد تایید شما 48213 است. برای دریافت جایزه وارد bit.ly/abc شوید")
         assertEquals(Category.OTP, verdict.category)
