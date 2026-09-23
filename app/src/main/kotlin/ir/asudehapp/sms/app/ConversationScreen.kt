@@ -2,6 +2,7 @@ package ir.asudehapp.sms.app
 
 import android.Manifest
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,11 +23,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
@@ -155,7 +154,22 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
     val scheduled by model.scheduledHere.collectAsState()
     var expandedRuns by remember { mutableStateOf(setOf<Long>()) }
     var reasonFor by remember { mutableStateOf<MessageEntity?>(null) }
-    var selectTextOf by remember { mutableStateOf<String?>(null) }
+    // انتخاب بخشی از متن در جای خودِ پیامک انجام می‌شود، نه در یک مودال؛ این
+    // فقط می‌گوید کدام پیامک الان در آن حال است (هر بار یکی). با عوض شدن
+    // گفتگو از نو شروع می‌شود.
+    var pickingTextIn by remember(state.threadId) { mutableStateOf<MessageKey?>(null) }
+    // راهنمای «با کشیدن دستگیره‌ها…» فقط بار اول؛ بعد از آن خودِ دستگیره‌ها
+    // پیداست و فقط «تمام» می‌ماند.
+    val hintSeen by model.textPickHintSeen.collectAsState()
+    var showPickHint by remember { mutableStateOf(false) }
+    val pickText = { key: MessageKey ->
+        pickingTextIn = key
+        showPickHint = !hintSeen
+        model.markTextPickHintSeen()
+    }
+    // چون مودالی در کار نیست، «بازگشت» باید همین حال را ببندد؛ پیش از
+    // BackHandlerِ صفحهٔ اصلی می‌نشیند، پس انتخاب پیامک دست‌نخورده می‌ماند.
+    BackHandler(enabled = pickingTextIn != null) { pickingTextIn = null }
 
     val items = remember(state.messages, state.folder) {
         buildItems(state.messages, state.folder)
@@ -192,9 +206,14 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                         showClock = settings.showMessageClock,
                         selected = MessageKey(item.message.kind, item.message.providerId) in selected,
                         selectionMode = selected.isNotEmpty(),
+                        pickingText = pickingTextIn == MessageKey(item.message.kind, item.message.providerId),
+                        showPickHint = showPickHint,
                         isDefaultApp = isDefaultApp,
                         onWhy = { reasonFor = item.message },
-                        onSelectText = { selectTextOf = item.message.body },
+                        onPickText = {
+                            pickText(MessageKey(item.message.kind, item.message.providerId))
+                        },
+                        onDonePickingText = { pickingTextIn = null },
                         onResend = { model.resend(item.message) },
                     )
 
@@ -229,9 +248,12 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                                     showClock = settings.showMessageClock,
                                     selected = MessageKey(hidden.kind, hidden.providerId) in selected,
                                     selectionMode = selected.isNotEmpty(),
+                                    pickingText = pickingTextIn == MessageKey(hidden.kind, hidden.providerId),
+                                    showPickHint = showPickHint,
                                     isDefaultApp = isDefaultApp,
                                     onWhy = { reasonFor = hidden },
-                                    onSelectText = { selectTextOf = hidden.body },
+                                    onPickText = { pickText(MessageKey(hidden.kind, hidden.providerId)) },
+                                    onDonePickingText = { pickingTextIn = null },
                                     // پیامک مشکوک به کلاهبرداری با یک لمس برنمی‌گردد؛
                                     // اول باید دلیلش دیده شود (D44).
                                     onRescue = if (hidden.folder == Folder.PROMO) {
@@ -280,10 +302,6 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                 TextButton(onClick = model::dismissSendError) { Text(stringResource(R.string.cancel)) }
             },
         )
-    }
-
-    selectTextOf?.let { text ->
-        SelectTextDialog(text) { selectTextOf = null }
     }
 
     reasonFor?.let { message ->
@@ -574,8 +592,13 @@ private fun HiddenRunBar(folder: Folder, count: Int, expanded: Boolean, onToggle
  * لمس کوتاه منوی خود پیامک را باز می‌کند (کپی، اشتراک‌گذاری، حذف، «چرا
  * اینجاست؟»)، چون کاری که کاربر بیشتر می‌خواهد همین است. لمس طولانی مثل تلگرام
  * پیامک را انتخاب می‌کند، و لمس طولانیِ دوباره روی پیامکِ انتخاب‌شده، انتخاب
- * بخشی از متن را باز می‌کند. در حالت انتخاب، لمس کوتاه هم فقط انتخاب را عوض
+ * بخشی از متن را روشن می‌کند. در حالت انتخاب، لمس کوتاه هم فقط انتخاب را عوض
  * می‌کند و هیچ صفحهٔ دیگری باز نمی‌شود.
+ *
+ * با [pickingText] متنِ **همین حباب** دستگیرهٔ انتخاب می‌گیرد و هیچ مودالی باز
+ * نمی‌شود: کاربر همان‌جا که متن را می‌بیند تکه‌اش را برمی‌دارد. تا وقتی این حال
+ * روشن است، لمس روی حباب به خود متن می‌رسد نه به منو، وگرنه کشیدن دستگیره‌ها
+ * ممکن نبود.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -589,9 +612,12 @@ private fun MessageBubble(
     showClock: Boolean,
     selected: Boolean,
     selectionMode: Boolean,
+    pickingText: Boolean,
+    showPickHint: Boolean,
     isDefaultApp: Boolean,
     onWhy: () -> Unit,
-    onSelectText: () -> Unit,
+    onPickText: () -> Unit,
+    onDonePickingText: () -> Unit,
     onResend: () -> Unit,
     onRescue: (() -> Unit)? = null,
 ) {
@@ -630,41 +656,45 @@ private fun MessageBubble(
                 Checkbox(checked = selected, onCheckedChange = { model.toggleMessage(message) })
             }
             Box {
+                val bubble = Modifier
+                    .background(
+                        if (message.outgoing) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        RoundedCornerShape(12.dp),
+                    )
                 Column(
-                    Modifier
-                        .background(
-                            if (message.outgoing) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            },
-                            RoundedCornerShape(12.dp),
-                        )
-                        .combinedClickable(
-                            onClick = { if (selectionMode) model.toggleMessage(message) else menu = true },
-                            // نگه داشتن: انتخاب. نگه داشتن روی پیامکِ انتخاب‌شده:
-                            // برداشتن بخشی از متن (مثل تلگرام).
-                            onLongClick = {
-                                if (selected) onSelectText() else model.toggleMessage(message)
-                            },
-                        )
-                        .padding(12.dp),
+                    if (pickingText) {
+                        bubble.padding(12.dp)
+                    } else {
+                        bubble
+                            .combinedClickable(
+                                onClick = {
+                                    if (selectionMode) model.toggleMessage(message) else menu = true
+                                },
+                                // نگه داشتن: انتخاب. نگه داشتن روی پیامکِ انتخاب‌شده:
+                                // برداشتن بخشی از متن (مثل تلگرام).
+                                onLongClick = {
+                                    if (selected) onPickText() else model.toggleMessage(message)
+                                },
+                            )
+                            .padding(12.dp)
+                    },
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     if (message.kind == MessageEntity.KIND_MMS) {
                         MmsContent(model, message)
                     }
-                    // متن پیامک هرگز تغییر نمی‌کند: نه ارقامش و نه چیز دیگر (D50).
                     if (message.body.isNotEmpty()) {
-                        Text(
-                            message.body,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (dimmed) {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
-                        )
+                        // `SelectionContainer` فقط در حال برداشتن متن دور متن
+                        // می‌پیچد؛ وگرنه دستگیره‌هایش جلوی لمس حباب را می‌گرفت.
+                        if (pickingText) {
+                            SelectionContainer { MessageBody(message.body, dimmed) }
+                        } else {
+                            MessageBody(message.body, dimmed)
+                        }
                     }
                 }
                 MessageMenu(
@@ -673,8 +703,9 @@ private fun MessageBubble(
                     canDelete = isDefaultApp,
                     onDismiss = { menu = false },
                     onCopy = { clipboard.setText(AnnotatedString(message.body)) },
-                    onSelectText = onSelectText,
+                    onPickText = onPickText,
                     onShare = { shareText(context, message.body) },
+                    onForward = { model.forward(message.body) },
                     onSelect = { model.toggleMessage(message) },
                     onDelete = {
                         model.toggleMessage(message)
@@ -682,6 +713,22 @@ private fun MessageBubble(
                     },
                     onWhy = onWhy,
                 )
+            }
+        }
+        // راه بیرون آمدن، همان‌جا زیر حباب — به‌جای دکمهٔ «بستن» یک مودال.
+        // راهنما فقط بار اول کنارش می‌آید.
+        if (pickingText) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showPickHint) {
+                    Text(
+                        stringResource(R.string.select_text_hint),
+                        Modifier.weight(1f, fill = false),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+                TextButton(onClick = onDonePickingText) {
+                    Text(stringResource(R.string.select_text_done))
+                }
             }
         }
         if (message.risk) {
@@ -733,6 +780,20 @@ private fun MessageBubble(
     }
 }
 
+/** متن پیامک هرگز تغییر نمی‌کند: نه ارقامش و نه چیز دیگر (D50). */
+@Composable
+private fun MessageBody(body: String, dimmed: Boolean) {
+    Text(
+        body,
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (dimmed) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
+    )
+}
+
 /**
  * وضعیت ارسال، به‌صورت تیک. خود نویسه خوانده نمی‌شود، پس متنش برای صفحه‌خوان
  * جداگانه گفته می‌شود.
@@ -755,7 +816,10 @@ private fun Tick(glyph: String, label: String, dim: Boolean) {
 private const val SENT_TICK = "✓"
 private const val DELIVERED_TICK = "✓✓"
 
-/** منوی خود پیامک، روی لمس کوتاه. */
+/**
+ * منوی خود پیامک، روی لمس کوتاه. فوروارد و حذف هم اینجا هستند و هم روی نوار
+ * بالا در حالت انتخاب، چون کاربر هر دو راه را امتحان می‌کند.
+ */
 @Composable
 private fun MessageMenu(
     expanded: Boolean,
@@ -763,94 +827,56 @@ private fun MessageMenu(
     canDelete: Boolean,
     onDismiss: () -> Unit,
     onCopy: () -> Unit,
-    onSelectText: () -> Unit,
+    onPickText: () -> Unit,
     onShare: () -> Unit,
+    onForward: () -> Unit,
     onSelect: () -> Unit,
     onDelete: () -> Unit,
     onWhy: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         if (message.body.isNotEmpty()) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.copy_message)) },
-                onClick = {
-                    onDismiss()
-                    onCopy()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.select_text)) },
-                onClick = {
-                    onDismiss()
-                    onSelectText()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.share_message)) },
-                onClick = {
-                    onDismiss()
-                    onShare()
-                },
-            )
-        }
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.select)) },
-            onClick = {
+            MessageMenuItem(stringResource(R.string.copy_message)) {
                 onDismiss()
-                onSelect()
-            },
-        )
+                onCopy()
+            }
+            MessageMenuItem(stringResource(R.string.select_text)) {
+                onDismiss()
+                onPickText()
+            }
+            MessageMenuItem(stringResource(R.string.forward)) {
+                onDismiss()
+                onForward()
+            }
+            MessageMenuItem(stringResource(R.string.share_message)) {
+                onDismiss()
+                onShare()
+            }
+        }
+        MessageMenuItem(stringResource(R.string.select)) {
+            onDismiss()
+            onSelect()
+        }
         // حذف از provider فقط برای اپ پیش‌فرض ممکن است.
         if (canDelete) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.delete)) },
-                onClick = {
-                    onDismiss()
-                    onDelete()
-                },
-            )
+            MessageMenuItem(stringResource(R.string.delete)) {
+                onDismiss()
+                onDelete()
+            }
         }
         if (!message.outgoing) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.why_here)) },
-                onClick = {
-                    onDismiss()
-                    onWhy()
-                },
-            )
+            MessageMenuItem(stringResource(R.string.why_here)) {
+                onDismiss()
+                onWhy()
+            }
         }
     }
 }
 
-/**
- * انتخاب بخشی از متن یک پیامک. متن داخل `SelectionContainer` است، پس با
- * کشیدن دستگیره‌ها می‌شود فقط تکه‌ای از آن را برداشت — مثلاً یک کد پیگیری از
- * وسط یک پیامک بلند.
- */
+/** یک گزینه در منوی پیامک. */
 @Composable
-private fun SelectTextDialog(text: String, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.select_text)) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    stringResource(R.string.select_text_hint),
-                    style = MaterialTheme.typography.labelSmall,
-                )
-                SelectionContainer {
-                    Text(
-                        text,
-                        Modifier.padding(top = 8.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
-        },
-    )
+private fun MessageMenuItem(text: String, onClick: () -> Unit) {
+    DropdownMenuItem(text = { Text(text) }, onClick = onClick)
 }
 
 /**

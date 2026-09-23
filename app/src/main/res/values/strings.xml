@@ -134,6 +134,12 @@
 
     <!-- گفتگوی تازه -->
     <string name="new_conversation_hint">شماره یا شماره‌ها، جدا با ویرگول</string>
+    <string name="pending_share">این متن پس از انتخاب گیرنده در پیش‌نویس می‌آید و تا خودتان نفرستید، فرستاده نمی‌شود:</string>
+    <string name="pending_share_image">یک تصویر هم همراهش می‌آید.</string>
+    <string name="contacts_permission_hint">برای دیدن فهرست مخاطب‌ها همین‌جا، آسوده به اجازهٔ خواندن مخاطب‌ها نیاز دارد. بدون آن هم می‌توانید شماره را بنویسید یا از انتخابگر گوشی برش دارید.</string>
+    <string name="contacts_show">نشان دادن مخاطب‌ها</string>
+    <string name="contacts_empty">مخاطبی پیدا نشد.</string>
+    <string name="contacts_no_match">مخاطبی با این نام یا شماره نیست.</string>
     <string name="pick_contact">انتخاب از مخاطب‌ها</string>
     <string name="start_conversation">شروع گفتگو</string>
     <string name="new_conversation_group_hint">با بیش از یک گیرنده، پیام به‌صورت گروهی (MMS) فرستاده می‌شود و ممکن است هزینهٔ بیشتری داشته باشد.</string>
@@ -250,9 +256,23 @@
     <string name="copy_message">کپی متن</string>
     <string name="select_text">انتخاب بخشی از متن</string>
     <string name="select_text_hint">با کشیدن دستگیره‌ها، فقط همان تکه‌ای را که می‌خواهید بردارید.</string>
+    <string name="select_text_done">تمام</string>
     <string name="share_message">اشتراک‌گذاری</string>
+    <string name="forward">فرستادن برای کسی دیگر</string>
     <string name="delete">حذف</string>
     <string name="delete_thread">حذف گفتگو</string>
+    <string name="spam">اسپم</string>
+    <plurals name="spam_body">
+        <item quantity="one">پیامک‌های فرستندهٔ %d گفتگو از این پس به پوشهٔ تبلیغات می‌رود.</item>
+        <item quantity="other">پیامک‌های فرستندهٔ %d گفتگو از این پس به پوشهٔ تبلیغات می‌رود.</item>
+    </plurals>
+    <string name="spam_explain">پیامک‌های قبلی همین فرستنده‌ها هم به تبلیغات می‌روند و دیگر اعلان نمی‌گیرید. چیزی حذف نمی‌شود، و هر وقت خواستید از «قواعد من» برش می‌گردانید. از این پس هیچ پیامکی از این فرستنده‌ها به صندوق نمی‌آید، حتی رمز یکبار.</string>
+    <string name="spam_confirm">اسپم کن</string>
+    <plurals name="notice_spam">
+        <item quantity="one">%d فرستنده به تبلیغات رفت.</item>
+        <item quantity="other">%d فرستنده به تبلیغات رفت.</item>
+    </plurals>
+    <string name="spam_nothing">این گفتگو فرستندهٔ ورودی‌ای ندارد که اسپم شود.</string>
     <plurals name="selected_count">
         <item quantity="one">%d انتخاب‌شده</item>
         <item quantity="other">%d انتخاب‌شده</item>

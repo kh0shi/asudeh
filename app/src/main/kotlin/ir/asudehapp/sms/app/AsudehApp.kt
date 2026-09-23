@@ -7,13 +7,17 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -62,6 +66,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -220,6 +225,7 @@ fun AsudehApp(
     RescueFollowUpDialog(model)
     EmptyFolderDialog(model)
     DeleteDialog(model)
+    SpamDialog(model)
     EmptyTrashDialog(model)
     ScheduleDialog(model)
     SweepOfferDialog(model)
@@ -297,8 +303,10 @@ private fun clearSelection(model: AsudehViewModel, destination: Destination) {
 }
 
 /**
- * نوار بالا در حالت انتخاب: «انتخاب همه» و «حذف». حذف از Telephony Provider
- * فقط برای اپ پیش‌فرض ممکن است، پس دکمه‌اش فقط همان وقت دیده می‌شود.
+ * نوار بالا در حالت انتخاب. کارهای پرکاربرد آیکون خودشان را دارند، و **همان‌ها
+ * با متن** در منوی سه‌نقطه هم هستند: آیکون تنها همیشه خوانده نمی‌شود، و
+ * «اسپم» و «حذف» چیزی نیستند که کاربر باید حدس بزند. حذف از Telephony
+ * Provider فقط برای اپ پیش‌فرض ممکن است، پس فقط همان وقت دیده می‌شود.
  */
 @Composable
 private fun SelectionActions(
@@ -308,22 +316,182 @@ private fun SelectionActions(
     selectedThreads: Set<Long>,
 ) {
     if (destination is Destination.Conversation) {
-        IconButton(onClick = model::selectAllMessages) {
-            Icon(Icons.Default.Done, stringResource(R.string.select_all))
+        MessageSelectionActions(model, isDefaultApp)
+    } else {
+        ThreadSelectionActions(model, destination, isDefaultApp, selectedThreads)
+    }
+}
+
+/**
+ * انتخاب پیامک در گفتگو: «انتخاب همه»، فوروارد و حذف. پیش از این فقط انتخاب
+ * همه و حذف بود و انتخاب چند پیامک تقریباً به کاری نمی‌آمد.
+ */
+@Composable
+private fun MessageSelectionActions(model: AsudehViewModel, isDefaultApp: Boolean) {
+    var menu by remember { mutableStateOf(false) }
+    IconButton(onClick = model::selectAllMessages) {
+        Icon(Icons.Default.Done, stringResource(R.string.select_all))
+    }
+    IconButton(onClick = model::forwardSelectedMessages) {
+        Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.forward))
+    }
+    if (isDefaultApp) {
+        IconButton(onClick = model::requestDeleteSelectedMessages) {
+            Icon(Icons.Default.Delete, stringResource(R.string.delete))
         }
     }
-    if (!isDefaultApp) return
-    IconButton(
-        onClick = {
-            when (destination) {
-                is Destination.Conversation -> model.requestDeleteSelectedMessages()
-                is Destination.FolderView -> model.requestDeleteThreads(selectedThreads, destination.folder)
-                else -> model.requestDeleteThreads(selectedThreads, Folder.INBOX)
+    IconButton(onClick = { menu = true }) {
+        Icon(Icons.Default.MoreVert, stringResource(R.string.more))
+    }
+    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        ActionMenuItem(stringResource(R.string.select_all), Icons.Default.Done) {
+            menu = false
+            model.selectAllMessages()
+        }
+        ActionMenuItem(stringResource(R.string.forward), Icons.AutoMirrored.Filled.Send) {
+            menu = false
+            model.forwardSelectedMessages()
+        }
+        if (isDefaultApp) {
+            ActionMenuItem(stringResource(R.string.delete), Icons.Default.Delete) {
+                menu = false
+                model.requestDeleteSelectedMessages()
+            }
+        }
+    }
+}
+
+/**
+ * انتخاب گفتگو در فهرست: همان کارهایی که پیش از این پشت لمس طولانی پنهان
+ * بودند، حالا روی نوار بالا و روی یک یا چند گفتگو با هم. «سنجاق» و «خوانده
+ * شد» به حال بیشترِ انتخاب‌شده‌ها نگاه می‌کنند: اگر حتی یکی سنجاق‌نشده باشد،
+ * دکمه سنجاق می‌کند.
+ *
+ * «خوانده شد» آیکون بالا را نگرفته چون باز کردن خود گفتگو هم همین کار را
+ * می‌کند؛ در منوی سه‌نقطه هست.
+ */
+@Composable
+private fun ThreadSelectionActions(
+    model: AsudehViewModel,
+    destination: Destination,
+    isDefaultApp: Boolean,
+    selectedThreads: Set<Long>,
+) {
+    val folder = (destination as? Destination.FolderView)?.folder ?: Folder.INBOX
+    val threads by when (folder) {
+        Folder.PROMO -> model.promoThreads
+        Folder.SCAM -> model.scamThreads
+        Folder.INBOX -> model.inboxThreads
+    }.collectAsState()
+    val chosen = threads.filter { it.threadId in selectedThreads }
+    val pinning = chosen.any { !it.pinned }
+    val marksRead = chosen.any { it.unread > 0 }
+    var menu by remember { mutableStateOf(false) }
+
+    val pinLabel = stringResource(if (pinning) R.string.pin else R.string.unpin)
+    val readLabel = stringResource(if (marksRead) R.string.mark_read else R.string.mark_unread)
+    val readIcon = if (marksRead) Icons.Default.Email else Icons.Default.MailOutline
+    val pin = { model.setPinnedThreads(selectedThreads, pinning) }
+    val markRead = {
+        if (marksRead) {
+            model.markThreadsRead(selectedThreads, folder)
+        } else {
+            model.markThreadsUnread(selectedThreads, folder)
+        }
+    }
+    val spam = { model.requestSpamThreads(selectedThreads) }
+    val delete = { model.requestDeleteThreads(selectedThreads, folder) }
+
+    IconButton(onClick = pin) { Icon(Icons.Default.Star, pinLabel) }
+    IconButton(onClick = spam) { Icon(Icons.Default.Warning, stringResource(R.string.spam)) }
+    if (isDefaultApp) {
+        IconButton(onClick = delete) {
+            Icon(Icons.Default.Delete, stringResource(R.string.delete_thread))
+        }
+    }
+    IconButton(onClick = { menu = true }) {
+        Icon(Icons.Default.MoreVert, stringResource(R.string.more))
+    }
+    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        ActionMenuItem(stringResource(R.string.select_all), Icons.Default.Done) {
+            menu = false
+            model.selectAllThreads(threads.map { it.threadId })
+        }
+        ActionMenuItem(pinLabel, Icons.Default.Star) {
+            menu = false
+            pin()
+        }
+        ActionMenuItem(readLabel, readIcon) {
+            menu = false
+            markRead()
+        }
+        ActionMenuItem(stringResource(R.string.spam), Icons.Default.Warning) {
+            menu = false
+            spam()
+        }
+        if (isDefaultApp) {
+            ActionMenuItem(stringResource(R.string.delete_thread), Icons.Default.Delete) {
+                menu = false
+                delete()
+            }
+        }
+    }
+}
+
+/** یک گزینه در منوی سه‌نقطه: همان آیکون نوار بالا، این بار با متنش. */
+@Composable
+private fun ActionMenuItem(text: String, icon: ImageVector, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(text) },
+        leadingIcon = { Icon(icon, null) },
+        onClick = onClick,
+    )
+}
+
+/**
+ * «اسپم» روی گفتگوهای انتخاب‌شده (ADR-0006 بند ۲). یک مرحله، چون چیزی حذف
+ * نمی‌شود و قاعده در «قواعد من» برداشتنی است؛ ولی متن می‌گوید دقیقاً چه
+ * اتفاقی می‌افتد (اصل ۵).
+ */
+@Composable
+private fun SpamDialog(model: AsudehViewModel) {
+    val pending by model.spamRequest.collectAsState()
+    val request = pending ?: return
+
+    AlertDialog(
+        onDismissRequest = model::cancelSpam,
+        title = { Text(stringResource(R.string.spam)) },
+        text = {
+            Column {
+                Text(
+                    if (request.senders.isEmpty()) {
+                        stringResource(R.string.spam_nothing)
+                    } else {
+                        Texts.count(R.plurals.spam_body, request.threads)
+                    },
+                )
+                if (request.senders.isNotEmpty()) {
+                    Text(
+                        stringResource(R.string.spam_explain),
+                        Modifier.padding(top = 8.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
         },
-    ) {
-        Icon(Icons.Default.Delete, stringResource(R.string.delete))
-    }
+        confirmButton = {
+            if (request.senders.isEmpty()) {
+                TextButton(onClick = model::cancelSpam) { Text(stringResource(R.string.close)) }
+            } else {
+                TextButton(onClick = model::confirmSpam) { Text(stringResource(R.string.spam_confirm)) }
+            }
+        },
+        dismissButton = {
+            if (request.senders.isNotEmpty()) {
+                TextButton(onClick = model::cancelSpam) { Text(stringResource(R.string.cancel)) }
+            }
+        },
+    )
 }
 
 /**
@@ -430,6 +598,8 @@ private fun noticeText(notice: UiNotice): String = when (notice) {
             null -> R.string.backup_failed
         },
     )
+    is UiNotice.MarkedSpam -> Texts.count(R.plurals.notice_spam, notice.senders)
+    UiNotice.SpamNothing -> stringResource(R.string.spam_nothing)
     UiNotice.AttachmentFailed -> stringResource(R.string.attachment_failed)
     UiNotice.DownloadRequested -> stringResource(R.string.mms_download_requested)
     UiNotice.DownloadFailed -> stringResource(R.string.mms_download_failed)
@@ -739,7 +909,6 @@ private fun HomeScreen(
                 thread = thread,
                 selected = thread.threadId in selectedThreads,
                 selectionMode = selectedThreads.isNotEmpty(),
-                canDelete = isDefaultApp,
                 onClick = { onOpenThread(thread.threadId) },
             )
         }
@@ -799,7 +968,6 @@ private fun FolderScreen(
                     thread = thread,
                     selected = thread.threadId in selectedThreads,
                     selectionMode = selectedThreads.isNotEmpty(),
-                    canDelete = isDefaultApp,
                     onClick = { onOpenThread(thread.threadId) },
                 )
             }
@@ -824,9 +992,10 @@ private fun DefaultAppCard(onBecomeDefault: () -> Unit) {
 }
 
 /**
- * یک گفتگو در فهرست. لمس طولانی منوی سنجاق، خوانده/نخوانده و حذف را باز
- * می‌کند (D53، ADR-0010)؛ وقتی چند گفتگو انتخاب شده‌اند، لمس کوتاه هم انتخاب
- * را عوض می‌کند.
+ * یک گفتگو در فهرست. لمس طولانی مثل تلگرام خود گفتگو را **انتخاب** می‌کند و
+ * کارها روی نوار بالا می‌آیند ([SelectionActions])، نه در منویی که فقط روی
+ * همان یک گفتگو کار می‌کرد. لمس کوتاه در حالت انتخاب هم فقط انتخاب را عوض
+ * می‌کند و گفتگو را باز نمی‌کند (D53، ADR-0010).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -835,113 +1004,70 @@ private fun ThreadRow(
     thread: ThreadSummary,
     selected: Boolean,
     selectionMode: Boolean,
-    canDelete: Boolean,
     onClick: () -> Unit,
 ) {
-    var menu by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(
-                    if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Unspecified,
-                )
-                .combinedClickable(
-                    onClick = { if (selectionMode) model.toggleThread(thread.threadId) else onClick() },
-                    onLongClick = {
-                        if (selectionMode) model.toggleThread(thread.threadId) else menu = true
-                    },
-                )
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            if (selectionMode) {
-                Checkbox(checked = selected, onCheckedChange = { model.toggleThread(thread.threadId) })
-            }
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (thread.pinned) {
-                        Icon(
-                            Icons.Default.Star,
-                            stringResource(R.string.pinned),
-                            Modifier.size(16.dp).padding(end = 4.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    if (thread.hasRisk) {
-                        Text("⚠ ", style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Text(
-                        Texts.thread(thread.address, thread.recipients),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (thread.unread > 0) FontWeight.Bold else null,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(
+                if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Unspecified,
+            )
+            .combinedClickable(
+                onClick = { if (selectionMode) model.toggleThread(thread.threadId) else onClick() },
+                onLongClick = { model.toggleThread(thread.threadId) },
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        if (selectionMode) {
+            Checkbox(checked = selected, onCheckedChange = { model.toggleThread(thread.threadId) })
+        }
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (thread.pinned) {
+                    Icon(
+                        Icons.Default.Star,
+                        stringResource(R.string.pinned),
+                        Modifier.size(16.dp).padding(end = 4.dp),
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
+                if (thread.hasRisk) {
+                    Text("⚠ ", style = MaterialTheme.typography.bodyMedium)
+                }
                 Text(
-                    snippet(thread),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (thread.draft.isNotEmpty()) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                    maxLines = 2,
+                    Texts.thread(thread.address, thread.recipients),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (thread.unread > 0) FontWeight.Bold else null,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(Texts.timestamp(thread.lastDate), style = MaterialTheme.typography.labelSmall)
-                if (thread.unread > 0) {
-                    Box(
-                        Modifier
-                            .background(
-                                MaterialTheme.colorScheme.primary,
-                                RoundedCornerShape(10.dp),
-                            )
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                    ) {
-                        Text(
-                            Texts.count(R.plurals.new_count, thread.unread),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                }
-            }
+            Text(
+                snippet(thread),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (thread.draft.isNotEmpty()) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(if (thread.pinned) R.string.unpin else R.string.pin)) },
-                onClick = {
-                    menu = false
-                    model.setPinned(thread.threadId, !thread.pinned)
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(if (thread.unread > 0) R.string.mark_read else R.string.mark_unread)) },
-                onClick = {
-                    menu = false
-                    if (thread.unread > 0) {
-                        model.markRead(thread.threadId, thread.folder)
-                    } else {
-                        model.markUnread(thread.threadId, thread.folder)
-                    }
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.select)) },
-                onClick = {
-                    menu = false
-                    model.toggleThread(thread.threadId)
-                },
-            )
-            // حذف از provider فقط برای اپ پیش‌فرض ممکن است.
-            if (canDelete) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.delete_thread)) },
-                    onClick = {
-                        menu = false
-                        model.requestDeleteThreads(setOf(thread.threadId), thread.folder)
-                    },
-                )
+        Column(horizontalAlignment = Alignment.End) {
+            Text(Texts.timestamp(thread.lastDate), style = MaterialTheme.typography.labelSmall)
+            if (thread.unread > 0) {
+                Box(
+                    Modifier
+                        .background(
+                            MaterialTheme.colorScheme.primary,
+                            RoundedCornerShape(10.dp),
+                        )
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        Texts.count(R.plurals.new_count, thread.unread),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
             }
         }
     }

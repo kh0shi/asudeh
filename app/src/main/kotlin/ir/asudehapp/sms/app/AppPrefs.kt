@@ -24,9 +24,19 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_SWEEP_ANSWERED, false)
         set(value) = prefs.edit().putBoolean(KEY_SWEEP_ANSWERED, value).apply()
 
+    /**
+     * راهنمای «با کشیدن دستگیره‌ها…» یک بار دیده شده است. از آن به بعد فقط
+     * دکمهٔ «تمام» زیر پیامک می‌ماند، چون کار یک بار که یاد گرفته شد، یاد
+     * گرفته شده است.
+     */
+    var textPickHintSeen: Boolean
+        get() = prefs.getBoolean(KEY_TEXT_PICK_HINT, false)
+        set(value) = prefs.edit().putBoolean(KEY_TEXT_PICK_HINT, value).apply()
+
     private companion object {
         const val NAME = "asudeh-ui"
         const val KEY_ONBOARDED = "onboarded"
         const val KEY_SWEEP_ANSWERED = "sweep_offer_answered"
+        const val KEY_TEXT_PICK_HINT = "text_pick_hint_seen"
     }
 }

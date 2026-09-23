@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  آیکون اعلان: همان نشانِ اپ، سفیدِ خالص (نوار وضعیت خودش رنگ می‌زند).
-  بومِ ۱۰۸ نگه داشته شده تا مسیرها با آیکون لانچر یکی بماند.
+  نسخهٔ تک‌رنگ برای آیکونِ پوسته‌ایِ اندروید ۱۳+؛ همان شکل با سفیدِ خالص.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
+    android:width="108dp"
+    android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:translateX="-18.336" android:translateY="-17.462">
-        <group android:scaleX="1.34454" android:scaleY="1.34454">
+    <group android:translateX="13.273" android:translateY="13.765">
+        <group android:scaleX="0.757" android:scaleY="0.757">
         <group android:translateX="1.46" android:translateY="0.19">
             <group android:scaleX="0.973" android:scaleY="0.973">
                 <path
