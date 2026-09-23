@@ -29,6 +29,11 @@ data class RulePack(
     val bankTransaction: PatternGroup = PatternGroup(),
     /** طعمه‌های کلاهبرداری: «برنده شدید»، «جایزه»… بدون `Evidence` فقط `Suspect` می‌سازند. */
     val scamBait: PatternGroup = PatternGroup(),
+    /**
+     * واژه‌هایی که یعنی عددِ پس از «کد» رمز یکبار مصرف نیست: «کد تخفیف»،
+     * «کد پیگیری»، «کد ملی». فقط `keywords` آن به کار می‌رود ([OneTimeCode]).
+     */
+    val codeNotOtp: PatternGroup = PatternGroup(),
     val amount: PatternGroup = PatternGroup(),
     val brands: List<Brand> = emptyList(),
     /**
@@ -119,6 +124,10 @@ class CompiledRulePack(val pack: RulePack) {
     val bankTransaction: CompiledGroup = CompiledGroup(pack.bankTransaction)
     val scamBait: CompiledGroup = CompiledGroup(pack.scamBait)
     val amount: CompiledGroup = CompiledGroup(pack.amount)
+
+    /** واژه‌های «این کد رمز نیست»، نرمال‌شده، برای [OneTimeCode]. */
+    val codeNotOtp: List<String> =
+        pack.codeNotOtp.keywords.map { PersianText.normalize(it) }.filter { it.isNotEmpty() }
 
     val brands: List<CompiledBrand> = pack.brands.map(::CompiledBrand)
     val bayes: BayesModel = pack.bayes

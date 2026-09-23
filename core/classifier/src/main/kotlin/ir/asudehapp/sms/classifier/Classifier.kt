@@ -147,13 +147,21 @@ class Classifier(private val rules: CompiledRulePack) {
         links = links,
     )
 
+    /**
+     * رمز یکبار از دو راه شناخته می‌شود: کلیدواژه («کد تایید»، «رمز پویا»)، و
+     * شکلِ خودِ رمز — «رمز/کد» و بعد عددی که کاملاً رقم است ([OneTimeCode]).
+     * راه دوم لازم است چون پیامک رمز پویای بانک هیچ‌کدام از کلیدواژه‌ها را
+     * ندارد و فقط می‌نویسد «خريد / مبلغ … / رمز ۰۸۱۷۷۱».
+     */
     private fun otp(text: String, links: List<DetectedLink>): Verdict? {
-        if (!rules.otp.matches(text)) return null
-        val hasCode = OTP_CODE.containsMatchIn(text)
+        val keyword = rules.otp.firstHit(text)
+        val shaped = OneTimeCode.find(text, rules.codeNotOtp)
+        if (keyword == null && shaped == null) return null
+        val hasCode = shaped != null || OTP_CODE.containsMatchIn(text)
         return Verdict(
             category = Category.OTP,
             confidence = if (hasCode) Confidence.HIGH else Confidence.MEDIUM,
-            reason = Reason(ReasonCode.OTP_PATTERN, listOfNotNull(rules.otp.firstHit(text))),
+            reason = Reason(ReasonCode.OTP_PATTERN, listOfNotNull(keyword)),
             links = links,
         )
     }

@@ -47,8 +47,15 @@ object Router {
                     )
 
         val allowedSender = userRules.isAllowed(input.address)
-        val allowed = allowedSender || allowKeyword != null
-        val blockedSender = userRules.isBlocked(input.address)
+
+        // `Block` صریحِ یک سرشماره حرف آخر را می‌زند: از سرشماره‌ای که کاربر
+        // مسدود کرده، هیچ پیامکی به صندوق نمی‌آید — نه رمز یکبار، نه پیامک
+        // بانکی، نه پیامکی که کلیدواژهٔ فهرست سفید دارد (ADR-0006 بند ۲ را
+        // اصلاح می‌کند). `Allowlist` صریحِ همان سرشماره تنها چیزی است که از آن
+        // می‌گذرد، تا پیکربندی متناقض کاربر را در بن‌بست نگذارد.
+        val blockedSender = userRules.isBlocked(input.address) && !allowedSender
+
+        val allowed = allowedSender || (allowKeyword != null && !blockedSender)
         val blocked = blockedSender || (blockKeyword != null && !personalLock)
         val hasEvidence = verdict.evidence != null
 
@@ -81,9 +88,11 @@ object Router {
             )
         }
 
-        // ۳. رمز یکبار و بانکی قطعی، حتی از سرشمارهٔ مسدود (ADR-0006 بند ۲).
+        // ۳. رمز یکبار و بانکی قطعی، حتی وقتی کلیدواژهٔ فهرست سیاه در متنشان
+        //    هست. ولی نه از سرشماره‌ای که کاربر خودش مسدود کرده است: آنجا
+        //    خواستهٔ صریح کاربر مقدم است (اصل ۵).
         if ((verdict.category == Category.OTP || verdict.category == Category.BANK) &&
-            verdict.confidence == Confidence.HIGH &&
+            verdict.confidence == Confidence.HIGH && !blockedSender &&
             userRules.isOn(DefaultRule.OTP_AND_BANK_ALWAYS_INBOX)
         ) {
             return inbox(verdict)
