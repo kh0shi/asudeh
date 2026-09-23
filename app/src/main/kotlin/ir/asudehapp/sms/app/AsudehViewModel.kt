@@ -78,6 +78,9 @@ sealed interface Destination {
 
     /** «حذف‌شده‌ها» (ADR-0010). */
     data object Trash : Destination
+
+    /** «بایگانی» (PARITY §الف). */
+    data object Archive : Destination
 }
 
 /** یک `UiState` تغییرناپذیر برای هر صفحه (D56). */
@@ -92,6 +95,8 @@ data class ConversationUiState(
     val pinned: Boolean = false,
     /** بی‌صدا: پیامک‌های تازهٔ این گفتگو اعلان نمی‌گیرند. */
     val muted: Boolean = false,
+    /** بایگانی: از فهرست پوشه‌اش برداشته شده، جایی حذف نشده (PARITY §الف). */
+    val archived: Boolean = false,
     /** پاسخ از سیم‌کارتی می‌رود که پیامک آخر به آن رسیده است، مگر کاربر عوضش کند (D27). */
     val subscriptionId: Int = -1,
 ) {
@@ -197,6 +202,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     val inboxThreads: StateFlow<List<ThreadSummary>> = threadsIn(Folder.INBOX)
     val promoThreads: StateFlow<List<ThreadSummary>> = threadsIn(Folder.PROMO)
     val scamThreads: StateFlow<List<ThreadSummary>> = threadsIn(Folder.SCAM)
+
+    /** بایگانی (PARITY §الف): خارج از سه پوشهٔ اصلی، از هر پوشه‌ای که باشند. */
+    val archivedThreads: StateFlow<List<ThreadSummary>> = repository.archivedThreads()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
 
     val promoUnread: StateFlow<Int> = repository.unreadCount(Folder.PROMO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), 0)
@@ -594,6 +603,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             if (savedDraft.isNotEmpty() && _draft.value.isEmpty()) _draft.value = savedDraft
             val pinned = repository.isPinned(target.threadId)
             val muted = repository.isMuted(target.threadId)
+            val archived = repository.isArchived(target.threadId)
             repository.conversation(target.threadId).collect { messages ->
                 val last = messages.lastOrNull()
                 val participants = when {
@@ -615,6 +625,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
                     isAdLine = participants.size == 1 && repository.isAdLine(address),
                     pinned = if (previous.threadId == target.threadId) previous.pinned || pinned else pinned,
                     muted = if (previous.threadId == target.threadId) previous.muted else muted,
+                    archived = if (previous.threadId == target.threadId) previous.archived else archived,
                     subscriptionId = previous.subscriptionId.takeIf { it >= 0 && previous.threadId == target.threadId }
                         ?: lastIncoming?.subId
                         ?: last?.subId
@@ -762,6 +773,14 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.setMuted(threadId, muted) }
         if (_conversation.value.threadId == threadId) {
             _conversation.value = _conversation.value.copy(muted = muted)
+        }
+    }
+
+    /** بایگانی: گفتگو از فهرست پوشه‌اش برداشته می‌شود، جایی حذف نمی‌شود (PARITY §الف). */
+    fun setArchived(threadId: Long, archived: Boolean) {
+        viewModelScope.launch { repository.setArchived(threadId, archived) }
+        if (_conversation.value.threadId == threadId) {
+            _conversation.value = _conversation.value.copy(archived = archived)
         }
     }
 
@@ -926,6 +945,12 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         clearThreadSelection()
     }
 
+    fun setArchivedThreads(threadIds: Set<Long>, archived: Boolean) {
+        if (threadIds.isEmpty()) return
+        for (threadId in threadIds) setArchived(threadId, archived)
+        clearThreadSelection()
+    }
+
     fun markThreadsRead(threadIds: Set<Long>, folder: Folder) {
         if (threadIds.isEmpty()) return
         for (threadId in threadIds) markRead(threadId, folder)
@@ -993,6 +1018,18 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         if (threadIds.isEmpty()) return
         viewModelScope.launch {
             val messages = threadIds.flatMap { repository.messagesOfThread(it, folder) }
+            _deleteRequest.value = DeleteRequest(messages, threads = threadIds.size)
+        }
+    }
+
+    /**
+     * حذف گفتگوهای بایگانی‌شده: بایگانی به یک پوشه محدود نیست، پس پیامک‌های
+     * هر گفتگو از **همهٔ** پوشه‌هایش حذف می‌شوند (PARITY §الف).
+     */
+    fun requestDeleteArchivedThreads(threadIds: Set<Long>) {
+        if (threadIds.isEmpty()) return
+        viewModelScope.launch {
+            val messages = threadIds.flatMap { repository.messagesOfThread(it, folder = null) }
             _deleteRequest.value = DeleteRequest(messages, threads = threadIds.size)
         }
     }

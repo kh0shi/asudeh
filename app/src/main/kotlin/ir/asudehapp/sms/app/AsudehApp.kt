@@ -72,6 +72,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
@@ -150,6 +152,7 @@ fun AsudehApp(
                                 Destination.Rules -> stringResource(R.string.settings_rules)
                                 Destination.NewConversation -> stringResource(R.string.new_conversation)
                                 Destination.Trash -> stringResource(R.string.trash)
+                                Destination.Archive -> stringResource(R.string.archive)
                             }
                         },
                         maxLines = 1,
@@ -222,6 +225,11 @@ fun AsudehApp(
                 Destination.Rules -> RulesScreen(model)
                 Destination.NewConversation -> NewConversationScreen(model)
                 Destination.Trash -> TrashScreen(model)
+                Destination.Archive -> ArchiveScreen(
+                    model = model,
+                    isDefaultApp = isDefaultApp,
+                    onOpenThread = { threadId, folder -> model.navigate(Destination.Conversation(threadId, folder)) },
+                )
             }
         }
     }
@@ -275,6 +283,13 @@ private fun HomeActions(model: AsudehViewModel) {
         }
         HorizontalDivider()
         DropdownMenuItem(
+            text = { Text(stringResource(R.string.archive)) },
+            onClick = {
+                menu = false
+                model.navigate(Destination.Archive)
+            },
+        )
+        DropdownMenuItem(
             text = { Text(stringResource(R.string.settings)) },
             onClick = {
                 menu = false
@@ -321,6 +336,8 @@ private fun SelectionActions(
 ) {
     if (destination is Destination.Conversation) {
         MessageSelectionActions(model, isDefaultApp)
+    } else if (destination == Destination.Archive) {
+        ArchiveSelectionActions(model, isDefaultApp, selectedThreads)
     } else {
         ThreadSelectionActions(model, destination, isDefaultApp, selectedThreads)
     }
@@ -408,6 +425,7 @@ private fun ThreadSelectionActions(
     }
     val spam = { model.requestSpamThreads(selectedThreads) }
     val delete = { model.requestDeleteThreads(selectedThreads, folder) }
+    val archive = { model.setArchivedThreads(selectedThreads, true) }
 
     IconButton(onClick = pin) { Icon(Icons.Default.Star, pinLabel) }
     IconButton(onClick = spam) { Icon(Icons.Default.Warning, stringResource(R.string.spam)) }
@@ -439,6 +457,75 @@ private fun ThreadSelectionActions(
         ActionMenuItem(stringResource(R.string.spam), Icons.Default.Warning) {
             menu = false
             spam()
+        }
+        EmojiMenuItem("📦", stringResource(R.string.archive)) {
+            menu = false
+            archive()
+        }
+        if (isDefaultApp) {
+            ActionMenuItem(stringResource(R.string.delete_thread), Icons.Default.Delete) {
+                menu = false
+                delete()
+            }
+        }
+    }
+}
+
+/** مثل [ActionMenuItem]، برای کاری که در بستهٔ آیکون‌های core نیست (اصل ۷: حجم اپ). */
+@Composable
+private fun EmojiMenuItem(emoji: String, text: String, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(text) },
+        leadingIcon = { Text(emoji) },
+        onClick = onClick,
+    )
+}
+
+/**
+ * انتخاب گفتگو در صفحهٔ «بایگانی» (PARITY §الف). بایگانی به یک پوشه محدود
+ * نیست، پس برخلاف [ThreadSelectionActions] هر گفتگو با پوشهٔ خودش خوانده/
+ * خوانده‌نشده و حذف می‌شود، نه یک پوشهٔ مشترک.
+ */
+@Composable
+private fun ArchiveSelectionActions(model: AsudehViewModel, isDefaultApp: Boolean, selectedThreads: Set<Long>) {
+    val threads by model.archivedThreads.collectAsState()
+    val chosen = threads.filter { it.threadId in selectedThreads }
+    val marksRead = chosen.any { it.unread > 0 }
+    var menu by remember { mutableStateOf(false) }
+
+    val readLabel = stringResource(if (marksRead) R.string.mark_read else R.string.mark_unread)
+    val readIcon = if (marksRead) Icons.Default.Email else Icons.Default.MailOutline
+    val markRead = {
+        for (thread in chosen) {
+            if (marksRead) model.markRead(thread.threadId, thread.folder) else model.markUnread(thread.threadId, thread.folder)
+        }
+        model.clearThreadSelection()
+    }
+    val unarchive = { model.setArchivedThreads(selectedThreads, false) }
+    val delete = { model.requestDeleteArchivedThreads(selectedThreads) }
+
+    val unarchiveLabel = stringResource(R.string.unarchive)
+    IconButton(onClick = unarchive) { Text("📦", Modifier.semantics { contentDescription = unarchiveLabel }) }
+    if (isDefaultApp) {
+        IconButton(onClick = delete) {
+            Icon(Icons.Default.Delete, stringResource(R.string.delete_thread))
+        }
+    }
+    IconButton(onClick = { menu = true }) {
+        Icon(Icons.Default.MoreVert, stringResource(R.string.more))
+    }
+    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        ActionMenuItem(stringResource(R.string.select_all), Icons.Default.Done) {
+            menu = false
+            model.selectAllThreads(threads.map { it.threadId })
+        }
+        EmojiMenuItem("📦", stringResource(R.string.unarchive)) {
+            menu = false
+            unarchive()
+        }
+        ActionMenuItem(readLabel, readIcon) {
+            menu = false
+            markRead()
         }
         if (isDefaultApp) {
             ActionMenuItem(stringResource(R.string.delete_thread), Icons.Default.Delete) {
@@ -986,6 +1073,38 @@ private fun FolderScreen(
                     onClick = { onOpenThread(thread.threadId) },
                 )
             }
+        }
+    }
+}
+
+/**
+ * «بایگانی» (PARITY §الف): گفتگوهایی که کاربر از فهرست پوشه‌اش برداشته، از
+ * هر پوشه‌ای که باشند. باز کردن گفتگو به همان پوشه‌ای می‌رود که آخرین
+ * پیامکش در آن است، چون بایگانی خودش پوشه نیست.
+ */
+@Composable
+private fun ArchiveScreen(
+    model: AsudehViewModel,
+    isDefaultApp: Boolean,
+    onOpenThread: (Long, Folder) -> Unit,
+) {
+    val threads by model.archivedThreads.collectAsState()
+    val selectedThreads by model.selectedThreads.collectAsState()
+
+    LazyColumn(Modifier.fillMaxSize()) {
+        if (threads.isEmpty()) {
+            item { EmptyState(stringResource(R.string.empty_archive)) }
+        }
+        items(threads, key = { it.threadId }) { thread ->
+            ThreadRow(
+                model = model,
+                thread = thread,
+                folder = thread.folder,
+                isDefaultApp = isDefaultApp,
+                selected = thread.threadId in selectedThreads,
+                selectionMode = selectedThreads.isNotEmpty(),
+                onClick = { onOpenThread(thread.threadId, thread.folder) },
+            )
         }
     }
 }

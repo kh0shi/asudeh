@@ -113,6 +113,14 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
                 },
             )
             DropdownMenuItem(
+                text = { Text(stringResource(if (state.archived) R.string.unarchive else R.string.archive)) },
+                onClick = {
+                    menu = false
+                    model.setArchived(state.threadId, !state.archived)
+                    if (!state.archived) model.back()
+                },
+            )
+            DropdownMenuItem(
                 text = { Text(stringResource(R.string.mark_unread)) },
                 onClick = {
                     menu = false

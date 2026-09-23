@@ -17,6 +17,7 @@ class IndexMigrationsTest {
     private val schema2 = schema(2)
     private val schema3 = schema(3)
     private val schema4 = schema(4)
+    private val schema5 = schema(5)
 
     private fun schema(version: Int) =
         File("schemas/ir.asudehapp.sms.data.IndexDatabase/$version.json").readText()
@@ -76,10 +77,23 @@ class IndexMigrationsTest {
         }
     }
 
+    /** ستون تازهٔ نسخهٔ ۵: بایگانی یک گفتگو (PARITY §الف). */
+    @Test
+    fun `version five adds exactly what room expects`() {
+        val columns = IndexMigrations.V4_V5_SQL
+            .filter { it.startsWith("ALTER TABLE `thread_pref` ADD COLUMN ") }
+            .map { it.removePrefix("ALTER TABLE `thread_pref` ADD COLUMN ") }
+        assertTrue(columns.isNotEmpty())
+        for (column in columns) {
+            assertTrue("ستون در schema نیست: $column", column in schema5)
+        }
+    }
+
     /** هیچ دستور migration نباید داده‌ای را پاک کند. */
     @Test
     fun `no migration drops or deletes anything`() {
-        val all = IndexMigrations.V1_V2_SQL + IndexMigrations.V2_V3_SQL + IndexMigrations.V3_V4_SQL
+        val all = IndexMigrations.V1_V2_SQL + IndexMigrations.V2_V3_SQL + IndexMigrations.V3_V4_SQL +
+            IndexMigrations.V4_V5_SQL
         for (statement in all) {
             val upper = statement.uppercase()
             assertTrue("migration مخرب: $statement", !upper.startsWith("DROP"))

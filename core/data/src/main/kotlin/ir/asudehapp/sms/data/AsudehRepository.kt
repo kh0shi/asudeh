@@ -92,6 +92,9 @@ class AsudehRepository(
 
     fun threads(folder: Folder): Flow<List<ThreadSummary>> = dao.observeThreads(folder)
 
+    /** بایگانی: خارج از سه پوشهٔ اصلی، هر جا که باشند (PARITY §الف). */
+    fun archivedThreads(): Flow<List<ThreadSummary>> = dao.observeArchivedThreads()
+
     fun conversation(threadId: Long): Flow<List<MessageEntity>> = dao.observeConversation(threadId)
 
     fun unreadCount(folder: Folder): Flow<Int> = dao.observeUnreadCount(folder)
@@ -196,7 +199,13 @@ class AsudehRepository(
 
     suspend fun setPinned(threadId: Long, pinned: Boolean) {
         val current = prefDao.get(threadId)
-        savePref(threadId, pinned = pinned, draft = current?.draft.orEmpty(), muted = current?.muted ?: false)
+        savePref(
+            threadId,
+            pinned = pinned,
+            draft = current?.draft.orEmpty(),
+            muted = current?.muted ?: false,
+            archived = current?.archived ?: false,
+        )
     }
 
     suspend fun draft(threadId: Long): String = prefDao.get(threadId)?.draft.orEmpty()
@@ -206,24 +215,50 @@ class AsudehRepository(
     /** بی‌صدا کردن یک گفتگو: پیامک‌های تازه‌اش هیچ اعلانی نمی‌گیرند، ولی جایی پنهان نمی‌شوند. */
     suspend fun setMuted(threadId: Long, muted: Boolean) {
         val current = prefDao.get(threadId)
-        savePref(threadId, pinned = current?.pinned ?: false, draft = current?.draft.orEmpty(), muted = muted)
+        savePref(
+            threadId,
+            pinned = current?.pinned ?: false,
+            draft = current?.draft.orEmpty(),
+            muted = muted,
+            archived = current?.archived ?: false,
+        )
     }
 
     suspend fun isMuted(threadId: Long): Boolean = prefDao.get(threadId)?.muted ?: false
+
+    /** بایگانی: گفتگو از فهرست پوشه‌اش برداشته می‌شود، ولی جایی حذف نمی‌شود. */
+    suspend fun setArchived(threadId: Long, archived: Boolean) {
+        val current = prefDao.get(threadId)
+        savePref(
+            threadId,
+            pinned = current?.pinned ?: false,
+            draft = current?.draft.orEmpty(),
+            muted = current?.muted ?: false,
+            archived = archived,
+        )
+    }
+
+    suspend fun isArchived(threadId: Long): Boolean = prefDao.get(threadId)?.archived ?: false
 
     /** پیش‌نویس گفتگو (D53). متن خالی پیش‌نویس را برمی‌دارد. */
     suspend fun saveDraft(threadId: Long, text: String) {
         if (threadId <= 0) return
         val current = prefDao.get(threadId)
         if ((current?.draft ?: "") == text) return
-        savePref(threadId, pinned = current?.pinned ?: false, draft = text, muted = current?.muted ?: false)
+        savePref(
+            threadId,
+            pinned = current?.pinned ?: false,
+            draft = text,
+            muted = current?.muted ?: false,
+            archived = current?.archived ?: false,
+        )
     }
 
-    private suspend fun savePref(threadId: Long, pinned: Boolean, draft: String, muted: Boolean) {
-        if (!pinned && draft.isEmpty() && !muted) {
+    private suspend fun savePref(threadId: Long, pinned: Boolean, draft: String, muted: Boolean, archived: Boolean) {
+        if (!pinned && draft.isEmpty() && !muted && !archived) {
             prefDao.remove(threadId)
         } else {
-            prefDao.put(ThreadPrefEntity(threadId, pinned, draft, System.currentTimeMillis(), muted))
+            prefDao.put(ThreadPrefEntity(threadId, pinned, draft, System.currentTimeMillis(), muted, archived))
         }
     }
 

@@ -128,6 +128,13 @@ data class ThreadPrefEntity(
     /** بی‌صدا: اعلانی برای پیامک‌های تازهٔ این گفتگو نمی‌آید، ولی هیچ‌چیز پنهان نمی‌شود. */
     @ColumnInfo(defaultValue = "0")
     val muted: Boolean = false,
+    /**
+     * بایگانی: گفتگو از فهرست پوشه‌اش (صندوق، تبلیغات یا کلاهبرداری) برداشته
+     * می‌شود ولی جایی حذف نمی‌شود؛ از صفحهٔ «بایگانی» قابل بازگشت است. این با
+     * `folder` روی خود پیامک فرق دارد: طبقه‌بندی نیست، فقط ترجیح کاربر است.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val archived: Boolean = false,
 )
 
 enum class SendStatus {
@@ -188,6 +195,7 @@ data class ThreadSummary(
     val pinned: Boolean = false,
     val draft: String = "",
     val muted: Boolean = false,
+    val archived: Boolean = false,
 )
 
 /** خلاصهٔ پیشنهاد جابه‌جایی پیامک‌های قدیمی (اصل ۸). */

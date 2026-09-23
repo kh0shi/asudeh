@@ -44,10 +44,12 @@ interface MessageDao {
                m.attachments AS attachments,
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
-               COALESCE(p.muted, 0) AS muted
+               COALESCE(p.muted, 0) AS muted,
+               COALESCE(p.archived, 0) AS archived
           FROM message m
           LEFT JOIN thread_pref p ON p.threadId = m.threadId
          WHERE m.folder = :folder
+           AND COALESCE(p.archived, 0) = 0
            AND m.dateReceived = (SELECT MAX(x.dateReceived) FROM message x
                                   WHERE x.threadId = m.threadId AND x.folder = m.folder)
          GROUP BY m.threadId
@@ -55,6 +57,38 @@ interface MessageDao {
         """,
     )
     fun observeThreads(folder: Folder): Flow<List<ThreadSummary>>
+
+    /**
+     * گفتگوهای بایگانی‌شده، از هر پوشه‌ای که باشند (PARITY §الف). برخلاف
+     * [observeThreads]، به یک پوشه محدود نیست: پیش‌نمایش و شمار خوانده‌نشده از
+     * **همهٔ** پیامک‌های گفتگو حساب می‌شوند، نه فقط یک پوشه.
+     */
+    @Query(
+        """
+        SELECT m.threadId AS threadId,
+               m.folder AS folder,
+               m.address AS address,
+               m.body AS snippet,
+               m.dateReceived AS lastDate,
+               (SELECT COUNT(*) FROM message u
+                 WHERE u.threadId = m.threadId AND u.read = 0 AND u.outgoing = 0) AS unread,
+               (SELECT COUNT(*) FROM message t WHERE t.threadId = m.threadId) AS total,
+               (SELECT MAX(r.risk) FROM message r WHERE r.threadId = m.threadId) AS hasRisk,
+               m.recipients AS recipients,
+               m.attachments AS attachments,
+               COALESCE(p.pinned, 0) AS pinned,
+               COALESCE(p.draft, '') AS draft,
+               COALESCE(p.muted, 0) AS muted,
+               p.archived AS archived
+          FROM message m
+          JOIN thread_pref p ON p.threadId = m.threadId
+         WHERE p.archived = 1
+           AND m.dateReceived = (SELECT MAX(x.dateReceived) FROM message x WHERE x.threadId = m.threadId)
+         GROUP BY m.threadId
+         ORDER BY lastDate DESC
+        """,
+    )
+    fun observeArchivedThreads(): Flow<List<ThreadSummary>>
 
     /** همهٔ پیامک‌های یک گفتگو، از همهٔ پوشه‌ها، برای نمایش `HiddenRun` (D43). */
     @Query("SELECT * FROM message WHERE threadId = :threadId ORDER BY dateReceived ASC")
