@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,11 +25,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalView
+import ir.asudehapp.sms.data.AppLanguage
+import ir.asudehapp.sms.data.AsudehSettings
+import ir.asudehapp.sms.data.DateStyle
 import ir.asudehapp.sms.data.ThemeMode
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.SmsUri
 import ir.asudehapp.sms.telephony.ActiveConversation
 import ir.asudehapp.sms.ui.AsudehTheme
+import ir.asudehapp.sms.ui.LocalUiIsPersian
 
 class MainActivity : ComponentActivity() {
 
@@ -54,6 +59,14 @@ class MainActivity : ComponentActivity() {
         if (granted[Manifest.permission.READ_CONTACTS] == true) model.refreshContactNames()
     }
 
+    /** زبانی که این Activity با آن ساخته شده؛ اگر تنظیمات فرق کند، دوباره ساخته می‌شود. */
+    private var appliedLanguage = AppLanguage.SYSTEM
+
+    override fun attachBaseContext(newBase: Context) {
+        appliedLanguage = AsudehSettings.storedLanguage(newBase)
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // از اندروید ۱۵ با targetSdk 35 پنجره در هر حال تا لبه‌ها کشیده می‌شود و
@@ -72,6 +85,12 @@ class MainActivity : ComponentActivity() {
             val settings by model.settings.collectAsState()
             val names by model.contactNames.collectAsState()
             val photos by model.contactPhotos.collectAsState()
+            LaunchedEffect(settings.language) {
+                if (settings.language != appliedLanguage) {
+                    AppLocale.refresh(application, settings.language)
+                    recreate()
+                }
+            }
             val dark = when (settings.theme) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
@@ -92,7 +111,13 @@ class MainActivity : ComponentActivity() {
             AsudehTheme(darkTheme = dark, dynamicColor = settings.dynamicColor) {
                 val clipboard = LocalClipboardManager.current
                 CompositionLocalProvider(
-                    LocalPersianDigits provides settings.persianDigits,
+                    // ارقام فارسی فقط در رابط فارسی معنی دارند.
+                    LocalPersianDigits provides (settings.persianDigits && LocalUiIsPersian.current),
+                    LocalUseJalali provides when (settings.dateStyle) {
+                        DateStyle.AUTO -> LocalUiIsPersian.current
+                        DateStyle.JALALI -> true
+                        DateStyle.GREGORIAN -> false
+                    },
                     LocalContactNames provides names,
                     LocalContactPhotos provides photos,
                     // هرچه کپی شود، ارقامش لاتین است.

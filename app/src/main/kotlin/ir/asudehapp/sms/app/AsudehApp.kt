@@ -115,12 +115,16 @@ fun AsudehApp(
         val current = notice
         if (noticeText != null) {
             val undoable = current as? UiNotice.Deleted
+            val archived = current as? UiNotice.Archived
             val result = snackbar.showSnackbar(
                 message = noticeText,
-                actionLabel = undoLabel.takeIf { undoable != null },
+                actionLabel = undoLabel.takeIf { undoable != null || archived != null },
             )
             if (result == SnackbarResult.ActionPerformed && undoable != null) {
                 model.restoreFromTrash(undoable.trashIds)
+            } else if (result == SnackbarResult.ActionPerformed && archived != null) {
+                model.setArchived(archived.threadId, !archived.archived)
+                model.dismissNotice()
             } else {
                 model.dismissNotice()
             }
@@ -673,6 +677,7 @@ private fun EmptyTrashDialog(model: AsudehViewModel) {
 @Composable
 private fun noticeText(notice: UiNotice): String = when (notice) {
     is UiNotice.Deleted -> Texts.count(R.plurals.notice_deleted, notice.count)
+    is UiNotice.Archived -> stringResource(if (notice.archived) R.string.notice_archived else R.string.notice_unarchived)
     is UiNotice.Restored -> Texts.count(R.plurals.notice_restored, notice.count)
     UiNotice.RestoreFailed -> stringResource(R.string.notice_restore_failed)
     UiNotice.NothingDeleted -> stringResource(R.string.notice_nothing_deleted)
@@ -1180,17 +1185,12 @@ private fun ThreadRow(
         ThreadRowContent(model, thread, selected, selectionMode, onClick)
         return
     }
-    val marksRead = thread.unread > 0
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    if (marksRead) {
-                        model.markThreadsRead(setOf(thread.threadId), folder)
-                    } else {
-                        model.markThreadsUnread(setOf(thread.threadId), folder)
-                    }
-                }
+                // کشیدن به راست: بایگانی؛ در خود بایگانی، خروج از بایگانی.
+                SwipeToDismissBoxValue.StartToEnd ->
+                    model.toggleArchivedWithNotice(thread.threadId, archived = !thread.archived)
                 SwipeToDismissBoxValue.EndToStart -> {
                     if (isDefaultApp) model.requestDeleteThreads(setOf(thread.threadId), folder)
                 }
@@ -1202,7 +1202,7 @@ private fun ThreadRow(
     SwipeToDismissBox(
         state = dismissState,
         enableDismissFromEndToStart = isDefaultApp,
-        backgroundContent = { SwipeBackground(dismissState.targetValue, marksRead) },
+        backgroundContent = { SwipeBackground(dismissState.targetValue, thread.archived) },
     ) {
         ThreadRowContent(model, thread, selected, selectionMode, onClick)
     }
@@ -1210,11 +1210,11 @@ private fun ThreadRow(
 
 /** پس‌زمینهٔ کشیدن انگشت: سمتی که به آن کشیده می‌شود، رنگ و آیکونش را نشان می‌دهد. */
 @Composable
-private fun SwipeBackground(target: SwipeToDismissBoxValue, marksRead: Boolean) {
+private fun SwipeBackground(target: SwipeToDismissBoxValue, archived: Boolean) {
     val (color, icon, alignment) = when (target) {
         SwipeToDismissBoxValue.StartToEnd -> Triple(
             MaterialTheme.colorScheme.primaryContainer,
-            if (marksRead) Icons.Default.Email else Icons.Default.MailOutline,
+            null,
             Alignment.CenterStart,
         )
         SwipeToDismissBoxValue.EndToStart -> Triple(
@@ -1228,6 +1228,9 @@ private fun SwipeBackground(target: SwipeToDismissBoxValue, marksRead: Boolean) 
         Modifier.fillMaxSize().background(color).padding(horizontal = 24.dp),
         contentAlignment = alignment,
     ) {
+        if (target == SwipeToDismissBoxValue.StartToEnd) {
+            Text(stringResource(if (archived) R.string.unarchive else R.string.archive))
+        }
         if (icon != null) Icon(icon, null)
     }
 }
@@ -1263,7 +1266,7 @@ private fun ThreadRowContent(
                 ?: thread.address
             ThreadAvatar(primaryAddress, Modifier.padding(end = 12.dp))
         }
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (thread.pinned) {
                     Icon(

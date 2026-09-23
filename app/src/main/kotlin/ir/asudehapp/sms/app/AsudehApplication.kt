@@ -46,6 +46,10 @@ class AsudehApplication : Application(), TelephonyHost {
 
     override fun folderIntent(folder: Folder): Intent = MainActivity.folderIntent(this, folder)
 
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLocale.wrap(base))
+    }
+
     override fun onCreate() {
         super.onCreate()
         crashReports.install()

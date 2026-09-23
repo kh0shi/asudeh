@@ -176,6 +176,16 @@
     <string name="unsub_send">بفرست</string>
 
     <!-- تنظیمات (D52) -->
+    <string name="settings_date">تاریخ</string>
+    <string name="date_auto">مثل زبان رابط</string>
+    <string name="date_jalali">شمسی</string>
+    <string name="date_gregorian">میلادی</string>
+    <string name="notice_archived">گفتگو بایگانی شد.</string>
+    <string name="notice_unarchived">گفتگو از بایگانی درآمد.</string>
+    <string name="settings_language">زبان</string>
+    <string name="language_system">مثل گوشی</string>
+    <string name="language_fa">فارسی</string>
+    <string name="language_en">English</string>
     <string name="settings_display">نمایش</string>
     <string name="settings_spam">تبلیغات و پیامک‌های پنهان</string>
     <string name="settings_digest">خلاصهٔ پیامک‌های پنهان</string>

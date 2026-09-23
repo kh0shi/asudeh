@@ -143,6 +143,37 @@ class ThreadSummaryTriggerTest {
         }
     }
 
+    /**
+     * `index.db` که مستقیم روی نسخهٔ ۶ ساخته شده (نصب تازه) triggerها را ندارد و
+     * `thread_summary` با وجود پیامک‌ها خالی می‌ماند؛ فهرست گفتگوها خالی نشان
+     * داده می‌شد. `ensureThreadSummary` باید هم پرش کند هم triggerها را برگرداند.
+     */
+    @Test
+    fun `repair restores triggers and backfills a database created without them`() {
+        val triggers = IndexMigrations.V5_V6_SQL.count { it.startsWith("CREATE TRIGGER") }
+        for (name in listOf("ai", "au", "au_move", "ad")) exec("DROP TRIGGER `trg_thread_summary_$name`")
+        exec("DELETE FROM `thread_summary`")
+        insert("SMS", 1, 100, "0912", "old", 1000, "INBOX", read = false)
+        insert("SMS", 2, 100, "0912", "new", 2000, "INBOX", read = true)
+        insert("SMS", 3, 200, "1000", "ad", 3000, "PROMO", read = false)
+        assertNull(summaryOf(100, "INBOX"))
+
+        for (statement in IndexMigrations.threadSummaryRepair(backfill = true)) exec(statement)
+
+        assertEquals(Row(1, 2, false, "new", 2000), summaryOf(100, "INBOX"))
+        assertEquals(Row(1, 1, false, "ad", 3000), summaryOf(200, "PROMO"))
+        insert("SMS", 4, 100, "0912", "later", 4000, "INBOX", read = false)
+        assertEquals(Row(2, 3, false, "later", 4000), summaryOf(100, "INBOX"))
+        assertEquals(4, triggers)
+    }
+
+    @Test
+    fun `repair on a healthy database changes nothing`() {
+        insert("SMS", 1, 100, "0912", "hi", 1000, "INBOX", read = false)
+        for (statement in IndexMigrations.threadSummaryRepair(backfill = false)) exec(statement)
+        assertEquals(Row(1, 1, false, "hi", 1000), summaryOf(100, "INBOX"))
+    }
+
     @Test
     fun `insert creates a summary row immediately`() {
         insert("SMS", 1, 100, "0912", "hi", 1000, "INBOX", read = false)

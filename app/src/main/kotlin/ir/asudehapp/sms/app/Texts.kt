@@ -5,23 +5,31 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.ReasonCode
+import ir.asudehapp.sms.persian.GregorianDate
 import ir.asudehapp.sms.persian.JalaliDate
 import ir.asudehapp.sms.persian.PersianText
 import ir.asudehapp.sms.persian.ScheduleChoice
 import ir.asudehapp.sms.persian.ScheduleDay
 import ir.asudehapp.sms.persian.SchedulePreset
 import ir.asudehapp.sms.persian.SendSchedule
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
+import java.util.Locale
 
 /** ارقام فارسی در رابط (D50)؛ از تنظیمات می‌آید. */
 val LocalPersianDigits = compositionLocalOf { true }
+
+/** تاریخ‌ها شمسی نشان داده شوند (وگرنه میلادی)؛ از تنظیمات و زبان رابط می‌آید. */
+val LocalUseJalali = compositionLocalOf { true }
 
 /** نام مخاطب هر سرشماره، اگر اجازهٔ مخاطب‌ها داده شده باشد. */
 val LocalContactNames = compositionLocalOf<Map<String, String>> { emptyMap() }
@@ -130,7 +138,7 @@ object Texts {
         return when (at.day) {
             ScheduleDay.TODAY -> text(R.string.scheduled_today, clock)
             ScheduleDay.TOMORROW -> text(R.string.scheduled_tomorrow, clock)
-            ScheduleDay.LATER -> text(R.string.scheduled_later, digits(at.date.formatShort()), clock)
+            ScheduleDay.LATER -> text(R.string.scheduled_later, digits(shortDate(at.date.toGregorian())), clock)
         }
     }
 
@@ -147,38 +155,54 @@ object Texts {
     }
 
     /**
-     * تاریخ شمسی و ارقام فارسی، پیش‌فرض رابط‌اند (D50). پیامک امروز فقط ساعتش
-     * را نشان می‌دهد؛ برای پیامک قدیمی‌تر، با [withClock] ساعت هم کنار تاریخ
-     * می‌آید (پیش‌فرض تنظیمات).
+     * تاریخ شمسی (پیش‌فرض رابط فارسی، D50) یا میلادی، طبق تنظیم «تاریخ». پیامک
+     * امروز فقط ساعتش را نشان می‌دهد؛ برای پیامک قدیمی‌تر، با [withClock] ساعت هم
+     * کنار تاریخ می‌آید (پیش‌فرض تنظیمات).
      */
     @Composable
     fun timestamp(millis: Long, withClock: Boolean = false): String =
-        digits(timestampText(millis, withClock))
+        digits(timestampText(millis, withClock, LocalUseJalali.current, uiLocale()))
 
     /** تاریخ و ساعت کامل، بدون خلاصه شدن به فقط-ساعت برای امروز؛ برای «جزئیات پیامک». */
     @Composable
     fun exactTimestamp(millis: Long): String {
         val calendar = Calendar.getInstance().apply { timeInMillis = millis }
-        val date = JalaliDate.of(
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH) + 1,
-            calendar.get(Calendar.DAY_OF_MONTH),
-        )
         val clock = "%02d:%02d:%02d".format(
             calendar.get(Calendar.HOUR_OF_DAY),
             calendar.get(Calendar.MINUTE),
             calendar.get(Calendar.SECOND),
         )
-        return digits("${date.formatLong()} $clock")
+        val date = longDate(calendar.toGregorian(), LocalUseJalali.current, uiLocale())
+        return digits("$date $clock")
     }
 
-    private fun timestampText(millis: Long, withClock: Boolean): String {
+    /** تاریخ کوتاه به تقویم انتخابی، مثل «۱۴۰۵/۰۶/۲۷» یا «2026/09/18». */
+    @Composable
+    fun shortDate(date: GregorianDate): String = shortDate(date, LocalUseJalali.current)
+
+    @Composable
+    private fun uiLocale(): Locale = LocalConfiguration.current.locales[0]
+
+    private fun Calendar.toGregorian() =
+        GregorianDate(get(Calendar.YEAR), get(Calendar.MONTH) + 1, get(Calendar.DAY_OF_MONTH))
+
+    private fun shortDate(date: GregorianDate, jalali: Boolean): String =
+        if (jalali) {
+            JalaliDate.of(date).formatShort()
+        } else {
+            "%04d/%02d/%02d".format(date.year, date.month, date.day)
+        }
+
+    private fun longDate(date: GregorianDate, jalali: Boolean, locale: Locale): String =
+        if (jalali) {
+            JalaliDate.of(date).formatLong()
+        } else {
+            LocalDate.of(date.year, date.month, date.day)
+                .format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
+        }
+
+    private fun timestampText(millis: Long, withClock: Boolean, jalali: Boolean, locale: Locale): String {
         val calendar = Calendar.getInstance().apply { timeInMillis = millis }
-        val date = JalaliDate.of(
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH) + 1,
-            calendar.get(Calendar.DAY_OF_MONTH),
-        )
         val today = Calendar.getInstance()
         val sameDay = today.get(Calendar.YEAR) == calendar.get(Calendar.YEAR) &&
             today.get(Calendar.DAY_OF_YEAR) == calendar.get(Calendar.DAY_OF_YEAR)
@@ -186,10 +210,11 @@ object Texts {
             calendar.get(Calendar.HOUR_OF_DAY),
             calendar.get(Calendar.MINUTE),
         )
+        val date = shortDate(calendar.toGregorian(), jalali)
         return when {
             sameDay -> clock
-            withClock -> "${date.formatShort()} $clock"
-            else -> date.formatShort()
+            withClock -> "$date $clock"
+            else -> date
         }
     }
 }

@@ -10,7 +10,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import ir.asudehapp.sms.data.AppLanguage
 import ir.asudehapp.sms.data.BackupException
+import ir.asudehapp.sms.data.DateStyle
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.KeywordRuleEntity
 import ir.asudehapp.sms.data.MessageEntity
@@ -156,6 +158,8 @@ data class ScheduleRequest(
 data class SettingsState(
     val digest: DigestFrequency = DigestFrequency.DAILY,
     val theme: ThemeMode = ThemeMode.SYSTEM,
+    val language: AppLanguage = AppLanguage.SYSTEM,
+    val dateStyle: DateStyle = DateStyle.AUTO,
     val dynamicColor: Boolean = false,
     val persianDigits: Boolean = true,
     val deliveryReports: Boolean = false,
@@ -175,6 +179,8 @@ sealed interface UiNotice {
     /** [trashIds] برای دکمهٔ «بازگرداندن» همان لحظه است (ADR-0010). */
     data class Deleted(val count: Int, val trashIds: List<Long>) : UiNotice
     data class Restored(val count: Int) : UiNotice
+    /** [archived] true: گفتگو بایگانی شد؛ false: از بایگانی درآمد. برای «بازگرداندن» همان لحظه. */
+    data class Archived(val threadId: Long, val archived: Boolean) : UiNotice
     data object RestoreFailed : UiNotice
     data object NothingDeleted : UiNotice
     data class Scheduled(val atMillis: Long) : UiNotice
@@ -428,6 +434,8 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     private fun snapshotSettings() = SettingsState(
         digest = settingsStore.digest,
         theme = settingsStore.theme,
+        language = settingsStore.language,
+        dateStyle = settingsStore.dateStyle,
         dynamicColor = settingsStore.dynamicColor,
         persianDigits = settingsStore.persianDigits,
         deliveryReports = settingsStore.deliveryReports,
@@ -823,6 +831,12 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /** کشیدن ردیف به راست: بایگانی (یا خروج از بایگانی)، با پیام و «بازگرداندن». */
+    fun toggleArchivedWithNotice(threadId: Long, archived: Boolean) {
+        setArchived(threadId, archived)
+        _notice.value = UiNotice.Archived(threadId, archived)
+    }
+
     /** «علامت خوانده‌نشده» (D53). */
     fun markUnread(threadId: Long, folder: Folder) {
         viewModelScope.launch { repository.markThreadUnread(threadId, folder) }
@@ -1210,6 +1224,14 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setTheme(mode: ThemeMode) {
         settingsStore.theme = mode
+    }
+
+    fun setDateStyle(style: DateStyle) {
+        settingsStore.dateStyle = style
+    }
+
+    fun setLanguage(language: AppLanguage) {
+        settingsStore.language = language
     }
 
     fun setDynamicColor(enabled: Boolean) {

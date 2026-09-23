@@ -10,6 +10,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -134,6 +135,9 @@ private val AsudehTypography: Typography = Typography().run {
     )
 }
 
+/** رابط فارسی است (راست‌به‌چپ، ارقام فارسی ممکن) یا انگلیسی (چپ‌به‌راست). */
+val LocalUiIsPersian = staticCompositionLocalOf { true }
+
 @Composable
 fun AsudehTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -153,8 +157,9 @@ fun AsudehTheme(
     // جهت رابط از زبان رابط می‌آید، نه از زبان گوشی: روی گوشی انگلیسی هم رابط
     // فارسی راست‌به‌چپ است. جهت متن هر پیامک جدا از روی اولین حرف قوی‌اش
     // تعیین می‌شود (D50).
-    val direction = if (booleanResource(R.bool.asudeh_rtl_ui)) LayoutDirection.Rtl else LayoutDirection.Ltr
-    CompositionLocalProvider(LocalLayoutDirection provides direction) {
+    val persianUi = booleanResource(R.bool.asudeh_rtl_ui)
+    val direction = if (persianUi) LayoutDirection.Rtl else LayoutDirection.Ltr
+    CompositionLocalProvider(LocalLayoutDirection provides direction, LocalUiIsPersian provides persianUi) {
         MaterialTheme(colorScheme = colorScheme, typography = AsudehTypography, content = content)
     }
 }

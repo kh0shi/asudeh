@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.RoomDatabase.Callback as RoomCallback
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
@@ -90,7 +91,9 @@ abstract class IndexDatabase : RoomDatabase() {
                 IndexMigrations.V3_V4,
                 IndexMigrations.V4_V5,
                 IndexMigrations.V5_V6,
-            ).build().also { instance = it }
+            ).addCallback(object : RoomCallback() {
+                override fun onOpen(db: SupportSQLiteDatabase) = IndexMigrations.ensureThreadSummary(db)
+            }).build().also { instance = it }
         }
     }
 }
@@ -315,6 +318,25 @@ object IndexMigrations {
             "WHERE x.`threadId` = m.`threadId` AND x.`folder` = m.`folder`) " +
             "GROUP BY m.`threadId`, m.`folder`",
     )
+
+    /**
+     * triggerهای `thread_summary` فقط در migration ساخته می‌شوند و Room آن‌ها را
+     * نمی‌شناسد؛ پایگاه‌داده‌ای که مستقیم روی نسخهٔ ۶ ساخته شود (نصب تازه، پاک شدن
+     * داده) بی‌trigger و با جدول خالی می‌ماند و فهرست گفتگوها خالی نشان داده
+     * می‌شود. پس در هر بار باز شدن، triggerهای ناموجود ساخته و اگر جدول خالی ولی
+     * `message` پُر است، دوباره از روی `message` پر می‌شود. همه `IF NOT EXISTS`اند.
+     */
+    fun ensureThreadSummary(db: SupportSQLiteDatabase) {
+        val summaryEmpty = db.query("SELECT NOT EXISTS (SELECT 1 FROM `thread_summary`)")
+            .use { it.moveToFirst() && it.getInt(0) == 1 }
+        val hasMessages = db.query("SELECT EXISTS (SELECT 1 FROM `message`)")
+            .use { it.moveToFirst() && it.getInt(0) == 1 }
+        for (statement in threadSummaryRepair(summaryEmpty && hasMessages)) db.execSQL(statement)
+    }
+
+    /** دستورهای [ensureThreadSummary]؛ جدا شده تا روی sqlite واقعی در JVM آزمود. */
+    internal fun threadSummaryRepair(backfill: Boolean): List<String> =
+        V5_V6_SQL.filter { it.startsWith("CREATE TRIGGER") } + if (backfill) listOf(V5_V6_SQL.last()) else emptyList()
 
     internal val V1_V2_SQL: List<String> = listOf(
         "ALTER TABLE `message` ADD COLUMN `recipients` TEXT NOT NULL DEFAULT ''",

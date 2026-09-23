@@ -40,7 +40,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
+import ir.asudehapp.sms.data.AppLanguage
 import ir.asudehapp.sms.data.BackupFormat
+import ir.asudehapp.sms.data.DateStyle
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.KeywordRuleEntity
 import ir.asudehapp.sms.data.SenderRuleEntity
@@ -49,6 +51,7 @@ import ir.asudehapp.sms.data.ThemeMode
 import ir.asudehapp.sms.model.DefaultRule
 import ir.asudehapp.sms.model.DefaultRules
 import ir.asudehapp.sms.persian.JalaliDate
+import ir.asudehapp.sms.ui.LocalUiIsPersian
 import java.util.Calendar
 
 /**
@@ -75,7 +78,16 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             .verticalScroll(rememberScrollState())
             .padding(vertical = 8.dp),
     ) {
-        Section(stringResource(R.string.settings_display), first = true)
+        Section(stringResource(R.string.settings_language), first = true)
+        for ((value, label) in listOf(
+            AppLanguage.SYSTEM to R.string.language_system,
+            AppLanguage.FA to R.string.language_fa,
+            AppLanguage.EN to R.string.language_en,
+        )) {
+            Choice(stringResource(label), settings.language == value) { model.setLanguage(value) }
+        }
+
+        Section(stringResource(R.string.settings_display))
         for ((value, label) in listOf(
             ThemeMode.SYSTEM to R.string.theme_system,
             ThemeMode.LIGHT to R.string.theme_light,
@@ -83,12 +95,23 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
         )) {
             Choice(stringResource(label), settings.theme == value) { model.setTheme(value) }
         }
-        Toggle(
-            stringResource(R.string.settings_digits),
-            stringResource(R.string.settings_digits_hint),
-            settings.persianDigits,
-            model::setPersianDigits,
-        )
+        Section(stringResource(R.string.settings_date))
+        for ((value, label) in listOf(
+            DateStyle.AUTO to R.string.date_auto,
+            DateStyle.JALALI to R.string.date_jalali,
+            DateStyle.GREGORIAN to R.string.date_gregorian,
+        )) {
+            Choice(stringResource(label), settings.dateStyle == value) { model.setDateStyle(value) }
+        }
+        // ارقام فارسی فقط در رابط فارسی معنی دارد؛ در انگلیسی گزینه‌اش نیست.
+        if (LocalUiIsPersian.current) {
+            Toggle(
+                stringResource(R.string.settings_digits),
+                stringResource(R.string.settings_digits_hint),
+                settings.persianDigits,
+                model::setPersianDigits,
+            )
+        }
         Toggle(
             stringResource(R.string.settings_message_clock),
             stringResource(R.string.settings_message_clock_hint),
@@ -229,7 +252,7 @@ private fun Toggle(label: String, hint: String?, checked: Boolean, onChange: (Bo
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f).padding(end = 16.dp)) {
             Text(label, style = MaterialTheme.typography.bodyLarge)
             if (hint != null) Text(hint, style = MaterialTheme.typography.bodySmall)
         }

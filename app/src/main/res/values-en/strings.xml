@@ -175,6 +175,16 @@
     <string name="unsub_send">Send</string>
 
     <!-- Settings (D52) -->
+    <string name="settings_date">Date</string>
+    <string name="date_auto">Match language</string>
+    <string name="date_jalali">Jalali (Persian)</string>
+    <string name="date_gregorian">Gregorian</string>
+    <string name="notice_archived">Conversation archived.</string>
+    <string name="notice_unarchived">Conversation moved out of the archive.</string>
+    <string name="settings_language">Language</string>
+    <string name="language_system">Match device</string>
+    <string name="language_fa">فارسی</string>
+    <string name="language_en">English</string>
     <string name="settings_display">Display</string>
     <string name="settings_spam">Ads and hidden messages</string>
     <string name="settings_digest">Digest of hidden messages</string>
