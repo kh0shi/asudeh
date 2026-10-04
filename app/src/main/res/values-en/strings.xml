@@ -34,6 +34,10 @@
     <string name="sweep_not_now">Not now</string>
     <string name="sweep_keep">Keep in Inbox</string>
     <string name="close">Close</string>
+    <string name="bubble_color">Bubble color</string>
+    <string name="bubble_color_thread">Bubble color for this conversation</string>
+    <string name="bubble_color_default">Default</string>
+    <string name="bubble_color_n">Color %1$d</string>
     <string name="link_title">Open link?</string>
     <string name="link_risky_title">Link in a suspicious message</string>
     <string name="link_real_domain">Real destination:</string>

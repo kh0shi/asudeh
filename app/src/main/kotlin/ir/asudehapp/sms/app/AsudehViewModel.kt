@@ -116,6 +116,8 @@ data class ConversationUiState(
     val muted: Boolean = false,
     /** بایگانی: از فهرست پوشه‌اش برداشته شده، جایی حذف نشده (PARITY §الف). */
     val archived: Boolean = false,
+    /** رنگ حباب همین گفتگو؛ منفی یعنی رنگ سراسری (ROADMAP E8). */
+    val bubbleColor: Int = -1,
     /** پاسخ از سیم‌کارتی می‌رود که پیامک آخر به آن رسیده است، مگر کاربر عوضش کند (D27). */
     val subscriptionId: Int = -1,
 ) {
@@ -192,6 +194,8 @@ data class SettingsState(
     /** چگالی فهرست گفتگوها (ROADMAP E8). */
     val compactList: Boolean = false,
     val oneLinePreview: Boolean = false,
+    /** رنگ سراسری حباب، شمارهٔ `BubblePalette`؛ منفی یعنی رنگ پوسته (ROADMAP E8). */
+    val bubbleColor: Int = -1,
     val mmsAutoDownload: Boolean = true,
     val mmsSending: Boolean = true,
     /** گزارش خوانده‌شدن MMS؛ پیش‌فرض خاموش (ADR-0009). */
@@ -519,6 +523,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         conversationTextScale = settingsStore.conversationTextScale,
         compactList = settingsStore.compactList,
         oneLinePreview = settingsStore.oneLinePreview,
+        bubbleColor = settingsStore.bubbleColor,
         sendDelaySeconds = settingsStore.sendDelaySeconds,
         sendWithEnter = settingsStore.sendWithEnter,
         notificationContent = settingsStore.notificationContent,
@@ -751,6 +756,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             val muted = repository.isMuted(target.threadId)
             val archived = repository.isArchived(target.threadId)
             val lastSim = repository.lastSendSim(target.threadId).takeIf { it >= 0 }
+            val bubbleColor = repository.bubbleColor(target.threadId)
             repository.conversation(target.threadId).collect { messages ->
                 val last = messages.lastOrNull()
                 val participants = when {
@@ -773,6 +779,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
                     pinned = if (previous.threadId == target.threadId) previous.pinned || pinned else pinned,
                     muted = if (previous.threadId == target.threadId) previous.muted else muted,
                     archived = if (previous.threadId == target.threadId) previous.archived else archived,
+                    bubbleColor = if (previous.threadId == target.threadId) previous.bubbleColor else bubbleColor,
                     subscriptionId = previous.subscriptionId.takeIf { it >= 0 && previous.threadId == target.threadId }
                         ?: lastSim
                         ?: lastIncoming?.subId
@@ -1519,6 +1526,18 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setCompactList(enabled: Boolean) {
         settingsStore.compactList = enabled
+    }
+
+    fun setBubbleColor(index: Int) {
+        settingsStore.bubbleColor = index
+    }
+
+    /** رنگ حباب فقط همین گفتگو؛ منفی یعنی همان رنگ سراسری. */
+    fun setThreadBubbleColor(threadId: Long, index: Int) {
+        viewModelScope.launch { repository.setBubbleColor(threadId, index) }
+        if (_conversation.value.threadId == threadId) {
+            _conversation.value = _conversation.value.copy(bubbleColor = index)
+        }
     }
 
     fun setOneLinePreview(enabled: Boolean) {

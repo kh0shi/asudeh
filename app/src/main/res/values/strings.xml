@@ -35,6 +35,10 @@
     <string name="sweep_not_now">فعلاً نه</string>
     <string name="sweep_keep">در صندوق بماند</string>
     <string name="close">بستن</string>
+    <string name="bubble_color">رنگ حباب</string>
+    <string name="bubble_color_thread">رنگ حباب این گفتگو</string>
+    <string name="bubble_color_default">پیش‌فرض</string>
+    <string name="bubble_color_n">رنگ %1$d</string>
     <string name="link_title">باز کردن لینک؟</string>
     <string name="link_risky_title">لینکِ پیامک مشکوک</string>
     <string name="link_real_domain">مقصد واقعی:</string>

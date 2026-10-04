@@ -22,6 +22,7 @@ class IndexMigrationsTest {
     private val schema7 = schema(7)
     private val schema8 = schema(8)
     private val schema9 = schema(9)
+    private val schema10 = schema(10)
 
     private fun schema(version: Int) =
         File("schemas/ir.asudehapp.sms.data.IndexDatabase/$version.json").readText()
@@ -143,12 +144,20 @@ class IndexMigrationsTest {
         assertTrue(IndexMigrations.V8_V9_SQL.single().endsWith("`subId` INTEGER NOT NULL DEFAULT -1"))
     }
 
+    /** نسخهٔ ۱۰ فقط ستون `bubbleColor` را با پیش‌فرض Room می‌افزاید (E8). */
+    @Test
+    fun `version ten adds the bubble color column room expects`() {
+        assertTrue(IndexMigrations.V9_V10_SQL.size == 1)
+        assertTrue("`bubbleColor` INTEGER NOT NULL DEFAULT -1" in schema10)
+        assertTrue(IndexMigrations.V9_V10_SQL.single().endsWith("`bubbleColor` INTEGER NOT NULL DEFAULT -1"))
+    }
+
     /** هیچ دستور migration نباید داده‌ای را پاک کند (نه به‌عنوان دستور مستقل). */
     @Test
     fun `no migration drops or deletes anything`() {
         val all = IndexMigrations.V1_V2_SQL + IndexMigrations.V2_V3_SQL + IndexMigrations.V3_V4_SQL +
             IndexMigrations.V4_V5_SQL + IndexMigrations.V5_V6_SQL + IndexMigrations.V6_V7_SQL +
-            IndexMigrations.V7_V8_SQL + IndexMigrations.V8_V9_SQL
+            IndexMigrations.V7_V8_SQL + IndexMigrations.V8_V9_SQL + IndexMigrations.V9_V10_SQL
         for (statement in all) {
             val upper = statement.uppercase()
             assertTrue("migration مخرب: $statement", !upper.startsWith("DROP"))

@@ -106,6 +106,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
+import ir.asudehapp.sms.ui.BubblePalette
+import androidx.compose.runtime.staticCompositionLocalOf
 import ir.asudehapp.sms.classifier.LinkGuard
 import ir.asudehapp.sms.classifier.LinkSpan
 import ir.asudehapp.sms.classifier.OtpCode
@@ -130,6 +132,9 @@ import ir.asudehapp.sms.telephony.ThreadChannels
 import java.time.ZoneId
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/** رنگ حباب پیامک‌های فرستادهٔ همین گفتگو؛ بیرون از فهرست گفتگو رنگ پوسته است. */
+private val LocalOutgoingBubble = staticCompositionLocalOf<Color?> { null }
 
 /** یک تکه از گفتگو: یا یک پیامک دیده‌شده، یا نوار جمع‌شدهٔ `HiddenRun`. */
 private sealed interface ConversationItem {
@@ -156,6 +161,7 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
     var menu by remember { mutableStateOf(false) }
     var confirmUnsub by remember { mutableStateOf(false) }
     var pickDay by remember { mutableStateOf(false) }
+    var pickColor by remember { mutableStateOf(false) }
     IconButton(onClick = { menu = true }) {
         Icon(Icons.Default.MoreVert, stringResource(R.string.more))
     }
@@ -216,6 +222,13 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
                 )
             }
             DropdownMenuItem(
+                text = { Text(stringResource(R.string.bubble_color)) },
+                onClick = {
+                    menu = false
+                    pickColor = true
+                },
+            )
+            DropdownMenuItem(
                 text = { Text(stringResource(R.string.mark_unread)) },
                 onClick = {
                     menu = false
@@ -234,6 +247,15 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
                 },
             )
         }
+    }
+    if (pickColor) {
+        val globalColor = model.settings.collectAsState().value.bubbleColor
+        ThreadBubbleColorDialog(
+            selected = state.bubbleColor,
+            globalColor = globalColor,
+            onPick = { model.setThreadBubbleColor(state.threadId, it) },
+            onDismiss = { pickColor = false },
+        )
     }
     if (confirmUnsub) {
         AlertDialog(
@@ -382,6 +404,8 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
         val density = LocalDensity.current
         CompositionLocalProvider(
             LocalDensity provides Density(density.density, density.fontScale * settings.conversationTextScale),
+            // رنگ حباب: اول رنگ همین گفتگو، بعد رنگ سراسری، بعد رنگ پوسته (ROADMAP E8).
+            LocalOutgoingBubble provides outgoingBubbleColor(BubblePalette.resolve(state.bubbleColor, settings.bubbleColor)),
         ) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(Modifier.fillMaxSize(), state = listState) {
@@ -1114,7 +1138,7 @@ private fun MessageBubble(
                         if (emojiOnly) {
                             Color.Transparent
                         } else if (message.outgoing) {
-                            MaterialTheme.colorScheme.primaryContainer
+                            LocalOutgoingBubble.current ?: MaterialTheme.colorScheme.primaryContainer
                         } else {
                             MaterialTheme.colorScheme.surfaceVariant
                         },

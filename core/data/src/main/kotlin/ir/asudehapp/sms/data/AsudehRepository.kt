@@ -270,6 +270,14 @@ class AsudehRepository(
         updatePref(threadId) { it.copy(subId = subId) }
     }
 
+    /** رنگ حباب همین گفتگو (ROADMAP E8)؛ منفی یعنی رنگ سراسری. */
+    suspend fun bubbleColor(threadId: Long): Int = prefDao.get(threadId)?.bubbleColor ?: -1
+
+    suspend fun setBubbleColor(threadId: Long, index: Int) {
+        if (threadId <= 0) return
+        updatePref(threadId) { it.copy(bubbleColor = index.coerceAtLeast(-1)) }
+    }
+
     /** ردیفی که همه‌اش پیش‌فرض است نگه داشته نمی‌شود. */
     private suspend fun updatePref(threadId: Long, change: (ThreadPrefEntity) -> ThreadPrefEntity) {
         val current = prefDao.get(threadId) ?: ThreadPrefEntity(threadId, pinned = false, draft = "", updatedAt = 0)

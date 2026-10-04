@@ -138,8 +138,12 @@ data class ThreadPrefEntity(
     /** سیم آخرین ارسال این گفتگو (ROADMAP E7)؛ منفی یعنی ذخیره نشده. */
     @ColumnInfo(defaultValue = "-1")
     val subId: Int = -1,
+    /** رنگ حباب همین گفتگو از پالت ثابت (ROADMAP E8)؛ منفی یعنی رنگ سراسری. */
+    @ColumnInfo(defaultValue = "-1")
+    val bubbleColor: Int = -1,
 ) {
-    val isDefault: Boolean get() = !pinned && draft.isEmpty() && !muted && !archived && subId < 0
+    val isDefault: Boolean
+        get() = !pinned && draft.isEmpty() && !muted && !archived && subId < 0 && bubbleColor < 0
 }
 
 enum class SendStatus {
