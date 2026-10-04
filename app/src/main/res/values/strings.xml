@@ -37,6 +37,7 @@
     <string name="close">بستن</string>
 
     <string name="syncing">در حال بررسی پیامک‌ها…</string>
+    <string name="syncing_percent">در حال بررسی پیامک‌ها… %1$d٪</string>
     <string name="sync_failed">خواندن پیامک‌های گوشی ممکن نشد. اجازهٔ دسترسی به پیامک‌ها را بدهید.</string>
 
     <string name="empty_inbox">پیامکی نیست</string>

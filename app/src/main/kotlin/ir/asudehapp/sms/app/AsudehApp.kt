@@ -1013,6 +1013,7 @@ private fun HomeScreen(
     val lazyThreads = model.pagedInboxThreads.collectAsLazyPagingItems()
     val selectedThreads by model.selectedThreads.collectAsState()
     val syncing by model.syncing.collectAsState()
+    val syncProgress by model.syncProgress.collectAsState()
     val syncFailed by model.syncFailed.collectAsState()
 
     val listState = rememberTopAnchoredListState(lazyThreads)
@@ -1022,12 +1023,25 @@ private fun HomeScreen(
         }
         if (syncing) {
             // مرحلهٔ سوم اولین اجرا: فهرست از همین لحظه قابل استفاده است (D47).
-            item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            // درصد واقعی فقط وقتی کار بزرگ است؛ چند پیامک تازه نوار بی‌درصد می‌گیرد (D48).
+            val fraction = syncProgress?.takeIf { it.total > SYNC_PERCENT_FROM }?.fraction
+            item {
+                if (fraction != null) {
+                    LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+                } else {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                }
+            }
         }
         if (syncing || syncFailed) {
+            val percent = syncProgress?.takeIf { it.total > SYNC_PERCENT_FROM }?.percent
             item {
                 Text(
-                    stringResource(if (syncing) R.string.syncing else R.string.sync_failed),
+                    when {
+                        !syncing -> stringResource(R.string.sync_failed)
+                        percent != null -> Texts.digits(stringResource(R.string.syncing_percent, percent))
+                        else -> stringResource(R.string.syncing)
+                    },
                     Modifier.fillMaxWidth().padding(16.dp),
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -1365,3 +1379,6 @@ private fun EmptyState(text: String) {
         Text(text, style = MaterialTheme.typography.bodyMedium)
     }
 }
+
+/** همگام‌سازی کوچک‌تر از این (چند پیامک تازه) نوار بی‌درصد می‌گیرد؛ درصد فقط برای `HistorySweep` معنی دارد. */
+private const val SYNC_PERCENT_FROM = 200
