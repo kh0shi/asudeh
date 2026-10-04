@@ -769,6 +769,8 @@ private fun noticeText(notice: UiNotice): String = when (notice) {
     UiNotice.ScheduleSending -> stringResource(R.string.notice_schedule_sending)
     UiNotice.ReminderSet -> stringResource(R.string.notice_reminder_set)
     is UiNotice.BackupExported -> Texts.count(R.plurals.backup_exported, notice.messages)
+    UiNotice.ConversationExported -> stringResource(R.string.notice_conversation_exported)
+    UiNotice.ConversationExportFailed -> stringResource(R.string.notice_conversation_export_failed)
     is UiNotice.BackupImported -> buildString {
         append(
             stringResource(

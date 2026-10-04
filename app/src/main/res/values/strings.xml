@@ -35,6 +35,11 @@
     <string name="sweep_not_now">فعلاً نه</string>
     <string name="sweep_keep">در صندوق بماند</string>
     <string name="close">بستن</string>
+    <string name="export_conversation">خروجی متنی گفتگو</string>
+    <string name="export_me">من</string>
+    <string name="export_attachment">پیوست</string>
+    <string name="notice_conversation_exported">گفتگو در فایل متنی ذخیره شد.</string>
+    <string name="notice_conversation_export_failed">فایل نوشته نشد.</string>
     <string name="group_name">نام گروه</string>
     <string name="save">ذخیره</string>
     <string name="group_name_hint">خالی بماند، نام اعضا نشان داده می‌شود</string>

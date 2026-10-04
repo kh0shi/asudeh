@@ -141,6 +141,7 @@ private val LocalOutgoingBubble = staticCompositionLocalOf<Color?> { null }
 private fun ThreadExtrasDialogs(model: AsudehViewModel, state: ConversationUiState, extra: ThreadExtra?, onClose: () -> Unit) {
     when (extra) {
         ThreadExtra.GALLERY -> AttachmentGallery(model, state.messages, onClose)
+        ThreadExtra.EXPORT -> ExportConversation(model, state, onClose)
         ThreadExtra.RENAME -> GroupNameDialog(state.title, onSave = { model.setThreadTitle(state.threadId, it) }, onDismiss = onClose)
         ThreadExtra.BUBBLE_COLOR -> ThreadBubbleColorDialog(
             selected = state.bubbleColor,
@@ -152,7 +153,7 @@ private fun ThreadExtrasDialogs(model: AsudehViewModel, state: ConversationUiSta
     }
 }
 
-private enum class ThreadExtra { GALLERY, BUBBLE_COLOR, RENAME }
+private enum class ThreadExtra { GALLERY, BUBBLE_COLOR, RENAME, EXPORT }
 
 /** نام گروه (PARITY §ب-۸) و گالری پیوست‌ها (§ب-۶)، فقط وقتی معنی دارند. */
 @Composable
@@ -166,6 +167,30 @@ private fun ExtrasMenuItems(state: ConversationUiState, onPick: (ThreadExtra) ->
             onClick = { onPick(ThreadExtra.GALLERY) },
         )
     }
+    // خروجی متنی گفتگو (PARITY §ب-۹).
+    if (state.messages.isNotEmpty()) {
+        DropdownMenuItem(text = { Text(stringResource(R.string.export_conversation)) }, onClick = { onPick(ThreadExtra.EXPORT) })
+    }
+}
+
+/**
+ * انتخاب جای فایل با SAF، مثل پشتیبان؛ پنجرهٔ انتخاب همین که باز شد، کار این
+ * تکه تمام است و فایل را VM می‌نویسد.
+ */
+@Composable
+private fun ExportConversation(model: AsudehViewModel, state: ConversationUiState, onDone: () -> Unit) {
+    val title = state.title.ifEmpty { Texts.participants(state.participants) }
+    val labels = AsudehViewModel.ExportLabels(
+        title = title,
+        me = stringResource(R.string.export_me),
+        attachment = stringResource(R.string.export_attachment),
+        jalali = LocalUseJalali.current,
+    )
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        uri?.let { model.exportConversation(it, labels) }
+        onDone()
+    }
+    LaunchedEffect(Unit) { launcher.launch("$title.txt") }
 }
 
 /** نام گفتگوی گروهی؛ خالی کردنش نام طرف‌ها را برمی‌گرداند. */
