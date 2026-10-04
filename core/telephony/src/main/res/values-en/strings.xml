@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English notification texts (D12). Keep in step with values/strings.xml. -->
+<resources>
+    <!-- Channels (D38). The channel name shows in Android settings. -->
+    <string name="channel_personal">Personal</string>
+    <string name="channel_otp">One-time codes</string>
+    <string name="channel_bank">Bank</string>
+    <string name="channel_service">Services</string>
+    <string name="channel_suspect">Suspicious</string>
+    <string name="channel_digest">Digest</string>
+
+    <string name="notify_unknown_sender">Unknown sender</string>
+    <string name="notify_suspect_title">Careful: suspicious message</string>
+    <string name="notify_suspect_text">This message has signs of a scam</string>
+    <string name="notify_otp_text">One-time code received</string>
+    <string name="notify_send_failed_title">Message not sent</string>
+    <string name="notify_send_failed_text">To %1$s. Open the conversation to send it again.</string>
+    <string name="notify_schedule_missed_title">Scheduled message wasn\'t sent</string>
+    <string name="notify_schedule_missed_text">Its text has been kept. Open the conversation to send it.</string>
+    <string name="notify_mms_title">Multimedia message from %1$s</string>
+    <string name="notify_mms_image">🖼 Image</string>
+    <string name="notify_mms_attachment">📎 Attachment</string>
+    <string name="notify_mms_failed">Multimedia message couldn\'t be downloaded. Try again in the conversation.</string>
+    <string name="notify_mms_not_saved">A multimedia message arrived but couldn\'t be saved.</string>
+
+    <!-- Notification actions (D41) -->
+    <string name="action_copy_code">Copy code %1$s</string>
+    <string name="action_reply">Reply</string>
+    <string name="action_reply_hint">Message</string>
+    <string name="action_mark_read">Mark as read</string>
+    <string name="code_copied">Code copied</string>
+
+    <!-- Digest (D40) -->
+    <string name="digest_title_daily">Asudeh today</string>
+    <string name="digest_title_weekly">Asudeh this week</string>
+    <plurals name="digest_promo">
+        <item quantity="one">%d ad hidden</item>
+        <item quantity="other">%d ads hidden</item>
+    </plurals>
+    <plurals name="digest_scam">
+        <item quantity="one">%d suspected scam set aside</item>
+        <item quantity="other">%d suspected scams set aside</item>
+    </plurals>
+    <string name="digest_join">%1$s and %2$s</string>
+</resources>

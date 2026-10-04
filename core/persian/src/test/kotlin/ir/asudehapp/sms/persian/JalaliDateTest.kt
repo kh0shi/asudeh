@@ -43,6 +43,7 @@ class JalaliDateTest {
     @Test
     fun `formats with persian digits`() {
         assertEquals("۲۷ شهریور ۱۴۰۵", JalaliDate(1405, 6, 27).formatLong())
+        assertEquals("27 Shahrivar 1405", JalaliDate(1405, 6, 27).formatLong(persianNames = false))
         assertEquals("۱۴۰۵/۰۶/۲۷", JalaliDate(1405, 6, 27).formatShort())
     }
 

@@ -10,6 +10,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.MessageEntity
+import ir.asudehapp.sms.data.TelephonyProviderStore
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.ReasonCode
 import ir.asudehapp.sms.persian.GregorianDate
@@ -19,6 +20,7 @@ import ir.asudehapp.sms.persian.ScheduleChoice
 import ir.asudehapp.sms.persian.ScheduleDay
 import ir.asudehapp.sms.persian.SchedulePreset
 import ir.asudehapp.sms.persian.SendSchedule
+import ir.asudehapp.sms.ui.LocalUiIsPersian
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -78,7 +80,9 @@ object Texts {
     fun sender(address: String): String {
         val name = LocalContactNames.current[address]
         if (name != null) return FSI + name + PDI
-        return FSI + digits(address.ifBlank { stringResource(R.string.unknown_sender) }) + PDI
+        // نشانی خالی در provider با «نامشخص» ثبت می‌شود؛ آن داده است، نه متن رابط.
+        val unknown = address.isBlank() || address == TelephonyProviderStore.UNKNOWN_SENDER
+        return FSI + digits(if (unknown) stringResource(R.string.unknown_sender) else address) + PDI
     }
 
     /** نام یک گفتگو: برای گروه، نام همهٔ اعضا. */
@@ -172,7 +176,7 @@ object Texts {
             calendar.get(Calendar.MINUTE),
             calendar.get(Calendar.SECOND),
         )
-        val date = longDate(calendar.toGregorian(), LocalUseJalali.current, uiLocale())
+        val date = longDate(calendar.toGregorian(), LocalUseJalali.current, uiLocale(), LocalUiIsPersian.current)
         return digits("$date $clock")
     }
 
@@ -193,9 +197,9 @@ object Texts {
             "%04d/%02d/%02d".format(date.year, date.month, date.day)
         }
 
-    private fun longDate(date: GregorianDate, jalali: Boolean, locale: Locale): String =
+    private fun longDate(date: GregorianDate, jalali: Boolean, locale: Locale, persianUi: Boolean): String =
         if (jalali) {
-            JalaliDate.of(date).formatLong()
+            JalaliDate.of(date).formatLong(persianNames = persianUi)
         } else {
             LocalDate.of(date.year, date.month, date.day)
                 .format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))

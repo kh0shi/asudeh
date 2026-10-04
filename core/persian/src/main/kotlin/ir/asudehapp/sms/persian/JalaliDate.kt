@@ -17,9 +17,13 @@ data class JalaliDate(val year: Int, val month: Int, val day: Int) {
 
     val monthName: String get() = MONTH_NAMES[month - 1]
 
-    /** مثلاً «۲۷ شهریور ۱۴۰۵». */
-    fun formatLong(): String =
-        PersianText.persianDigits("$day $monthName $year")
+    /** مثلاً «۲۷ شهریور ۱۴۰۵»، یا برای رابط انگلیسی «27 Shahrivar 1405». */
+    fun formatLong(persianNames: Boolean = true): String =
+        if (persianNames) {
+            PersianText.persianDigits("$day $monthName $year")
+        } else {
+            "$day ${MONTH_NAMES_LATIN[month - 1]} $year"
+        }
 
     /** مثلاً «۱۴۰۵/۰۶/۲۷». */
     fun formatShort(): String =
@@ -36,6 +40,12 @@ data class JalaliDate(val year: Int, val month: Int, val day: Int) {
         val MONTH_NAMES: List<String> = listOf(
             "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
             "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+        )
+
+        /** نام ماه‌ها به خط لاتین برای رابط انگلیسی (ROADMAP A5). */
+        val MONTH_NAMES_LATIN: List<String> = listOf(
+            "Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar",
+            "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand",
         )
 
         val WEEKDAY_NAMES: List<String> = listOf(

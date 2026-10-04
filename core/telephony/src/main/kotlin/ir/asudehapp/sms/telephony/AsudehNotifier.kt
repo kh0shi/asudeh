@@ -25,6 +25,7 @@ import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.HiddenCount
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.data.ScheduledMessageEntity
+import ir.asudehapp.sms.data.TelephonyProviderStore
 import ir.asudehapp.sms.model.Addresses
 import ir.asudehapp.sms.model.Category
 import ir.asudehapp.sms.model.Folder
@@ -260,7 +261,7 @@ class AsudehNotifier(
             if (count.promo > 0) add(resources.getQuantityString(R.plurals.digest_promo, count.promo, count.promo))
             if (count.scam > 0) add(resources.getQuantityString(R.plurals.digest_scam, count.scam, count.scam))
         }
-        val text = PersianText.persianDigits(
+        val text = localDigits(
             if (parts.size == 2) context.getString(R.string.digest_join, parts[0], parts[1]) else parts.single(),
         )
         val title = context.getString(
@@ -348,7 +349,23 @@ class AsudehNotifier(
     }
 
     private fun sender(address: String): String =
-        PersianText.persianDigits(address.ifBlank { context.getString(R.string.notify_unknown_sender) })
+        localDigits(
+            if (address.isBlank() || address == TelephonyProviderStore.UNKNOWN_SENDER) {
+                context.getString(R.string.notify_unknown_sender)
+            } else {
+                address
+            },
+        )
+
+    /**
+     * ارقام اعلان مثل رابط اپ: فارسی فقط وقتی رابط فارسی است و کاربر ارقام فارسی
+     * را خاموش نکرده (D50). در رابط انگلیسی همیشه لاتین.
+     */
+    private fun localDigits(text: String): String {
+        val persianUi = context.resources.getBoolean(R.bool.notify_persian_digits)
+        val wanted = persianUi && runCatching { context.telephonyHost.settings.persianDigits }.getOrDefault(true)
+        return if (wanted) PersianText.persianDigits(text) else PersianText.latinDigits(text)
+    }
 
     private fun contentIntent(threadId: Long): PendingIntent = PendingIntent.getActivity(
         context,
