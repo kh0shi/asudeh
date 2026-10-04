@@ -75,6 +75,19 @@ class AsudehSettings(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_MESSAGE_CLOCK, value).apply()
 
     /**
+     * «پیشرفته»: چند ثانیه صبر پیش از ارسال پیامک متنی، با «لغو» (ROADMAP D8).
+     * صفر یعنی خاموش، که پیش‌فرض است.
+     */
+    var sendDelaySeconds: Int
+        get() = prefs.getInt(KEY_SEND_DELAY, 0).coerceIn(0, SEND_DELAY_MAX)
+        set(value) = prefs.edit().putInt(KEY_SEND_DELAY, value.coerceIn(0, SEND_DELAY_MAX)).apply()
+
+    /** «پیشرفته»: کلید Enter صفحه‌کلید پیامک را می‌فرستد، نه خط تازه (ROADMAP D8). */
+    var sendWithEnter: Boolean
+        get() = prefs.getBoolean(KEY_SEND_WITH_ENTER, false)
+        set(value) = prefs.edit().putBoolean(KEY_SEND_WITH_ENTER, value).apply()
+
+    /**
      * ضریب اندازهٔ متن گفتگو، روی اندازهٔ فونت خود گوشی (ROADMAP D7). فقط فهرست
      * پیامک‌های گفتگو را بزرگ یا کوچک می‌کند، نه بقیهٔ رابط را.
      */
@@ -140,6 +153,8 @@ class AsudehSettings(context: Context) {
         put(KEY_SHOW_REASON, showReasonEverywhere.toString())
         put(KEY_MESSAGE_CLOCK, showMessageClock.toString())
         put(KEY_TEXT_SCALE, conversationTextScale.toString())
+        put(KEY_SEND_DELAY, sendDelaySeconds.toString())
+        put(KEY_SEND_WITH_ENTER, sendWithEnter.toString())
         put(KEY_MMS_AUTO_DOWNLOAD, mmsAutoDownload.toString())
         put(KEY_MMS_SENDING, mmsSending.toString())
         put(KEY_MMS_READ_REPORTS, mmsReadReports.toString())
@@ -160,6 +175,7 @@ class AsudehSettings(context: Context) {
         values[KEY_MESSAGE_CLOCK]?.toBooleanStrictOrNull()?.let { showMessageClock = it }
         values[KEY_MMS_AUTO_DOWNLOAD]?.toBooleanStrictOrNull()?.let { mmsAutoDownload = it }
         importMms(values)
+        importSending(values)
         values[KEY_TEXT_SCALE]?.toFloatOrNull()?.let { conversationTextScale = it }
         values[KEY_DISABLED_DEFAULTS]?.let {
             disabledDefaultRules = it.split(SET_SEPARATOR).filter(String::isNotBlank).toSet()
@@ -167,6 +183,11 @@ class AsudehSettings(context: Context) {
         values[KEY_DISABLED_KEYWORDS]?.let {
             disabledDefaultKeywords = it.split(SET_SEPARATOR).filter(String::isNotBlank).toSet()
         }
+    }
+
+    private fun importSending(values: Map<String, String>) {
+        values[KEY_SEND_DELAY]?.toIntOrNull()?.let { sendDelaySeconds = it }
+        values[KEY_SEND_WITH_ENTER]?.toBooleanStrictOrNull()?.let { sendWithEnter = it }
     }
 
     private fun importMms(values: Map<String, String>) {
@@ -189,6 +210,7 @@ class AsudehSettings(context: Context) {
 
         const val TEXT_SCALE_MIN: Float = 0.85f
         const val TEXT_SCALE_MAX: Float = 1.6f
+        const val SEND_DELAY_MAX: Int = 10
 
         private const val NAME = "asudeh-settings"
         private const val KEY_DELIVERY_REPORTS = "delivery_reports"
@@ -202,6 +224,8 @@ class AsudehSettings(context: Context) {
         private const val KEY_SHOW_REASON = "show_reason_everywhere"
         private const val KEY_MESSAGE_CLOCK = "show_message_clock"
         private const val KEY_TEXT_SCALE = "conversation_text_scale"
+        private const val KEY_SEND_DELAY = "send_delay_seconds"
+        private const val KEY_SEND_WITH_ENTER = "send_with_enter"
         private const val KEY_MMS_AUTO_DOWNLOAD = "mms_auto_download"
         private const val KEY_MMS_SENDING = "mms_sending"
         private const val KEY_MMS_READ_REPORTS = "mms_read_reports"

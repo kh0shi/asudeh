@@ -38,6 +38,7 @@ import ir.asudehapp.sms.persian.SendSchedule
 import ir.asudehapp.sms.telephony.ActiveConversation
 import ir.asudehapp.sms.telephony.ContactPhone
 import ir.asudehapp.sms.telephony.Contacts
+import ir.asudehapp.sms.telephony.DelayedSend
 import ir.asudehapp.sms.telephony.DigestScheduler
 import ir.asudehapp.sms.telephony.MmsDownloader
 import ir.asudehapp.sms.telephony.MmsAttachments
@@ -174,6 +175,9 @@ data class SettingsState(
     val showReasonEverywhere: Boolean = false,
     /** ساعت هر پیامک، زیر خودش. */
     val showMessageClock: Boolean = true,
+    /** تأخیر پیش از ارسال بر حسب ثانیه؛ صفر یعنی خاموش (ROADMAP D8). */
+    val sendDelaySeconds: Int = 0,
+    val sendWithEnter: Boolean = false,
     /** ضریب اندازهٔ متن گفتگو (ROADMAP D7). */
     val conversationTextScale: Float = 1f,
     val mmsAutoDownload: Boolean = true,
@@ -283,6 +287,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _draft = MutableStateFlow("")
     val draft: StateFlow<String> = _draft.asStateFlow()
+
+    /** پیامکی که منتظر پایان «تأخیر پیش از ارسال» است (ROADMAP D8). */
+    private val delayedSend = DelayedSend(viewModelScope) { threadId, text -> repository.saveDraft(threadId, text) }
+    val pendingSend: StateFlow<DelayedSend.Pending?> = delayedSend.pending
 
     private val _attachments = MutableStateFlow<List<PendingAttachment>>(emptyList())
     val attachments: StateFlow<List<PendingAttachment>> = _attachments.asStateFlow()
@@ -478,6 +486,8 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         showReasonEverywhere = settingsStore.showReasonEverywhere,
         showMessageClock = settingsStore.showMessageClock,
         conversationTextScale = settingsStore.conversationTextScale,
+        sendDelaySeconds = settingsStore.sendDelaySeconds,
+        sendWithEnter = settingsStore.sendWithEnter,
         mmsAutoDownload = settingsStore.mmsAutoDownload,
         mmsSending = settingsStore.mmsSending,
         mmsReadReports = settingsStore.mmsReadReports,
@@ -737,7 +747,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         val state = _conversation.value
         val current = _stack.value.last()
         if (current !is Destination.Conversation) return
-        val text = _draft.value
+        val text = draftToKeep(state.threadId)
         _draft.value = ""
         _attachments.value = emptyList()
         if (state.threadId > 0) viewModelScope.launch { repository.saveDraft(state.threadId, text) }
@@ -747,9 +757,16 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     fun saveDraftNow() {
         val state = _conversation.value
         if (_stack.value.last() !is Destination.Conversation || state.threadId <= 0) return
-        val text = _draft.value
+        val text = draftToKeep(state.threadId)
         viewModelScope.launch { repository.saveDraft(state.threadId, text) }
     }
+
+    /**
+     * پیش‌نویسی که هنگام بیرون رفتن ذخیره می‌شود. جعبهٔ خالی روی متنِ منتظرِ
+     * تأخیر نمی‌نشیند، وگرنه بسته شدن اپ وسط تأخیر آن را گم می‌کرد (D8).
+     */
+    private fun draftToKeep(threadId: Long): String =
+        _draft.value.ifEmpty { delayedSend.pending.value?.takeIf { it.threadId == threadId }?.body.orEmpty() }
 
     fun updateDraft(text: String) {
         _draft.value = text
@@ -792,30 +809,55 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         if ((body.isBlank() && attachments.isEmpty()) || state.participants.isEmpty()) return
         _draft.value = ""
         _attachments.value = emptyList()
-        viewModelScope.launch {
-            runCatching {
-                // پیوست یا گروه یعنی MMS (D26)؛ بقیه پیامک عادی است.
-                if (attachments.isNotEmpty() || state.isGroup) {
-                    container.mmsSender.send(
-                        recipients = state.participants,
-                        text = body.takeIf { it.isNotBlank() },
-                        attachments = attachments.map { it.part },
-                        subscriptionId = state.subscriptionId,
-                    )
-                } else {
-                    container.smsSender.send(state.address, body, state.subscriptionId)
-                }
-            }.onFailure {
-                // پیامک ثبت نشد؛ متن و پیوست برمی‌گردند تا از دست نروند.
+        // تأخیر فقط برای پیامک متنی گفتگوی موجود است: پیوست در پیش‌نویس جا
+        // نمی‌گیرد و گفتگوی تازه هنوز جایی برای پیش‌نویس ندارد (D8).
+        val delaySeconds = settingsStore.sendDelaySeconds
+        val plainText = attachments.isEmpty() && !state.isGroup
+        if (delaySeconds > 0 && plainText && state.threadId > 0) {
+            delayedSend.start(state.threadId, body, delaySeconds * MILLIS_PER_SECOND) {
+                transmit(state, body, attachments)
+            }
+        } else {
+            delayedSend.flush()
+            viewModelScope.launch { transmit(state, body, attachments) }
+        }
+    }
+
+    /** «لغو» در زمان تأخیر: متن به جعبهٔ نوشتن برمی‌گردد. */
+    fun cancelPendingSend() {
+        val pending = delayedSend.cancel() ?: return
+        if (_conversation.value.threadId != pending.threadId) return
+        _draft.value = listOf(pending.body, _draft.value).filter { it.isNotEmpty() }.joinToString("\n")
+    }
+
+    private suspend fun transmit(state: ConversationUiState, body: String, attachments: List<PendingAttachment>) {
+        runCatching {
+            // پیوست یا گروه یعنی MMS (D26)؛ بقیه پیامک عادی است.
+            if (attachments.isNotEmpty() || state.isGroup) {
+                container.mmsSender.send(
+                    recipients = state.participants,
+                    text = body.takeIf { it.isNotBlank() },
+                    attachments = attachments.map { it.part },
+                    subscriptionId = state.subscriptionId,
+                )
+            } else {
+                container.smsSender.send(state.address, body, state.subscriptionId)
+            }
+        }.onFailure {
+            // پیامک ثبت نشد؛ متن و پیوست برمی‌گردند تا از دست نروند.
+            if (_conversation.value.threadId == state.threadId) {
                 _draft.value = body
                 _attachments.value = attachments
-                _sendError.value = true
-            }.onSuccess { sent ->
-                repository.saveDraft(sent.threadId, "")
-                // گفتگوی تازه (`sms:`) حالا شناسهٔ واقعی دارد.
-                if (state.threadId != sent.threadId) {
-                    replaceTop(Destination.Conversation(sent.threadId, state.folder, state.participants))
-                }
+            } else {
+                repository.saveDraft(state.threadId, body)
+            }
+            _sendError.value = true
+        }.onSuccess { sent ->
+            // پیش‌نویس ذخیره‌شدهٔ پیامکی که هنوز منتظر تأخیر است پاک نمی‌شود.
+            if (delayedSend.pending.value?.threadId != sent.threadId) repository.saveDraft(sent.threadId, "")
+            // گفتگوی تازه (`sms:`) حالا شناسهٔ واقعی دارد.
+            if (state.threadId != sent.threadId) {
+                replaceTop(Destination.Conversation(sent.threadId, state.folder, state.participants))
             }
         }
     }
@@ -1345,6 +1387,14 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         settingsStore.showMessageClock = enabled
     }
 
+    fun setSendDelaySeconds(seconds: Int) {
+        settingsStore.sendDelaySeconds = seconds
+    }
+
+    fun setSendWithEnter(enabled: Boolean) {
+        settingsStore.sendWithEnter = enabled
+    }
+
     fun setConversationTextScale(scale: Float) {
         settingsStore.conversationTextScale = scale
     }
@@ -1457,6 +1507,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     private companion object {
         const val STOP_TIMEOUT = 5_000L
+        const val MILLIS_PER_SECOND = 1_000L
         const val SAMPLE_SIZE = 5
         const val SEARCH_DEBOUNCE = 250L
         const val OBSERVER_DEBOUNCE = 1_500L

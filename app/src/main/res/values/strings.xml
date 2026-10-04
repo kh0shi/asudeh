@@ -211,6 +211,14 @@
     <string name="settings_message_clock_hint">زیر هر پیامک، ساعتش هم نوشته شود.</string>
     <string name="settings_text_scale">اندازهٔ متن گفتگو</string>
     <string name="settings_text_scale_sample">سلام، فردا ساعت ۱۰ می‌بینمت.</string>
+    <string name="settings_send_delay">تأخیر پیش از ارسال</string>
+    <string name="settings_send_delay_hint">پیامک متنی چند ثانیه صبر می‌کند تا اگر پشیمان شدید «لغو» را بزنید. پیوست و پیام گروهی صبر نمی‌کنند.</string>
+    <string name="send_delay_off">بدون تأخیر</string>
+    <string name="send_delay_seconds">%d ثانیه</string>
+    <string name="settings_send_enter">ارسال با Enter</string>
+    <string name="settings_send_enter_hint">کلید Enter پیامک را می‌فرستد؛ Shift+Enter خط تازه است.</string>
+    <string name="send_delayed">ارسال تا %d ثانیهٔ دیگر</string>
+    <string name="send_cancel">لغو</string>
     <string name="settings_sending">ارسال</string>
     <string name="settings_delivery">گزارش تحویل</string>
     <string name="settings_delivery_hint">وقتی پیامک به گیرنده رسید، «تحویل شد» نشان داده شود.</string>
