@@ -133,14 +133,21 @@ import kotlinx.coroutines.launch
 
 /** یک تکه از گفتگو: یا یک پیامک دیده‌شده، یا نوار جمع‌شدهٔ `HiddenRun`. */
 private sealed interface ConversationItem {
-    data class Visible(val message: MessageEntity) : ConversationItem
+    /** کلید پایدار ردیف در `LazyColumn`؛ `(kind, providerId)` کلید اصلی پیامک است. */
+    val listKey: String
+
+    data class Visible(val message: MessageEntity) : ConversationItem {
+        override val listKey: String get() = "v:${message.kind}:${message.providerId}"
+    }
 
     /**
      * پیامک‌های پنهانِ پشت‌سرهم **از یک پوشه**، سر جای زمانی خودشان، به یک نوار
      * جمع‌شده تبدیل می‌شوند (ADR-0005، D43). تبلیغ و کلاهبرداری هرگز در یک نوار
      * نیستند.
      */
-    data class Hidden(val folder: Folder, val messages: List<MessageEntity>) : ConversationItem
+    data class Hidden(val folder: Folder, val messages: List<MessageEntity>) : ConversationItem {
+        override val listKey: String get() = "h:${messages.first().kind}:${messages.first().providerId}"
+    }
 }
 
 /** کارهای نوار بالای گفتگو: سنجاق، `Unsub11` و خوانده‌نشده. */
@@ -380,80 +387,84 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                 LazyColumn(Modifier.fillMaxSize(), state = listState) {
                     for (section in sections) {
                         stickyHeader { DayHeader(section.firstMillis) }
-                        items(section.size) { offset ->
-                            val position = section.start + offset
-                            if (position == firstNew) NewMessagesLine()
-                            when (val item = items[position]) {
-                                is ConversationItem.Visible -> MessageBubble(
-                                    model = model,
-                                    message = item.message,
-                                    dimmed = false,
-                                    showSender = state.isGroup,
-                                    showSim = multiSim,
-                                    showReason = settings.showReasonEverywhere,
-                                    showClock = settings.showMessageClock,
-                                    selected = MessageKey(item.message.kind, item.message.providerId) in selected,
-                                    selectionMode = selected.isNotEmpty(),
-                                    pickingText = pickingTextIn == MessageKey(item.message.kind, item.message.providerId),
-                                    showPickHint = showPickHint,
-                                    isDefaultApp = isDefaultApp,
-                                    onWhy = { reasonFor = item.message },
-                                    onDetails = { detailsFor = item.message },
-                                    onPickText = {
-                                        pickText(MessageKey(item.message.kind, item.message.providerId))
-                                    },
-                                    onDonePickingText = { pickingTextIn = null },
-                                    onResend = { model.resend(item.message) },
-                                    lastInRun = runEnds[position],
-                                )
-
-                                is ConversationItem.Hidden -> {
-                                    val key = item.messages.first().providerId
-                                    val expanded = key in expandedRuns
-                                    HiddenRunBar(
-                                        folder = item.folder,
-                                        count = item.messages.size,
-                                        expanded = expanded,
-                                        onToggle = {
-                                            expandedRuns =
-                                                if (expanded) expandedRuns - key else expandedRuns + key
+                        // کلید پایدار هر ردیف تا پیامک تازه با پویانمایی وارد شود و
+                        // بقیه سر جایشان بلغزند، نه اینکه کل فهرست دوباره چیده شود (ROADMAP E8).
+                        items(section.size, key = { offset -> items[section.start + offset].listKey }) { offset ->
+                            Column(Modifier.fillMaxWidth().animateItem()) {
+                                val position = section.start + offset
+                                if (position == firstNew) NewMessagesLine()
+                                when (val item = items[position]) {
+                                    is ConversationItem.Visible -> MessageBubble(
+                                        model = model,
+                                        message = item.message,
+                                        dimmed = false,
+                                        showSender = state.isGroup,
+                                        showSim = multiSim,
+                                        showReason = settings.showReasonEverywhere,
+                                        showClock = settings.showMessageClock,
+                                        selected = MessageKey(item.message.kind, item.message.providerId) in selected,
+                                        selectionMode = selected.isNotEmpty(),
+                                        pickingText = pickingTextIn == MessageKey(item.message.kind, item.message.providerId),
+                                        showPickHint = showPickHint,
+                                        isDefaultApp = isDefaultApp,
+                                        onWhy = { reasonFor = item.message },
+                                        onDetails = { detailsFor = item.message },
+                                        onPickText = {
+                                            pickText(MessageKey(item.message.kind, item.message.providerId))
                                         },
+                                        onDonePickingText = { pickingTextIn = null },
+                                        onResend = { model.resend(item.message) },
+                                        lastInRun = runEnds[position],
                                     )
-                                    if (expanded && item.folder == Folder.SCAM) {
-                                        Text(
-                                            stringResource(R.string.scam_rescue_hint),
-                                            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                                            style = MaterialTheme.typography.labelSmall,
+
+                                    is ConversationItem.Hidden -> {
+                                        val key = item.messages.first().providerId
+                                        val expanded = key in expandedRuns
+                                        HiddenRunBar(
+                                            folder = item.folder,
+                                            count = item.messages.size,
+                                            expanded = expanded,
+                                            onToggle = {
+                                                expandedRuns =
+                                                    if (expanded) expandedRuns - key else expandedRuns + key
+                                            },
                                         )
-                                    }
-                                    if (expanded) {
-                                        for (hidden in item.messages) {
-                                            MessageBubble(
-                                                model = model,
-                                                message = hidden,
-                                                dimmed = true,
-                                                showSender = state.isGroup,
-                                                showSim = multiSim,
-                                                showReason = true,
-                                                showClock = settings.showMessageClock,
-                                                selected = MessageKey(hidden.kind, hidden.providerId) in selected,
-                                                selectionMode = selected.isNotEmpty(),
-                                                pickingText = pickingTextIn == MessageKey(hidden.kind, hidden.providerId),
-                                                showPickHint = showPickHint,
-                                                isDefaultApp = isDefaultApp,
-                                                onWhy = { reasonFor = hidden },
-                                                onDetails = { detailsFor = hidden },
-                                                onPickText = { pickText(MessageKey(hidden.kind, hidden.providerId)) },
-                                                onDonePickingText = { pickingTextIn = null },
-                                                // پیامک مشکوک به کلاهبرداری با یک لمس برنمی‌گردد؛
-                                                // اول باید دلیلش دیده شود (D44).
-                                                onRescue = if (hidden.folder == Folder.PROMO) {
-                                                    { model.rescue(hidden) }
-                                                } else {
-                                                    null
-                                                },
-                                                onResend = { model.resend(hidden) },
+                                        if (expanded && item.folder == Folder.SCAM) {
+                                            Text(
+                                                stringResource(R.string.scam_rescue_hint),
+                                                Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                                style = MaterialTheme.typography.labelSmall,
                                             )
+                                        }
+                                        if (expanded) {
+                                            for (hidden in item.messages) {
+                                                MessageBubble(
+                                                    model = model,
+                                                    message = hidden,
+                                                    dimmed = true,
+                                                    showSender = state.isGroup,
+                                                    showSim = multiSim,
+                                                    showReason = true,
+                                                    showClock = settings.showMessageClock,
+                                                    selected = MessageKey(hidden.kind, hidden.providerId) in selected,
+                                                    selectionMode = selected.isNotEmpty(),
+                                                    pickingText = pickingTextIn == MessageKey(hidden.kind, hidden.providerId),
+                                                    showPickHint = showPickHint,
+                                                    isDefaultApp = isDefaultApp,
+                                                    onWhy = { reasonFor = hidden },
+                                                    onDetails = { detailsFor = hidden },
+                                                    onPickText = { pickText(MessageKey(hidden.kind, hidden.providerId)) },
+                                                    onDonePickingText = { pickingTextIn = null },
+                                                    // پیامک مشکوک به کلاهبرداری با یک لمس برنمی‌گردد؛
+                                                    // اول باید دلیلش دیده شود (D44).
+                                                    onRescue = if (hidden.folder == Folder.PROMO) {
+                                                        { model.rescue(hidden) }
+                                                    } else {
+                                                        null
+                                                    },
+                                                    onResend = { model.resend(hidden) },
+                                                )
+                                            }
                                         }
                                     }
                                 }
