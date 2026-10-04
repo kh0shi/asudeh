@@ -11,6 +11,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -80,12 +82,15 @@ import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
 import ir.asudehapp.sms.classifier.LinkGuard
 import ir.asudehapp.sms.classifier.LinkSpan
+import ir.asudehapp.sms.classifier.OtpCode
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.data.MessageKey
 import ir.asudehapp.sms.data.ScheduleState
 import ir.asudehapp.sms.data.ScheduledMessageEntity
 import ir.asudehapp.sms.data.SendStatus
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.persian.CopyKind
+import ir.asudehapp.sms.persian.CopyableNumbers
 import ir.asudehapp.sms.telephony.SimCard
 import ir.asudehapp.sms.telephony.SimCards
 
@@ -801,6 +806,10 @@ private fun MessageBubble(
                             )
                         }
                     }
+                    // پیامک مشکوک یا کلاهبرداری تراشهٔ کپی و تماس نمی‌گیرد (D37).
+                    if (!pickingText && !selectionMode && !riskyLinks) {
+                        CopyChips(message.body)
+                    }
                 }
                 MessageMenu(
                     expanded = menu,
@@ -929,6 +938,55 @@ private fun MessageBody(
             MaterialTheme.colorScheme.onSurface
         },
     )
+}
+
+/**
+ * تراشه‌های «کپی» برای رمز یکبار، شمارهٔ کارت، شبا و تلفن، و «تماس» برای تلفن
+ * (ROADMAP D1). متن پیامک دست نمی‌خورد (D50)؛ کپی از راه
+ * [LatinDigitsClipboard] با ارقام لاتین است (ADR-0013). «تماس» فقط شماره‌گیر را
+ * باز می‌کند (`ACTION_DIAL`) و مجوزی نمی‌خواهد.
+ */
+@Composable
+private fun CopyChips(body: String) {
+    val numbers = remember(body) { CopyableNumbers.find(body) }
+    val otp = remember(body, numbers) {
+        OtpCode.extract(body)?.takeIf { code -> numbers.none { code in it.value } }
+    }
+    if (otp == null && numbers.isEmpty()) return
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        otp?.let { code ->
+            AssistChip(
+                onClick = { clipboard.setText(AnnotatedString(code)) },
+                label = { Text(stringResource(R.string.chip_copy_code)) },
+            )
+        }
+        for (number in numbers) {
+            val label = when (number.kind) {
+                CopyKind.CARD -> R.string.chip_copy_card
+                CopyKind.SHEBA -> R.string.chip_copy_sheba
+                CopyKind.PHONE -> R.string.chip_copy_phone
+            }
+            AssistChip(
+                onClick = { clipboard.setText(AnnotatedString(number.value)) },
+                label = { Text(stringResource(label)) },
+            )
+            if (number.kind == CopyKind.PHONE) {
+                AssistChip(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${number.value}")))
+                        }
+                    },
+                    label = { Text(stringResource(R.string.chip_call)) },
+                )
+            }
+        }
+    }
 }
 
 /**

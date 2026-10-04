@@ -386,4 +386,9 @@
     <string name="rating_body">چند هفته است تبلیغ‌ها را کنار می‌گذارد. اگر راضی هستید، در بازار به آن امتیاز بدهید؛ این کارت دیگر دیده نمی‌شود.</string>
     <string name="rating_rate">امتیاز می‌دهم</string>
     <string name="rating_not_now">نه، ممنون</string>
+    <string name="chip_copy_code">کپی رمز</string>
+    <string name="chip_copy_card">کپی کارت</string>
+    <string name="chip_copy_sheba">کپی شبا</string>
+    <string name="chip_copy_phone">کپی شماره</string>
+    <string name="chip_call">تماس</string>
 </resources>
