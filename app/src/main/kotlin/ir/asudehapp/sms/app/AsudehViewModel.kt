@@ -189,6 +189,9 @@ data class SettingsState(
     val notificationContent: NotificationContent = NotificationContent.FULL,
     /** ضریب اندازهٔ متن گفتگو (ROADMAP D7). */
     val conversationTextScale: Float = 1f,
+    /** چگالی فهرست گفتگوها (ROADMAP E8). */
+    val compactList: Boolean = false,
+    val oneLinePreview: Boolean = false,
     val mmsAutoDownload: Boolean = true,
     val mmsSending: Boolean = true,
     /** گزارش خوانده‌شدن MMS؛ پیش‌فرض خاموش (ADR-0009). */
@@ -509,6 +512,8 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         showReasonEverywhere = settingsStore.showReasonEverywhere,
         showMessageClock = settingsStore.showMessageClock,
         conversationTextScale = settingsStore.conversationTextScale,
+        compactList = settingsStore.compactList,
+        oneLinePreview = settingsStore.oneLinePreview,
         sendDelaySeconds = settingsStore.sendDelaySeconds,
         sendWithEnter = settingsStore.sendWithEnter,
         notificationContent = settingsStore.notificationContent,
@@ -1500,6 +1505,14 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setSendWithEnter(enabled: Boolean) {
         settingsStore.sendWithEnter = enabled
+    }
+
+    fun setCompactList(enabled: Boolean) {
+        settingsStore.compactList = enabled
+    }
+
+    fun setOneLinePreview(enabled: Boolean) {
+        settingsStore.oneLinePreview = enabled
     }
 
     fun setConversationTextScale(scale: Float) {

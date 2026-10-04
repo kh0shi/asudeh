@@ -269,6 +269,9 @@
     <string name="backup_not_default">To restore messages, Asudeh needs to be the default SMS app.</string>
     <string name="settings_advanced">Advanced</string>
     <string name="settings_dynamic_color">Android dynamic color</string>
+    <string name="settings_compact_list">Compact list</string>
+    <string name="settings_compact_list_hint">Shorter conversation rows, so more fit on screen</string>
+    <string name="settings_one_line_preview">One-line preview</string>
     <string name="settings_show_reason">Show the reason on every message</string>
     <string name="settings_about">About</string>
     <string name="about_version">Asudeh version: %1$s</string>
