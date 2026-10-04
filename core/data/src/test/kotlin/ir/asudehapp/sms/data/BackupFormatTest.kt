@@ -32,6 +32,17 @@ class BackupFormatTest {
     }
 
     @Test
+    fun `group names round trip and older headers have none`() {
+        val named = header.copy(groupNames = listOf(BackupFormat.GroupName(listOf("0912", "0935"), "خانواده")))
+        val out = StringWriter()
+        BackupFormat.writeHeader(out, named)
+        assertEquals(named, BackupFormat.readHeader(StringReader(out.toString()).buffered()))
+
+        val old = "{\"format\":\"asudeh-backup\",\"version\":2,\"createdAt\":1,\"appVersion\":\"0.1\"}\n"
+        assertEquals(emptyList<BackupFormat.GroupName>(), BackupFormat.readHeader(StringReader(old).buffered()).groupNames)
+    }
+
+    @Test
     fun `stars survive a backup and older lines read as unstarred`() {
         val out = StringWriter()
         BackupFormat.writeHeader(out, header)

@@ -61,6 +61,7 @@ class BackupManager(
                         keywordRules = keywords.map {
                             BackupFormat.KeywordRule(it.keyword, it.kind.name, it.createdAt)
                         },
+                        groupNames = repository.titledThreads().map { (who, name) -> BackupFormat.GroupName(who, name) },
                     ),
                 )
                 context.contentResolver.query(
@@ -250,9 +251,24 @@ class BackupManager(
                 repository.restoreFolders(MessageEntity.KIND_MMS, mmsPlacements)
                 repository.restoreStars(MessageEntity.KIND_SMS, smsStars)
                 repository.restoreStars(MessageEntity.KIND_MMS, mmsStars)
+                restoreGroupNames(header.groupNames)
                 ImportResult(added, duplicates, corrupt, rules)
             }
         }
+
+    /**
+     * نام گفتگوهای گروهی، روی گفتگویی با همان طرف‌ها. نامی که کاربر روی همین
+     * گوشی گذاشته، جایش را به فایل نمی‌دهد.
+     */
+    private suspend fun restoreGroupNames(names: List<BackupFormat.GroupName>) {
+        for (group in names) {
+            if (group.participants.isEmpty() || group.name.isBlank()) continue
+            val threadId = runCatching {
+                Telephony.Threads.getOrCreateThreadId(context, group.participants.toSet())
+            }.getOrNull() ?: continue
+            if (repository.threadTitle(threadId).isEmpty()) repository.setThreadTitle(threadId, group.name)
+        }
+    }
 
     private fun existingKeys(): HashSet<String> {
         val keys = HashSet<String>()
