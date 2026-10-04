@@ -101,11 +101,20 @@ jobs:
           report=app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt
           [ -f "$report" ] && cat "$report" || echo "گزارش lint ساخته نشد"
 
+      # اصل ۷ دربارهٔ APKی است که به کاربر می‌رسد، یعنی release. نسخهٔ debug
+      # کتابخانه‌های دیباگ Compose را هم دارد و معیار درستی نیست.
+      - name: ساخت نسخهٔ release
+        run: ./gradlew --no-daemon :app:assembleRelease
+
       - name: حجم APK زیر ۱۰ مگابایت
         run: |
-          apk=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
+          apk=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
+          if [ -z "$apk" ]; then
+            echo "APK نسخهٔ release پیدا نشد"
+            exit 1
+          fi
           size=$(stat -c%s "$apk")
-          echo "حجم APK: $((size / 1024 / 1024)) مگابایت"
+          echo "حجم APK نسخهٔ release ($apk): $((size / 1024)) کیلوبایت"
           if [ "$size" -gt 10485760 ]; then
             echo "حجم APK از بودجهٔ ۱۰ مگابایت (اصل ۷) بیشتر است"
             exit 1
