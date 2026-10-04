@@ -394,4 +394,6 @@
     <string name="sms_counter">%1$d/%2$d · %3$d پیامک</string>
     <string name="day_today">امروز</string>
     <string name="day_yesterday">دیروز</string>
+    <string name="new_messages">پیام‌های تازه</string>
+    <string name="jump_to_bottom">رفتن به پایین</string>
 </resources>

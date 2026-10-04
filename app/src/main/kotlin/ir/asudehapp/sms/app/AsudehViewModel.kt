@@ -647,11 +647,20 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     // ——— گفتگو ———
 
+    /**
+     * پیامک‌هایی که هنگام باز شدن گفتگو خوانده‌نشده بودند، برای خط «پیام‌های
+     * تازه» (ROADMAP D4). با هر بار باز شدن گفتگو از نو حساب می‌شود.
+     */
+    private val _unreadAtOpen = MutableStateFlow<Set<MessageKey>>(emptySet())
+    val unreadAtOpen: StateFlow<Set<MessageKey>> = _unreadAtOpen.asStateFlow()
+
     private fun openConversation(target: Destination.Conversation) {
         // تا وقتی این گفتگو روی صفحه است، پیامک تازه‌اش اعلان نمی‌گیرد.
         ActiveConversation.set(target.threadId)
+        _unreadAtOpen.value = emptySet()
         viewModelScope.launch {
-            MmsReadReports.markThreadRead(getApplication(), target.threadId, target.folder)
+            val unread = MmsReadReports.markThreadRead(getApplication(), target.threadId, target.folder)
+            _unreadAtOpen.value = unread.toSet()
             container.notifier.cancelThread(target.threadId)
         }
         conversationJob?.cancel()
