@@ -21,6 +21,7 @@ class IndexMigrationsTest {
     private val schema6 = schema(6)
     private val schema7 = schema(7)
     private val schema8 = schema(8)
+    private val schema9 = schema(9)
 
     private fun schema(version: Int) =
         File("schemas/ir.asudehapp.sms.data.IndexDatabase/$version.json").readText()
@@ -134,12 +135,20 @@ class IndexMigrationsTest {
         }
     }
 
+    /** نسخهٔ ۹ فقط ستون `subId` را با همان پیش‌فرضی می‌افزاید که Room در جدول می‌خواهد (E7). */
+    @Test
+    fun `version nine adds the sim column room expects`() {
+        assertTrue(IndexMigrations.V8_V9_SQL.size == 1)
+        assertTrue("`subId` INTEGER NOT NULL DEFAULT -1" in schema9)
+        assertTrue(IndexMigrations.V8_V9_SQL.single().endsWith("`subId` INTEGER NOT NULL DEFAULT -1"))
+    }
+
     /** هیچ دستور migration نباید داده‌ای را پاک کند (نه به‌عنوان دستور مستقل). */
     @Test
     fun `no migration drops or deletes anything`() {
         val all = IndexMigrations.V1_V2_SQL + IndexMigrations.V2_V3_SQL + IndexMigrations.V3_V4_SQL +
             IndexMigrations.V4_V5_SQL + IndexMigrations.V5_V6_SQL + IndexMigrations.V6_V7_SQL +
-            IndexMigrations.V7_V8_SQL
+            IndexMigrations.V7_V8_SQL + IndexMigrations.V8_V9_SQL
         for (statement in all) {
             val upper = statement.uppercase()
             assertTrue("migration مخرب: $statement", !upper.startsWith("DROP"))

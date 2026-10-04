@@ -135,7 +135,12 @@ data class ThreadPrefEntity(
      */
     @ColumnInfo(defaultValue = "0")
     val archived: Boolean = false,
-)
+    /** سیم آخرین ارسال این گفتگو (ROADMAP E7)؛ منفی یعنی ذخیره نشده. */
+    @ColumnInfo(defaultValue = "-1")
+    val subId: Int = -1,
+) {
+    val isDefault: Boolean get() = !pinned && draft.isEmpty() && !muted && !archived && subId < 0
+}
 
 enum class SendStatus {
     /** پیامک دریافتی. */

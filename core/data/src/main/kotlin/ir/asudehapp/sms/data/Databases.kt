@@ -62,7 +62,7 @@ class AsudehConverters {
         StarredMessageEntity::class,
         ReminderEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
@@ -99,6 +99,7 @@ abstract class IndexDatabase : RoomDatabase() {
                 IndexMigrations.V5_V6,
                 IndexMigrations.V6_V7,
                 IndexMigrations.V7_V8,
+                IndexMigrations.V8_V9,
             ).addCallback(object : RoomCallback() {
                 override fun onOpen(db: SupportSQLiteDatabase) = IndexMigrations.ensureThreadSummary(db)
             }).build().also { instance = it }
@@ -293,6 +294,17 @@ object IndexMigrations {
             "`kind` TEXT NOT NULL, `providerId` INTEGER NOT NULL, `threadId` INTEGER NOT NULL, " +
             "`remindAt` INTEGER NOT NULL)",
         "CREATE INDEX IF NOT EXISTS `index_reminder_remindAt` ON `reminder` (`remindAt`)",
+    )
+
+    /** نسخهٔ ۹: سیم‌کارت آخرین ارسال هر گفتگو (ROADMAP E7). فقط یک ستون با پیش‌فرض اضافه می‌شود. */
+    val V8_V9: Migration = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V8_V9_SQL) db.execSQL(statement)
+        }
+    }
+
+    internal val V8_V9_SQL: List<String> = listOf(
+        "ALTER TABLE `thread_pref` ADD COLUMN `subId` INTEGER NOT NULL DEFAULT -1",
     )
 
     /** ستون‌های خروجی مشترک بین triggerها و پر کردن اولیهٔ `thread_summary`. */

@@ -740,6 +740,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             val pinned = repository.isPinned(target.threadId)
             val muted = repository.isMuted(target.threadId)
             val archived = repository.isArchived(target.threadId)
+            val lastSim = repository.lastSendSim(target.threadId).takeIf { it >= 0 }
             repository.conversation(target.threadId).collect { messages ->
                 val last = messages.lastOrNull()
                 val participants = when {
@@ -763,6 +764,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
                     muted = if (previous.threadId == target.threadId) previous.muted else muted,
                     archived = if (previous.threadId == target.threadId) previous.archived else archived,
                     subscriptionId = previous.subscriptionId.takeIf { it >= 0 && previous.threadId == target.threadId }
+                        ?: lastSim
                         ?: lastIncoming?.subId
                         ?: last?.subId
                         ?: -1,
@@ -884,6 +886,8 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             }
             _sendError.value = true
         }.onSuccess { sent ->
+            // سیم‌کارت همین ارسال، پیش‌فرض دفعهٔ بعد همین گفتگوست (E7).
+            repository.rememberSendSim(sent.threadId, state.subscriptionId)
             if (!state.isGroup) {
                 val name = Contacts.displayName(getApplication(), state.address) ?: state.address
                 ConversationShortcuts.push(getApplication(), sent.threadId, name)
