@@ -136,6 +136,23 @@ import kotlinx.coroutines.launch
 /** رنگ حباب پیامک‌های فرستادهٔ همین گفتگو؛ بیرون از فهرست گفتگو رنگ پوسته است. */
 private val LocalOutgoingBubble = staticCompositionLocalOf<Color?> { null }
 
+/** گالری پیوست‌ها (E9) و رنگ حباب این گفتگو (E8)، از منوی گفتگو. */
+@Composable
+private fun ThreadExtrasDialogs(model: AsudehViewModel, state: ConversationUiState, extra: ThreadExtra?, onClose: () -> Unit) {
+    when (extra) {
+        ThreadExtra.GALLERY -> AttachmentGallery(model, state.messages, onClose)
+        ThreadExtra.BUBBLE_COLOR -> ThreadBubbleColorDialog(
+            selected = state.bubbleColor,
+            globalColor = model.settings.collectAsState().value.bubbleColor,
+            onPick = { model.setThreadBubbleColor(state.threadId, it) },
+            onDismiss = onClose,
+        )
+        null -> Unit
+    }
+}
+
+private enum class ThreadExtra { GALLERY, BUBBLE_COLOR }
+
 /** یک تکه از گفتگو: یا یک پیامک دیده‌شده، یا نوار جمع‌شدهٔ `HiddenRun`. */
 private sealed interface ConversationItem {
     /** کلید پایدار ردیف در `LazyColumn`؛ `(kind, providerId)` کلید اصلی پیامک است. */
@@ -161,7 +178,7 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
     var menu by remember { mutableStateOf(false) }
     var confirmUnsub by remember { mutableStateOf(false) }
     var pickDay by remember { mutableStateOf(false) }
-    var pickColor by remember { mutableStateOf(false) }
+    var extra by remember { mutableStateOf<ThreadExtra?>(null) }
     IconButton(onClick = { menu = true }) {
         Icon(Icons.Default.MoreVert, stringResource(R.string.more))
     }
@@ -182,6 +199,16 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
                     pickDay = true
                 },
             )
+            // گالری پیوست‌ها (PARITY §ب-۶).
+            if (state.messages.any { it.kind == MessageEntity.KIND_MMS && it.attachments > 0 }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.attachments_gallery)) },
+                    onClick = {
+                        menu = false
+                        extra = ThreadExtra.GALLERY
+                    },
+                )
+            }
         }
         if (state.threadId > 0) {
             DropdownMenuItem(
@@ -225,7 +252,7 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
                 text = { Text(stringResource(R.string.bubble_color)) },
                 onClick = {
                     menu = false
-                    pickColor = true
+                    extra = ThreadExtra.BUBBLE_COLOR
                 },
             )
             DropdownMenuItem(
@@ -248,15 +275,7 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
             )
         }
     }
-    if (pickColor) {
-        val globalColor = model.settings.collectAsState().value.bubbleColor
-        ThreadBubbleColorDialog(
-            selected = state.bubbleColor,
-            globalColor = globalColor,
-            onPick = { model.setThreadBubbleColor(state.threadId, it) },
-            onDismiss = { pickColor = false },
-        )
-    }
+    ThreadExtrasDialogs(model, state, extra) { extra = null }
     if (confirmUnsub) {
         AlertDialog(
             onDismissRequest = { confirmUnsub = false },

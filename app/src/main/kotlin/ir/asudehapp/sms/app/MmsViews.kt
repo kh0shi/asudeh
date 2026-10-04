@@ -120,7 +120,7 @@ private fun MmsImage(uri: Uri, partId: Long, onClick: () -> Unit) {
 
 /** نمایش تمام‌صفحهٔ تصویر، داخل خود اپ. */
 @Composable
-private fun ImageViewer(uri: Uri, partId: Long, onOpenExternally: () -> Unit, onDismiss: () -> Unit) {
+internal fun ImageViewer(uri: Uri, partId: Long, onOpenExternally: () -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var bitmap by remember(partId) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(partId) { bitmap = MmsBitmaps.load(context, uri, -partId, FULL_SIZE) }
@@ -144,7 +144,7 @@ private fun ImageViewer(uri: Uri, partId: Long, onOpenExternally: () -> Unit, on
  * باز کردن پیوست با اپ دیگر. provider پیامک اجازهٔ موقت خواندن partها را
  * (`/part/`) به اپ مقصد می‌دهد؛ چیزی کپی نمی‌شود.
  */
-private fun openExternally(context: Context, uri: Uri, contentType: String) {
+internal fun openExternally(context: Context, uri: Uri, contentType: String) {
     val intent = Intent(Intent.ACTION_VIEW)
         .setDataAndType(uri, contentType)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -158,7 +158,7 @@ private fun openExternally(context: Context, uri: Uri, contentType: String) {
 }
 
 /** تصویرهای MMS، کوچک‌شده و در حافظه نگه داشته‌شده تا اسکرول روان بماند. */
-private object MmsBitmaps {
+internal object MmsBitmaps {
 
     private val cache = object : LruCache<Long, ImageBitmap>(CACHE_BYTES) {
         override fun sizeOf(key: Long, value: ImageBitmap): Int = value.width * value.height * 4
@@ -183,5 +183,5 @@ private object MmsBitmaps {
     private const val CACHE_BYTES = 24 * 1024 * 1024
 }
 
-private const val THUMBNAIL_SIZE = 720
+internal const val THUMBNAIL_SIZE = 720
 private const val FULL_SIZE = 2048
