@@ -180,6 +180,13 @@ object Texts {
         return digits("$date $clock")
     }
 
+    /** تاریخ یک روز برای جداکنندهٔ گفتگو، مثل «۳ مهر ۱۴۰۵» (ROADMAP D3). */
+    @Composable
+    fun dayDate(millis: Long): String {
+        val calendar = Calendar.getInstance().apply { timeInMillis = millis }
+        return digits(longDate(calendar.toGregorian(), LocalUseJalali.current, uiLocale(), LocalUiIsPersian.current))
+    }
+
     /** تاریخ کوتاه به تقویم انتخابی، مثل «۱۴۰۵/۰۶/۲۷» یا «2026/09/18». */
     @Composable
     fun shortDate(date: GregorianDate): String = shortDate(date, LocalUseJalali.current)
