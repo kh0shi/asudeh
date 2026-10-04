@@ -13,9 +13,21 @@ SENDER=09121234567
 
 ./gradlew --no-daemon :app:installDebug :app:installDebugAndroidTest
 
-# اپ پیش‌فرض پیامک (فقط اپ پیش‌فرض SMS_DELIVER می‌گیرد).
-adb shell cmd role add-role-holder android.app.role.SMS "$APP" 0
-adb shell cmd role get-role-holders android.app.role.SMS
+# اپ پیش‌فرض پیامک (فقط اپ پیش‌فرض SMS_DELIVER می‌گیرد). درست پس از بالا
+# آمدن شبیه‌ساز، سرویس role گاهی با TimeoutException پاسخ نمی‌دهد؛ پس چند بار
+# تلاش می‌شود و نتیجه با get-role-holders سنجیده می‌شود، نه با کد خروج.
+holder=""
+for attempt in 1 2 3 4 5; do
+  adb shell cmd role add-role-holder android.app.role.SMS "$APP" 0 || true
+  holder=$(adb shell cmd role get-role-holders android.app.role.SMS | tr -d '\r' || true)
+  [ "$holder" = "$APP" ] && break
+  echo "تلاش $attempt برای اپ پیش‌فرض شدن ناموفق بود؛ دوباره"
+  sleep 10
+done
+if [ "$holder" != "$APP" ]; then
+  echo "آسوده اپ پیش‌فرض پیامک نشد: «$holder»"
+  exit 1
+fi
 
 run_case() {
   local method=$1 out line body pid
