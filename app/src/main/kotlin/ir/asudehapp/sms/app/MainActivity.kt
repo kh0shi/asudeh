@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
@@ -184,11 +185,12 @@ class MainActivity : ComponentActivity() {
                 model.composeTo(parsed.recipients, body)
                 return
             }
-            // اشتراک‌گذاری متن یا تصویر: گیرنده را کاربر در «گفتگوی تازه» انتخاب می‌کند.
+            // اشتراک‌گذاری متن یا تصویر: گیرنده را کاربر در «گفتگوی تازه» انتخاب می‌کند،
+            // مگر از میان‌بر یک گفتگو در برگهٔ اشتراک آمده باشد (ROADMAP E3).
             Intent.ACTION_SEND -> {
-                model.shareIntoNewConversation(
-                    Share(text = intent.getStringExtra(Intent.EXTRA_TEXT), image = intent.streamUri()),
-                )
+                val share = Share(text = intent.getStringExtra(Intent.EXTRA_TEXT), image = intent.streamUri())
+                val target = ConversationShortcuts.threadIdOf(intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID))
+                if (target != null) model.shareIntoConversation(target, share) else model.shareIntoNewConversation(share)
                 return
             }
         }
@@ -261,6 +263,9 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        /** میان‌بر گفتگو (E3)؛ میان‌بر بدون action پذیرفته نمی‌شود. */
+        const val ACTION_OPEN_CONVERSATION: String = "ir.asudehapp.sms.OPEN_CONVERSATION"
+
         private const val EXTRA_THREAD_ID = "ir.asudehapp.sms.THREAD_ID"
         private const val EXTRA_FOLDER = "ir.asudehapp.sms.FOLDER"
         private const val EXTRA_SMS_BODY = "sms_body"

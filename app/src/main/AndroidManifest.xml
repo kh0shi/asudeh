@@ -73,6 +73,10 @@
                 <data android:mimeType="text/plain" />
                 <data android:mimeType="image/*" />
             </intent-filter>
+            <!-- میان‌بر گفتگوها در برگهٔ اشتراک‌گذاری (ROADMAP E3)؛ مجوز نیست. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- اپ پیش‌فرض پیامک باید هر چهار جزء زیر را داشته باشد. -->

@@ -19,6 +19,7 @@
     <string name="notify_schedule_missed_text">Its text has been kept. Open the conversation to send it.</string>
     <string name="notify_reminder_title">Reminder · %s</string>
     <string name="notify_reminder_no_text">Message without text</string>
+    <string name="notify_me">Me</string>
     <string name="notify_mms_title">Multimedia message from %1$s</string>
     <string name="notify_mms_image">🖼 Image</string>
     <string name="notify_mms_attachment">📎 Attachment</string>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  اشتراک‌گذاری مستقیم با یک گفتگو (ROADMAP E3). میان‌برها پویا ساخته می‌شوند
+  (ConversationShortcuts) و این دسته را دارند؛ اینجا فقط گفته می‌شود که متن و
+  تصویرِ اشتراکی به MainActivity برود.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <share-target android:targetClass="ir.asudehapp.sms.app.MainActivity">
+        <data android:mimeType="text/plain" />
+        <data android:mimeType="image/*" />
+        <category android:name="ir.asudehapp.sms.category.SHARE_TARGET" />
+    </share-target>
+</shortcuts>

@@ -34,6 +34,7 @@ open class AsudehApplication : Application(), TelephonyHost {
             openConversation = { threadId -> conversationIntent(threadId) },
             openFolder = { folder -> folderIntent(folder) },
             isMuted = { threadId -> repository.isMuted(threadId) },
+            conversationShortcut = { threadId, name -> ConversationShortcuts.push(this, threadId, name) },
         )
     }
 

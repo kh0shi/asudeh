@@ -965,6 +965,9 @@ class AsudehRepository(
 
     suspend fun nextScheduledAfter(now: Long): Long? = scheduleDao.nextAfter(now)
 
+    /** شمار پیامک‌های یک گفتگو در ایندکس؛ صفر یعنی گفتگو خالی شده است. */
+    suspend fun threadMessageCount(threadId: Long): Int = dao.countInThread(threadId)
+
     // ——— «یادم بینداز» (ROADMAP E1) ———
 
     suspend fun addReminder(message: MessageEntity, at: Long): Long = reminderDao.insert(
