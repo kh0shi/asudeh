@@ -21,6 +21,9 @@ android {
         // نسخه‌ای با versionCode کمتر را روی نسخهٔ نصب‌شده نمی‌پذیرد.
         versionCode = 2
         versionName = "1.0.0-beta1"
+
+        // D64: آزمون ابزاری مسیر دریافت با Application آزمون (app/src/androidTest).
+        testInstrumentationRunner = "ir.asudehapp.sms.app.AsudehTestRunner"
     }
 
     buildTypes {
@@ -68,6 +71,9 @@ dependencies {
     implementation(libs.androidx.profileinstaller)
 
     baselineProfile(project(":baselineprofile"))
+
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }
 
 // D63: پلاگین androidx.baselineprofile خودش build-typeهای «benchmarkRelease»

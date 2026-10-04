@@ -18,8 +18,11 @@ import ir.asudehapp.sms.telephony.TelephonyHost
  * ظرف وابستگی‌های اپ: تزریق وابستگی دستی (ADR-0007). هر وابستگی یک بار و
  * تنبل ساخته می‌شود؛ گیرنده‌ها و سرویس از راه [TelephonyHost] به آن می‌رسند و
  * ViewModel از راه [containerOf].
+ *
+ * `open` است فقط تا آزمون ابزاری مسیر دریافت (`app/src/androidTest`) بتواند
+ * طبقه‌بند را از راه [TelephonyHost.classify] عوض کند (D64).
  */
-class AsudehApplication : Application(), TelephonyHost {
+open class AsudehApplication : Application(), TelephonyHost {
 
     override val settings: AsudehSettings by lazy { AsudehSettings(this) }
 
