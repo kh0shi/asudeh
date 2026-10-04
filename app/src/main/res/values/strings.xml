@@ -35,6 +35,13 @@
     <string name="sweep_not_now">فعلاً نه</string>
     <string name="sweep_keep">در صندوق بماند</string>
     <string name="close">بستن</string>
+    <string name="link_title">باز کردن لینک؟</string>
+    <string name="link_risky_title">لینکِ پیامک مشکوک</string>
+    <string name="link_real_domain">مقصد واقعی:</string>
+    <string name="link_deceptive">این نشانی نویسه‌های غیرلاتین یا punycode دارد و ممکن است شبیه دامنهٔ دیگری دیده شود.</string>
+    <string name="link_risky_body">این پیامک نشانه‌های کلاهبرداری دارد، پس لینکش از این‌جا باز نمی‌شود. اگر مطمئنید، کپی کنید و خودتان باز کنید.</string>
+    <string name="link_open">باز کن</string>
+    <string name="link_copy">کپی</string>
 
     <string name="syncing">در حال بررسی پیامک‌ها…</string>
     <string name="syncing_percent">در حال بررسی پیامک‌ها… %1$d٪</string>

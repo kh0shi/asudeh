@@ -2,6 +2,7 @@ package ir.asudehapp.sms.app
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -58,15 +59,24 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
+import ir.asudehapp.sms.classifier.LinkGuard
+import ir.asudehapp.sms.classifier.LinkSpan
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.data.MessageKey
 import ir.asudehapp.sms.data.ScheduleState
@@ -684,6 +694,10 @@ private fun MessageBubble(
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     var menu by remember { mutableStateOf(false) }
+    var openLink by remember { mutableStateOf<LinkSpan?>(null) }
+    // روی `ScamFolder` و `Suspect` لینک شکل لینک ندارد و برگه‌اش فقط هشدار و کپی است.
+    val riskyLinks = message.risk || message.folder == Folder.SCAM
+    openLink?.let { link -> LinkSheet(link, risky = riskyLinks, onDismiss = { openLink = null }) }
     Column(
         Modifier
             .fillMaxWidth()
@@ -753,7 +767,16 @@ private fun MessageBubble(
                         if (pickingText) {
                             SelectionContainer { MessageBody(message.body, dimmed) }
                         } else {
-                            MessageBody(message.body, dimmed)
+                            // D37: لینک با تشخیص خودمان لمس‌شدنی است و هرگز مستقیم باز
+                            // نمی‌شود؛ اول برگه با دامنهٔ واقعی می‌آید.
+                            val links = remember(message.body) { LinkGuard.spans(message.body) }
+                            MessageBody(
+                                message.body,
+                                dimmed,
+                                links = links,
+                                plainLinks = riskyLinks,
+                                onLink = { openLink = it },
+                            )
                         }
                     }
                 }
@@ -843,14 +866,95 @@ private fun MessageBubble(
 
 /** متن پیامک هرگز تغییر نمی‌کند: نه ارقامش و نه چیز دیگر (D50). */
 @Composable
-private fun MessageBody(body: String, dimmed: Boolean) {
+private fun MessageBody(
+    body: String,
+    dimmed: Boolean,
+    links: List<LinkSpan> = emptyList(),
+    plainLinks: Boolean = false,
+    onLink: (LinkSpan) -> Unit = {},
+) {
+    val linkStyle = TextLinkStyles(
+        style = SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline),
+    )
+    // متن نمایش‌داده‌شده دست نمی‌خورد (D50)؛ فقط بازهٔ لینک‌ها لمس‌شدنی می‌شود.
+    val text = if (links.isEmpty()) {
+        AnnotatedString(body)
+    } else {
+        buildAnnotatedString {
+            append(body)
+            for (link in links) {
+                addLink(
+                    LinkAnnotation.Clickable(
+                        tag = link.openUrl,
+                        styles = if (plainLinks) null else linkStyle,
+                        linkInteractionListener = { onLink(link) },
+                    ),
+                    link.start,
+                    link.end,
+                )
+            }
+        }
+    }
     Text(
-        body,
+        text,
         style = MaterialTheme.typography.bodyMedium,
         color = if (dimmed) {
             MaterialTheme.colorScheme.onSurfaceVariant
         } else {
             MaterialTheme.colorScheme.onSurface
+        },
+    )
+}
+
+/**
+ * برگهٔ لینک (D37، PARITY §ب-۷): دامنهٔ واقعی را پیش از باز کردن نشان می‌دهد.
+ * پیش‌نمایش لینک هرگز نداریم (`NoNet`). برای پیامک مشکوک یا کلاهبرداری فقط
+ * هشدار و «کپی» دارد و مرورگر را باز نمی‌کند.
+ */
+@Composable
+private fun LinkSheet(link: LinkSpan, risky: Boolean, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val ltr = TextStyle(textDirection = TextDirection.Ltr)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(if (risky) R.string.link_risky_title else R.string.link_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.link_real_domain), style = MaterialTheme.typography.labelMedium)
+                Text(link.realHost, style = MaterialTheme.typography.titleMedium.merge(ltr))
+                Text(
+                    link.text,
+                    style = MaterialTheme.typography.bodySmall.merge(ltr),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (link.deceptive) {
+                    Text(stringResource(R.string.link_deceptive), color = MaterialTheme.colorScheme.error)
+                }
+                if (risky) {
+                    Text(stringResource(R.string.link_risky_body), color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            if (risky) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+            } else {
+                TextButton(
+                    onClick = {
+                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.openUrl))) }
+                        onDismiss()
+                    },
+                ) { Text(stringResource(R.string.link_open)) }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    clipboard.setText(AnnotatedString(link.text))
+                    onDismiss()
+                },
+            ) { Text(stringResource(R.string.link_copy)) }
         },
     )
 }

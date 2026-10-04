@@ -1,6 +1,29 @@
 package ir.asudehapp.sms.classifier
 
 import ir.asudehapp.sms.model.DetectedLink
+import java.net.IDN
+
+/**
+ * یک لینک لمس‌شدنی در متن پیامک (D37، ROADMAP C2).
+ *
+ * [start] و [end] بازهٔ نیم‌باز `[start, end)` در خود متن‌اند؛ متن نمایش‌داده‌شده
+ * عوض نمی‌شود (D50).
+ */
+data class LinkSpan(
+    val start: Int,
+    val end: Int,
+    /** همان‌طور که در متن آمده، با مسیر. */
+    val text: String,
+    /**
+     * میزبانِ واقعی به خط لاتین (پس از تبدیل IDN به punycode)، بدون `www.`. همین
+     * به کاربر نشان داده می‌شود تا `bmі.ir` با «і» سیریلیک خودش را لو بدهد.
+     */
+    val realHost: String,
+    /** نشانی‌ای که با `ACTION_VIEW` باز می‌شود؛ بدون پیشوند، `http://` می‌گیرد. */
+    val openUrl: String,
+    /** میزبان نویسهٔ غیرلاتین، punycode یا نویسهٔ شبیه‌هم دارد. */
+    val deceptive: Boolean,
+)
 
 /**
  * تشخیص لینک با پیاده‌سازی خودمان، نه با `Linkify` (D37).
@@ -67,6 +90,58 @@ object LinkGuard {
         }
         return found.values.toList()
     }
+
+    /**
+     * بازه‌های لینک در متن، برای لمس‌شدنی کردنشان در رابط (D37). همان تشخیص
+     * [extract] است، به‌علاوهٔ مسیر پس از میزبان، تا لینکِ باز‌شده همان باشد که
+     * کاربر می‌بیند.
+     */
+    fun spans(body: String): List<LinkSpan> {
+        val spans = mutableListOf<LinkSpan>()
+        for (match in URL_REGEX.findAll(body)) {
+            val explicit = match.groupValues[1].isNotEmpty()
+            val host = match.groupValues[2].lowercase().trimEnd('.')
+            if (!explicit && host.substringAfterLast('.', "") !in KNOWN_TLDS) continue
+            if (host.count { it == '.' } == 0) continue
+            val start = match.range.first
+            spans += linkSpan(body.substring(start, linkEnd(body, match.range.last + 1)), start, host)
+        }
+        return spans
+    }
+
+    /** پایان لینک: مسیر پس از میزبان تا فاصله یا [PATH_STOP]، بی نشانهٔ پایان جمله. */
+    private fun linkEnd(body: String, hostEnd: Int): Int {
+        var end = hostEnd
+        if (end < body.length && body[end] == '/') {
+            while (end < body.length && body[end] !in PATH_STOP && !body[end].isWhitespace()) end++
+            while (end > hostEnd && body[end - 1] in TRAILING_PUNCTUATION) end--
+        }
+        return end
+    }
+
+    private fun linkSpan(text: String, start: Int, host: String): LinkSpan {
+        val display = host.removePrefix("www.")
+        val ascii = runCatching { IDN.toASCII(display, IDN.ALLOW_UNASSIGNED) }.getOrDefault(display).lowercase()
+        val deceptive = ascii != display ||
+            ascii.split('.').any { it.startsWith("xn--") } ||
+            display.any { it in CONFUSABLES && !it.isDigit() }
+        return LinkSpan(
+            start = start,
+            end = start + text.length,
+            text = text,
+            realHost = ascii,
+            openUrl = if (SCHEME.containsMatchIn(text)) text else "http://$text",
+            deceptive = deceptive,
+        )
+    }
+
+    private val SCHEME = Regex("""^(?:https?|ftp)://""", RegexOption.IGNORE_CASE)
+
+    /** نویسه‌هایی که مسیر لینک را تمام می‌کنند: پرانتز، گیومه و ویرگول و نقطه‌ویرگول فارسی. */
+    private val PATH_STOP = setOf('«', '»', '"', '\'', '<', '>', '(', ')', '[', ']', '{', '}', '،', '؛')
+
+    /** نشانهٔ پایان جمله که بعد از لینک می‌آید و جزء آن نیست. */
+    private val TRAILING_PUNCTUATION = setOf('.', ',', '!', '?', ':', ';', '؟', '…')
 
     /** دامنهٔ قابل ثبت، یعنی دو برچسب آخر (برای `co.ir` و مانند آن سه برچسب). */
     fun registrableDomain(host: String): String {
