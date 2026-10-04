@@ -234,6 +234,8 @@ data class ThreadSummary(
     val draft: String = "",
     val muted: Boolean = false,
     val archived: Boolean = false,
+    /** دستهٔ آخرین پیامک همان پوشه؛ برای آیکون گفتگوی بی‌مخاطب (ROADMAP D7). */
+    val category: Category = Category.UNKNOWN,
 )
 
 /** خلاصهٔ پیشنهاد جابه‌جایی پیامک‌های قدیمی (اصل ۸). */

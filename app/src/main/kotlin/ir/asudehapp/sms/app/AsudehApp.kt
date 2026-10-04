@@ -1403,7 +1403,7 @@ private fun ThreadRowContent(
                 .split(MessageEntity.RECIPIENT_SEPARATOR)
                 .firstOrNull { it.isNotEmpty() }
                 ?: thread.address
-            ThreadAvatar(primaryAddress, Modifier.padding(end = 12.dp))
+            ThreadAvatar(primaryAddress, Modifier.padding(end = 12.dp), category = thread.category)
         }
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -22,12 +22,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -37,11 +39,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.AppLanguage
+import ir.asudehapp.sms.data.AsudehSettings
 import ir.asudehapp.sms.data.BackupFormat
 import ir.asudehapp.sms.data.DateStyle
 import ir.asudehapp.sms.data.DigestFrequency
@@ -119,6 +124,7 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             settings.showMessageClock,
             model::setShowMessageClock,
         )
+        TextScaleSlider(settings.conversationTextScale, model::setConversationTextScale)
 
         Section(stringResource(R.string.settings_sending))
         Toggle(
@@ -248,6 +254,31 @@ private fun Choice(label: String, selected: Boolean, onSelect: () -> Unit) {
     ) {
         RadioButton(selected = selected, onClick = null)
         Text(label, Modifier.padding(start = 12.dp), style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+/**
+ * اندازهٔ متن گفتگو (ROADMAP D7). مقدار هنگام کشیدن فقط روی نمونه دیده می‌شود
+ * و با رها کردن انگشت ذخیره می‌شود.
+ */
+@Composable
+private fun TextScaleSlider(scale: Float, onChange: (Float) -> Unit) {
+    var value by remember(scale) { mutableFloatStateOf(scale) }
+    val label = stringResource(R.string.settings_text_scale)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            stringResource(R.string.settings_text_scale_sample),
+            Modifier.padding(vertical = 4.dp),
+            style = MaterialTheme.typography.bodyLarge.let { it.copy(fontSize = it.fontSize * value) },
+        )
+        Slider(
+            value = value,
+            onValueChange = { value = it },
+            onValueChangeFinished = { onChange(value) },
+            valueRange = AsudehSettings.TEXT_SCALE_MIN..AsudehSettings.TEXT_SCALE_MAX,
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
+        )
     }
 }
 

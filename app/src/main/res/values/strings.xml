@@ -209,6 +209,8 @@
     <string name="settings_rules_hint">شماره‌ها و واژه‌هایی که همیشه در صندوق یا همیشه در تبلیغات‌اند</string>
     <string name="settings_message_clock">ساعت پیامک</string>
     <string name="settings_message_clock_hint">زیر هر پیامک، ساعتش هم نوشته شود.</string>
+    <string name="settings_text_scale">اندازهٔ متن گفتگو</string>
+    <string name="settings_text_scale_sample">سلام، فردا ساعت ۱۰ می‌بینمت.</string>
     <string name="settings_sending">ارسال</string>
     <string name="settings_delivery">گزارش تحویل</string>
     <string name="settings_delivery_hint">وقتی پیامک به گیرنده رسید، «تحویل شد» نشان داده شود.</string>
