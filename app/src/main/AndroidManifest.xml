@@ -29,6 +29,14 @@
         android:name="android.hardware.telephony"
         android:required="false" />
 
+    <!--
+      D67: فقط برای اینکه بدانیم بازار نصب است و صفحهٔ امتیاز آسوده را در آن باز
+      کنیم. `<queries>` مجوز نیست و دسترسی شبکه نمی‌دهد.
+    -->
+    <queries>
+        <package android:name="com.farsitel.bazaar" />
+    </queries>
+
     <application
         android:name=".app.AsudehApplication"
         android:allowBackup="true"

@@ -898,6 +898,26 @@ private fun SuggestionCard(model: AsudehViewModel, found: MoveSuggestion) {
     }
 }
 
+/** درخواست امتیاز در «لحظهٔ موفق» (D67): یک بار، در `PromoFolder`. */
+@Composable
+private fun RatingCard(model: AsudehViewModel) {
+    Card(
+        Modifier.fillMaxWidth().padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        ),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.rating_title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.rating_body), style = MaterialTheme.typography.bodySmall)
+            Row {
+                TextButton(onClick = model::rate) { Text(stringResource(R.string.rating_rate)) }
+                TextButton(onClick = model::dismissRatingCard) { Text(stringResource(R.string.rating_not_now)) }
+            }
+        }
+    }
+}
+
 @Composable
 private fun RescueFollowUpDialog(model: AsudehViewModel) {
     val pending by model.rescueFollowUp.collectAsState()
@@ -1123,10 +1143,17 @@ private fun FolderScreen(
     val lazyThreads = model.pagedThreadsIn(folder).collectAsLazyPagingItems()
     val selectedThreads by model.selectedThreads.collectAsState()
     val suggestions by model.suggestions.collectAsState()
+    val ratingCard by model.ratingCard.collectAsState()
+    LaunchedEffect(folder) {
+        if (folder == Folder.PROMO) model.checkRatingMoment()
+    }
 
     Column(Modifier.fillMaxSize()) {
         if (folder == Folder.PROMO && suggestions.messages > 0) {
             SuggestionCard(model, suggestions)
+        }
+        if (folder == Folder.PROMO && ratingCard) {
+            RatingCard(model)
         }
         // «همه خوانده شد» و «خالی کردن پوشه» فقط در `PromoFolder` است (D45)، و
         // حذف از provider فقط برای اپ پیش‌فرض ممکن است.
