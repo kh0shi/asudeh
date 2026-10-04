@@ -81,6 +81,14 @@ android {
     lint {
         warningsAsErrors = false
         abortOnError = true
+        // دسترس‌پذیری (M5 در D68): هشدارهای lint در این دسته خطا هستند.
+        error += setOf(
+            "ContentDescription",
+            "ClickableViewAccessibility",
+            "KeyboardInaccessibleWidget",
+            "LabelFor",
+            "GetContentDescriptionOverride",
+        )
     }
 }
 

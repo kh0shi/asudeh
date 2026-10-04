@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -61,8 +62,10 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -639,6 +642,7 @@ private fun HiddenRunBar(folder: Folder, count: Int, expanded: Boolean, onToggle
     Row(
         Modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
             .clickable(onClick = onToggle)
             .background(
                 if (scam) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
@@ -697,6 +701,19 @@ private fun MessageBubble(
     var openLink by remember { mutableStateOf<LinkSpan?>(null) }
     // روی `ScamFolder` و `Suspect` لینک شکل لینک ندارد و برگه‌اش فقط هشدار و کپی است.
     val riskyLinks = message.risk || message.folder == Folder.SCAM
+    val optionsLabel = stringResource(if (selectionMode) R.string.a11y_select else R.string.a11y_message_options)
+    val selectLabel = stringResource(if (selected) R.string.select_text else R.string.a11y_select)
+    val spoken = listOfNotNull(
+        Texts.sender(message.address).takeIf { !message.outgoing },
+        Texts.timestamp(message.dateReceived, withClock = true),
+        when (message.sendStatus) {
+            SendStatus.FAILED -> stringResource(R.string.send_failed)
+            SendStatus.PENDING -> stringResource(R.string.send_pending)
+            SendStatus.SENT -> stringResource(R.string.sent)
+            SendStatus.DELIVERED -> stringResource(R.string.delivered)
+            SendStatus.NONE -> null
+        },
+    ).joinToString("، ")
     openLink?.let { link -> LinkSheet(link, risky = riskyLinks, onDismiss = { openLink = null }) }
     Column(
         Modifier
@@ -745,6 +762,8 @@ private fun MessageBubble(
                     } else {
                         bubble
                             .combinedClickable(
+                                onClickLabel = optionsLabel,
+                                onLongClickLabel = selectLabel,
                                 onClick = {
                                     if (selectionMode) model.toggleMessage(message) else menu = true
                                 },
@@ -754,6 +773,9 @@ private fun MessageBubble(
                                     if (selected) onPickText() else model.toggleMessage(message)
                                 },
                             )
+                            // صفحه‌خوان پس از متن، فرستنده و زمان و وضعیت ارسال را
+                            // با کلمه می‌گوید، نه با تیک (M5 در D68).
+                            .semantics { stateDescription = spoken }
                             .padding(12.dp)
                     },
                     verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -825,8 +847,10 @@ private fun MessageBubble(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // همین زمان در وصف حباب گفته شده است؛ دوباره خوانده نشود.
             Text(
                 Texts.timestamp(message.dateReceived, withClock = showClock),
+                Modifier.clearAndSetSemantics {},
                 style = MaterialTheme.typography.labelSmall,
             )
             if (showSim) {
@@ -850,11 +874,12 @@ private fun MessageBubble(
                 }
                 SendStatus.PENDING -> Text(
                     stringResource(R.string.send_pending),
+                    Modifier.clearAndSetSemantics {},
                     style = MaterialTheme.typography.labelSmall,
                 )
                 // یک تیک: فرستاده شد. دو تیک: به گیرنده رسید (D53).
-                SendStatus.SENT -> Tick(SENT_TICK, stringResource(R.string.sent), dim = true)
-                SendStatus.DELIVERED -> Tick(DELIVERED_TICK, stringResource(R.string.delivered), dim = false)
+                SendStatus.SENT -> Tick(SENT_TICK, dim = true)
+                SendStatus.DELIVERED -> Tick(DELIVERED_TICK, dim = false)
                 SendStatus.NONE -> Unit
             }
             if (onRescue != null) {
@@ -960,14 +985,14 @@ private fun LinkSheet(link: LinkSpan, risky: Boolean, onDismiss: () -> Unit) {
 }
 
 /**
- * وضعیت ارسال، به‌صورت تیک. خود نویسه خوانده نمی‌شود، پس متنش برای صفحه‌خوان
- * جداگانه گفته می‌شود.
+ * وضعیت ارسال، به‌صورت تیک. صفحه‌خوان خود تیک را نمی‌خواند؛ وضعیت با کلمه در
+ * وصف حباب (`stateDescription`) گفته می‌شود.
  */
 @Composable
-private fun Tick(glyph: String, label: String, dim: Boolean) {
+private fun Tick(glyph: String, dim: Boolean) {
     Text(
         glyph,
-        Modifier.semantics { contentDescription = label },
+        Modifier.clearAndSetSemantics {},
         style = MaterialTheme.typography.labelSmall,
         color = if (dim) {
             MaterialTheme.colorScheme.onSurfaceVariant
