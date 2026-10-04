@@ -36,6 +36,7 @@
     <string name="close">Close</string>
 
     <string name="syncing">Checking messages…</string>
+    <string name="syncing_percent">Checking messages… %1$d%%</string>
     <string name="sync_failed">Couldn\'t read the phone\'s messages. Please grant access to messages.</string>
 
     <string name="empty_inbox">No messages</string>

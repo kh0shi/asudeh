@@ -399,9 +399,11 @@ class AsudehRepository(
      * 4. پیامک‌هایی که طبقه‌بندی‌شان در زمان دریافت تمام نشده بود، دوباره
      *    طبقه‌بندی می‌شوند؛ این هم آن‌ها را جابه‌جا نمی‌کند (D23).
      *
-     * خروجی، تعداد پیامک‌هایی است که تازه به ایندکس اضافه شده‌اند.
+     * خروجی، تعداد پیامک‌هایی است که تازه به ایندکس اضافه شده‌اند. [onProgress]
+     * بعد از هر تکه صدا زده می‌شود (D48). هر تکه پیش از تکهٔ بعد نوشته می‌شود،
+     * پس اگر اپ وسط کار بسته شود، اجرای بعدی از همان‌جا ادامه می‌دهد (ADR-0015).
      */
-    suspend fun sync(): Int = withContext(Dispatchers.Default) {
+    suspend fun sync(onProgress: (SyncProgress) -> Unit = {}): Int = withContext(Dispatchers.Default) {
         backfillSearchText()
         retryUnsaved()
 
@@ -409,6 +411,9 @@ class AsudehRepository(
         val indexed = dao.providerIds(MessageEntity.KIND_SMS)
         val plan = SyncPlan.of(indexed, store.readIds())
         val origin = if (plan.firstRun) Origin.SWEEP else Origin.EXTERNAL
+        val mmsPlan = mmsPlan()
+        val total = plan.missing.size + (mmsPlan?.missing?.size ?: 0)
+        onProgress(SyncProgress(0, total))
 
         val userRules = currentUserRules()
         var added = 0
@@ -416,14 +421,24 @@ class AsudehRepository(
             val entities = store.readByIds(chunk).map { sms -> sms.toEntity(userRules, origin) }
             dao.insertMissing(entities)
             added += entities.size
+            onProgress(SyncProgress(added, total))
         }
         for (chunk in plan.vanished.chunked(SYNC_CHUNK)) {
             dao.deleteAll(MessageEntity.KIND_SMS, chunk)
         }
 
-        added += syncMms(userRules, origin)
+        if (mmsPlan != null) {
+            added += syncMms(mmsPlan, userRules, origin) { mmsAdded -> onProgress(SyncProgress(added + mmsAdded, total)) }
+        }
         reclassifyPending(userRules)
         added
+    }
+
+    /** مقایسهٔ ایندکس MMS با provider؛ اگر provider MMS خوانده نشد `null`. */
+    private suspend fun mmsPlan(): SyncPlan? {
+        val indexed = dao.providerIds(MessageEntity.KIND_MMS)
+        val providerIds = runCatching { mms.readIds() }.getOrNull() ?: return null
+        return SyncPlan.of(indexed, providerIds)
     }
 
     /**
@@ -431,10 +446,12 @@ class AsudehRepository(
      * MMSی که فقط اعلانش بود و حالا دریافت شده (مثلاً با اپ دیگری)، به‌روز
      * می‌شود.
      */
-    private suspend fun syncMms(userRules: UserRules, sweepOrigin: Origin): Int {
-        val indexed = dao.providerIds(MessageEntity.KIND_MMS)
-        val providerIds = runCatching { mms.readIds() }.getOrNull() ?: return 0
-        val plan = SyncPlan.of(indexed, providerIds)
+    private suspend fun syncMms(
+        plan: SyncPlan,
+        userRules: UserRules,
+        sweepOrigin: Origin,
+        onAdded: (Int) -> Unit,
+    ): Int {
         val pending = dao.pendingDownloads().filter { it.providerId > 0 }
         if (plan.missing.isEmpty() && plan.vanished.isEmpty() && pending.isEmpty()) return 0
 
@@ -446,6 +463,7 @@ class AsudehRepository(
             val entities = mms.readByIds(chunk, members).map { it.toEntity(userRules, origin) }
             dao.insertMissing(entities)
             added += entities.size
+            onAdded(added)
         }
         for (chunk in plan.vanished.chunked(SYNC_CHUNK)) {
             dao.deleteAll(MessageEntity.KIND_MMS, chunk)

@@ -22,6 +22,7 @@ import ir.asudehapp.sms.data.MoveSuggestion
 import ir.asudehapp.sms.data.ScheduledMessageEntity
 import ir.asudehapp.sms.data.SenderRuleEntity
 import ir.asudehapp.sms.data.SenderRuleKind
+import ir.asudehapp.sms.data.SyncProgress
 import ir.asudehapp.sms.data.TrashedMessageEntity
 import ir.asudehapp.sms.data.ThemeMode
 import ir.asudehapp.sms.data.ThreadSummary
@@ -316,6 +317,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _syncing = MutableStateFlow(false)
     val syncing: StateFlow<Boolean> = _syncing.asStateFlow()
+
+    /** پیشرفت همگام‌سازی جاری، برای نوار درصددار `HistorySweep` (D48). */
+    private val _syncProgress = MutableStateFlow<SyncProgress?>(null)
+    val syncProgress: StateFlow<SyncProgress?> = _syncProgress.asStateFlow()
 
     private val _syncFailed = MutableStateFlow(false)
     val syncFailed: StateFlow<Boolean> = _syncFailed.asStateFlow()
@@ -620,9 +625,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             do {
                 syncAgain = false
-                val result = runCatching { repository.sync() }
+                val result = runCatching { repository.sync { _syncProgress.value = it } }
                 _syncFailed.value = result.isFailure
             } while (syncAgain)
+            _syncProgress.value = null
             _syncing.value = false
         }
     }

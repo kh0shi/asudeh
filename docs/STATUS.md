@@ -17,6 +17,7 @@
 - امضای release از متغیرهای `ASUDEH_KEYSTORE*` بیرون از مخزن؛ بدون آن‌ها release مثل قبل بدون امضا ساخته می‌شود (D65، ROADMAP A3، docs/BUILD.md). کلید واقعی هنوز ساخته نشده (⚑ U1)
 - پیش‌نویس سیاست حریم خصوصی و متن فروشگاه، فارسی و انگلیسی، در `docs/store/` (ROADMAP A4)؛ انتشارش با صاحب پروژه است (⚑ U4)
 - build بازتولیدپذیر در CI (D65، ROADMAP B5): release دو بار روی دو runner جدا و بدون کش ساخته و بایت‌به‌بایت مقایسه می‌شود
+- `HistorySweep` قابل ادامه و با نوار درصددار (D48، ADR-0015، ROADMAP C1): ایندکس خودش checkpoint است و Foreground Service لازم نشد
 - نسخه‌گذاری SemVer: `versionName` برابر `1.0.0-beta1`، `versionCode` شمارندهٔ یکنواخت (D66، ROADMAP A2)
 - `rulepack.json` با JSON Schema (`core/classifier/src/test/resources/rulepack.schema.json`) در `RulePackSchemaTest` سنجیده می‌شود: کلید ناشناخته، نوع اشتباه، regex خراب و نسخهٔ بدون قالب `1405.07` (D62، ROADMAP B3)
 - فهرست ثابت مجوزها؛ هر مجوز تازه CI را متوقف می‌کند (D62)
@@ -352,8 +353,6 @@
 
 **عمداً برای بعد (D53 و D68)**
 - `M-Acknowledge.ind` و گزارش خوانده‌شدن MMS (ADR-0009)
-- Foreground Service و `checkpoint` برای `HistorySweep` (D48): فعلاً بررسی در
-  ViewModel انجام می‌شود و نوار پیشرفتش درصد ندارد
 - لینک‌ها در متن پیامک اصلاً قابل لمس نیستند (امن‌ترین حالت)؛ برگهٔ هشدار با
   دامنهٔ واقعی (D37) هنوز نیست
 
