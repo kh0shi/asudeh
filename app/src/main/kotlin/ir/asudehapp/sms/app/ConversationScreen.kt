@@ -662,7 +662,7 @@ private fun PendingSendRow(pending: DelayedSend.Pending, onCancel: () -> Unit) {
     val left by produceState((pending.delayMillis / MILLIS_PER_SECOND).toInt(), pending) {
         while (value > 0) {
             delay(MILLIS_PER_SECOND)
-            value--
+            value = value - 1
         }
     }
     Row(
