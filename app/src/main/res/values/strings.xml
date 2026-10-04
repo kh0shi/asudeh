@@ -219,6 +219,11 @@
     <string name="settings_send_enter_hint">کلید Enter پیامک را می‌فرستد؛ Shift+Enter خط تازه است.</string>
     <string name="send_delayed">ارسال تا %d ثانیهٔ دیگر</string>
     <string name="send_cancel">لغو</string>
+    <string name="settings_notification_content">نمایش در اعلان</string>
+    <string name="notification_content_full">نام و متن</string>
+    <string name="notification_content_name">فقط نام</string>
+    <string name="notification_content_none">هیچ‌کدام</string>
+    <string name="thread_sound">صدای اعلان این گفتگو</string>
     <string name="settings_sending">ارسال</string>
     <string name="settings_delivery">گزارش تحویل</string>
     <string name="settings_delivery_hint">وقتی پیامک به گیرنده رسید، «تحویل شد» نشان داده شود.</string>

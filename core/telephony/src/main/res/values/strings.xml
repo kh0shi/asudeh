@@ -20,6 +20,10 @@
     <string name="notify_reminder_title">یادآوری · %s</string>
     <string name="notify_reminder_no_text">پیام بدون متن</string>
     <string name="notify_me">من</string>
+    <string name="notify_new_message">پیامک تازه</string>
+    <string name="notify_hidden_text">برای خواندن، آسوده را باز کنید</string>
+    <string name="action_copy_code_hidden">کپی رمز</string>
+    <string name="channel_thread">گفتگو با %1$s</string>
     <string name="notify_mms_title">پیام چندرسانه‌ای از %1$s</string>
     <string name="notify_mms_image">🖼 تصویر</string>
     <string name="notify_mms_attachment">📎 پیوست</string>

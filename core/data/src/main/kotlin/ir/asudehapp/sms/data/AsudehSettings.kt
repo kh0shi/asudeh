@@ -15,6 +15,12 @@ enum class AppLanguage { SYSTEM, FA, EN }
 /** تقویم تاریخ‌ها؛ [AUTO] یعنی شمسی در رابط فارسی و میلادی در انگلیسی. */
 enum class DateStyle { AUTO, JALALI, GREGORIAN }
 
+/**
+ * آنچه اعلان پیامک نشان می‌دهد (ROADMAP E4): نام و متن، فقط نام، یا هیچ‌کدام.
+ * روی صفحهٔ قفل رمز و بانک همیشه پنهان‌اند (D39).
+ */
+enum class NotificationContent { FULL, NAME_ONLY, NONE }
+
 /** تم رابط (D49، D52). */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
@@ -81,6 +87,10 @@ class AsudehSettings(context: Context) {
     var sendDelaySeconds: Int
         get() = prefs.getInt(KEY_SEND_DELAY, 0).coerceIn(0, SEND_DELAY_MAX)
         set(value) = prefs.edit().putInt(KEY_SEND_DELAY, value.coerceIn(0, SEND_DELAY_MAX)).apply()
+
+    var notificationContent: NotificationContent
+        get() = enumOr(prefs.getString(KEY_NOTIFICATION_CONTENT, null), NotificationContent.FULL)
+        set(value) = prefs.edit().putString(KEY_NOTIFICATION_CONTENT, value.name).apply()
 
     /** «پیشرفته»: کلید Enter صفحه‌کلید پیامک را می‌فرستد، نه خط تازه (ROADMAP D8). */
     var sendWithEnter: Boolean
@@ -155,6 +165,7 @@ class AsudehSettings(context: Context) {
         put(KEY_TEXT_SCALE, conversationTextScale.toString())
         put(KEY_SEND_DELAY, sendDelaySeconds.toString())
         put(KEY_SEND_WITH_ENTER, sendWithEnter.toString())
+        put(KEY_NOTIFICATION_CONTENT, notificationContent.name)
         put(KEY_MMS_AUTO_DOWNLOAD, mmsAutoDownload.toString())
         put(KEY_MMS_SENDING, mmsSending.toString())
         put(KEY_MMS_READ_REPORTS, mmsReadReports.toString())
@@ -186,6 +197,7 @@ class AsudehSettings(context: Context) {
     }
 
     private fun importSending(values: Map<String, String>) {
+        values[KEY_NOTIFICATION_CONTENT]?.let { notificationContent = enumOr(it, notificationContent) }
         values[KEY_SEND_DELAY]?.toIntOrNull()?.let { sendDelaySeconds = it }
         values[KEY_SEND_WITH_ENTER]?.toBooleanStrictOrNull()?.let { sendWithEnter = it }
     }
@@ -226,6 +238,7 @@ class AsudehSettings(context: Context) {
         private const val KEY_TEXT_SCALE = "conversation_text_scale"
         private const val KEY_SEND_DELAY = "send_delay_seconds"
         private const val KEY_SEND_WITH_ENTER = "send_with_enter"
+        private const val KEY_NOTIFICATION_CONTENT = "notification_content"
         private const val KEY_MMS_AUTO_DOWNLOAD = "mms_auto_download"
         private const val KEY_MMS_SENDING = "mms_sending"
         private const val KEY_MMS_READ_REPORTS = "mms_read_reports"
