@@ -220,6 +220,23 @@ interface MessageDao {
     )
     fun archivedPagingSource(): PagingSource<Int, ThreadSummary>
 
+    /**
+     * فرستنده‌های یک پوشه با شمار پیامک‌هایشان (E5). ستون‌های بی‌تجمیع
+     * (`address`، `threadId`) در SQLite از همان ردیفِ `MAX(dateReceived)` می‌آیند.
+     */
+    @Query(
+        """
+        SELECT address, threadId, COUNT(*) AS total,
+               SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) AS unread,
+               MAX(dateReceived) AS lastDate
+          FROM message
+         WHERE folder = :folder
+         GROUP BY normalizedAddress
+         ORDER BY lastDate DESC
+        """,
+    )
+    fun observeSenders(folder: Folder): Flow<List<FolderSender>>
+
     @Query("SELECT COUNT(*) FROM message WHERE threadId = :threadId")
     suspend fun countInThread(threadId: Long): Int
 

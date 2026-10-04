@@ -372,3 +372,13 @@ data class ReminderEntity(
     val threadId: Long,
     val remindAt: Long,
 )
+
+/** یک فرستنده در نمای «بر اساس فرستنده»ی پوشهٔ تبلیغات (ROADMAP E5). */
+data class FolderSender(
+    val address: String,
+    /** گفتگوی آخرین پیامک این فرستنده، برای باز کردنش. */
+    val threadId: Long,
+    val total: Int,
+    val unread: Int,
+    val lastDate: Long,
+)

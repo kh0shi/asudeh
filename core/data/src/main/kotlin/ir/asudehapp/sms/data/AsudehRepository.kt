@@ -137,6 +137,9 @@ class AsudehRepository(
 
     suspend fun countNow(folder: Folder): Int = dao.count(folder)
 
+    /** فرستنده‌های یک پوشه، تازه‌ترین اول (ROADMAP E5). */
+    fun senders(folder: Folder): Flow<List<FolderSender>> = dao.observeSenders(folder)
+
     fun userRules(): Flow<UserRules> =
         combine(ruleDao.observeAll(), keywordDao.observeAll(), settings.changes()) { senders, keywords, _ ->
             buildUserRules(senders, keywords)

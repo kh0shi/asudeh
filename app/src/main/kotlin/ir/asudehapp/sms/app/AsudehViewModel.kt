@@ -15,6 +15,7 @@ import ir.asudehapp.sms.data.BackupException
 import ir.asudehapp.sms.data.DateStyle
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.KeywordRuleEntity
+import ir.asudehapp.sms.data.FolderSender
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.data.NotificationContent
 import ir.asudehapp.sms.data.MmsPartInfo
@@ -281,6 +282,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), 0)
     val scamCount: StateFlow<Int> = repository.count(Folder.SCAM)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), 0)
+
+    /** پوشهٔ تبلیغات، گروه‌بندی‌شده بر اساس فرستنده (E5). */
+    val promoSenders: StateFlow<List<FolderSender>> = repository.senders(Folder.PROMO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
 
     /** پیامک‌های نشان‌دار، تازه‌ترین نشان اول (D6). */
     val starredMessages: StateFlow<List<MessageEntity>> = repository.starredMessages()
@@ -1069,6 +1074,15 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         if (!state.isAdLine) return
         viewModelScope.launch {
             runCatching { container.smsSender.unsubscribe(state.address, state.subscriptionId) }
+                .onFailure { _sendError.value = true }
+        }
+    }
+
+    /** «لغو ۱۱» از ردیف یک فرستنده در پوشهٔ تبلیغات (E5)؛ همان مسیر و همان تأیید صریح D28. */
+    fun unsubscribeFrom(address: String) {
+        if (!Addresses.isAdLine(address)) return
+        viewModelScope.launch {
+            runCatching { container.smsSender.unsubscribe(address) }
                 .onFailure { _sendError.value = true }
         }
     }
