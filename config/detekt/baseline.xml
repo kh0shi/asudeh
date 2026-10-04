@@ -1,0 +1,338 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>ComplexCondition:AsudehRepository.kt$AsudehRepository$!pinned &amp;&amp; draft.isEmpty() &amp;&amp; !muted &amp;&amp; !archived</ID>
+    <ID>ComplexCondition:Classifier.kt$Classifier$offBrandLinks.isNotEmpty() &amp;&amp; !isKnownContact &amp;&amp; brand.isSensitive &amp;&amp; rules.scamBait.matches(text) &amp;&amp; (brand.senders.isNotEmpty() || brand.senderIds.isNotEmpty()) &amp;&amp; !brand.isOfficialSender(address)</ID>
+    <ID>ComplexCondition:MmsImages.kt$MmsImages$type != null &amp;&amp; type.startsWith("image/") &amp;&amp; original.size &lt;= limit &amp;&amp; type in setOf("image/jpeg", "image/png", "image/gif")</ID>
+    <ID>ComplexCondition:Router.kt$Router$(verdict.category == Category.OTP || verdict.category == Category.BANK) &amp;&amp; verdict.confidence == Confidence.HIGH &amp;&amp; !blockedSender &amp;&amp; userRules.isOn(DefaultRule.OTP_AND_BANK_ALWAYS_INBOX)</ID>
+    <ID>ComplexCondition:Router.kt$Router$verdict.category == Category.PHISHING &amp;&amp; hasEvidence &amp;&amp; !allowed &amp;&amp; userRules.isOn(DefaultRule.HIDE_SCAM)</ID>
+    <ID>ComplexCondition:Router.kt$Router$verdict.category == Category.PROMO &amp;&amp; verdict.confidence == Confidence.HIGH &amp;&amp; !personalLock &amp;&amp; userRules.isOn(DefaultRule.HIDE_PROMO)</ID>
+    <ID>CyclomaticComplexMethod:AsudehApp.kt$@Composable private fun noticeText(notice: UiNotice): String</ID>
+    <ID>CyclomaticComplexMethod:AsudehApp.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AsudehApp( model: AsudehViewModel, isDefaultApp: Boolean, onBecomeDefault: () -&gt; Unit, onContinueReadOnly: () -&gt; Unit, onExit: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:AsudehNotifier.kt$AsudehNotifier$@SuppressLint("MissingPermission") override suspend fun notify(message: ClassifiedMessage)</ID>
+    <ID>CyclomaticComplexMethod:AsudehViewModel.kt$AsudehViewModel$private fun openConversation(target: Destination.Conversation)</ID>
+    <ID>CyclomaticComplexMethod:BackupManager.kt$BackupManager$suspend fun import(input: InputStream, settings: AsudehSettings, isDefaultApp: Boolean): ImportResult</ID>
+    <ID>CyclomaticComplexMethod:Classifier.kt$Classifier$private fun phishing( text: String, address: String, senderKind: SenderKind, isKnownContact: Boolean, links: List&lt;DetectedLink&gt;, ): Verdict?</ID>
+    <ID>CyclomaticComplexMethod:ConversationScreen.kt$@Composable fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean)</ID>
+    <ID>CyclomaticComplexMethod:ConversationScreen.kt$@Composable private fun Composer( model: AsudehViewModel, state: ConversationUiState, draft: String, attachments: List&lt;PendingAttachment&gt;, preparing: Boolean, sims: List&lt;SimCard&gt;, multiSim: Boolean, enabled: Boolean, isDefaultApp: Boolean, mmsSending: Boolean, )</ID>
+    <ID>CyclomaticComplexMethod:ConversationScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun MessageBubble( model: AsudehViewModel, message: MessageEntity, dimmed: Boolean, showSender: Boolean, showSim: Boolean, showReason: Boolean, showClock: Boolean, selected: Boolean, selectionMode: Boolean, pickingText: Boolean, showPickHint: Boolean, isDefaultApp: Boolean, onWhy: () -&gt; Unit, onDetails: () -&gt; Unit, onPickText: () -&gt; Unit, onDonePickingText: () -&gt; Unit, onResend: () -&gt; Unit, onRescue: (() -&gt; Unit)? = null, )</ID>
+    <ID>CyclomaticComplexMethod:LinkGuard.kt$LinkGuard$fun isLookalike(host: String, officialDomain: String): Boolean</ID>
+    <ID>CyclomaticComplexMethod:Messages.kt$Addresses$fun normalize(address: String): String</ID>
+    <ID>CyclomaticComplexMethod:MmsNotification.kt$MmsNotification.Companion.Reader$fun readNotification(nowSeconds: Long): MmsNotification?</ID>
+    <ID>CyclomaticComplexMethod:MmsProviderStore.kt$MmsProviderStore$suspend fun restore( address: String, recipients: List&lt;String&gt;, date: Long, dateSent: Long, outgoing: Boolean, read: Boolean, subId: Int, parts: List&lt;MmsPart&gt;, ): StoredMms</ID>
+    <ID>CyclomaticComplexMethod:NewConversationScreen.kt$@Composable fun NewConversationScreen(model: AsudehViewModel)</ID>
+    <ID>CyclomaticComplexMethod:Router.kt$Router$fun route( verdict: Verdict, input: MessageInput, userRules: UserRules = UserRules.EMPTY, origin: Origin = Origin.LIVE, ): Placement</ID>
+    <ID>CyclomaticComplexMethod:Texts.kt$Texts$@Composable fun reason(message: MessageEntity): String</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun ActionMenuItem(text: String, icon: ImageVector, onClick: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun ArchiveScreen( model: AsudehViewModel, isDefaultApp: Boolean, onOpenThread: (Long, Folder) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun ArchiveSelectionActions(model: AsudehViewModel, isDefaultApp: Boolean, selectedThreads: Set&lt;Long&gt;)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun CrashReportDialog(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun DefaultAppCard(onBecomeDefault: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun DeleteDialog(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun EmojiMenuItem(emoji: String, text: String, onClick: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun EmptyFolderDialog(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun EmptyState(text: String)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun EmptyTrashDialog(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun FolderMenuItem(title: String, trailing: String, onClick: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun FolderScreen( model: AsudehViewModel, folder: Folder, isDefaultApp: Boolean, onOpenThread: (Long) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun HomeActions(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun HomeScreen( model: AsudehViewModel, isDefaultApp: Boolean, onBecomeDefault: () -&gt; Unit, onOpenThread: (Long) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun MessageSelectionActions(model: AsudehViewModel, isDefaultApp: Boolean)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun RescueFollowUpDialog(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun SampleList(messages: List&lt;MessageEntity&gt;)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun SelectionActions( model: AsudehViewModel, destination: Destination, isDefaultApp: Boolean, selectedThreads: Set&lt;Long&gt;, )</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun SpamDialog(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun SuggestionCard(model: AsudehViewModel, found: MoveSuggestion)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun SuggestionSampleDialog(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun SuggestionSummary(found: MoveSuggestion)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun SweepOfferDialog(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun SwipeBackground(target: SwipeToDismissBoxValue, archived: Boolean)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun ThreadSelectionActions( model: AsudehViewModel, destination: Destination, isDefaultApp: Boolean, selectedThreads: Set&lt;Long&gt;, )</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@Composable private fun WelcomeScreen(onBecomeDefault: () -&gt; Unit, onContinueReadOnly: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun ThreadRowContent( model: AsudehViewModel, thread: ThreadSummary, selected: Boolean, selectionMode: Boolean, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AsudehApp( model: AsudehViewModel, isDefaultApp: Boolean, onBecomeDefault: () -&gt; Unit, onContinueReadOnly: () -&gt; Unit, onExit: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:AsudehApp.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun ThreadRow( model: AsudehViewModel, thread: ThreadSummary, folder: Folder, isDefaultApp: Boolean, selected: Boolean, selectionMode: Boolean, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:Avatar.kt$@Composable fun ThreadAvatar(address: String, modifier: Modifier = Modifier, size: Dp = 40.dp)</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, folder: Folder)</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean)</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun Composer( model: AsudehViewModel, state: ConversationUiState, draft: String, attachments: List&lt;PendingAttachment&gt;, preparing: Boolean, sims: List&lt;SimCard&gt;, multiSim: Boolean, enabled: Boolean, isDefaultApp: Boolean, mmsSending: Boolean, )</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun DetailRow(label: String, value: String)</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun DetailsDialog(message: MessageEntity, onDismiss: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun HiddenRunBar(folder: Folder, count: Int, expanded: Boolean, onToggle: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun MessageBody(body: String, dimmed: Boolean)</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun MessageMenu( expanded: Boolean, message: MessageEntity, canDelete: Boolean, onDismiss: () -&gt; Unit, onCopy: () -&gt; Unit, onPickText: () -&gt; Unit, onShare: () -&gt; Unit, onForward: () -&gt; Unit, onSelect: () -&gt; Unit, onDelete: () -&gt; Unit, onWhy: () -&gt; Unit, onDetails: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun MessageMenuItem(text: String, onClick: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun ReasonSheet( message: MessageEntity, isAdLine: Boolean, onDismiss: () -&gt; Unit, onRescue: () -&gt; Unit, onBlock: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun ScheduledRow( message: ScheduledMessageEntity, enabled: Boolean, onCancel: () -&gt; Unit, onSendNow: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@Composable private fun Tick(glyph: String, label: String, dim: Boolean)</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun MessageBubble( model: AsudehViewModel, message: MessageEntity, dimmed: Boolean, showSender: Boolean, showSim: Boolean, showReason: Boolean, showClock: Boolean, selected: Boolean, selectionMode: Boolean, pickingText: Boolean, showPickHint: Boolean, isDefaultApp: Boolean, onWhy: () -&gt; Unit, onDetails: () -&gt; Unit, onPickText: () -&gt; Unit, onDonePickingText: () -&gt; Unit, onResend: () -&gt; Unit, onRescue: (() -&gt; Unit)? = null, )</ID>
+    <ID>FunctionNaming:ConversationScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun SendButton( enabled: Boolean, canSchedule: Boolean, menuOpen: Boolean, onSend: () -&gt; Unit, onOpenMenu: () -&gt; Unit, onDismissMenu: () -&gt; Unit, onSchedule: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:MmsViews.kt$@Composable fun MmsContent(model: AsudehViewModel, message: MessageEntity)</ID>
+    <ID>FunctionNaming:MmsViews.kt$@Composable private fun ImageViewer(uri: Uri, partId: Long, onOpenExternally: () -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:MmsViews.kt$@Composable private fun MmsImage(uri: Uri, partId: Long, onClick: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:NewConversationScreen.kt$@Composable fun NewConversationScreen(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:NewConversationScreen.kt$@Composable private fun ContactRow(contact: ContactPhone, onClick: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:ScheduleDialog.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ScheduleDialog(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:SearchScreen.kt$@Composable fun SearchScreen(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:SearchScreen.kt$@Composable private fun SearchResult(message: MessageEntity, onClick: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable fun RulesScreen(model: AsudehViewModel)</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean)</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun AddRuleDialog( onDismiss: () -&gt; Unit, onAdd: (value: String, kind: SenderRuleKind, isKeyword: Boolean) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun Choice(label: String, selected: Boolean, onSelect: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun DefaultKeywordRow( keyword: String, kind: SenderRuleKind, id: String, settings: SettingsState, model: AsudehViewModel, )</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun KeywordRuleRow(rule: KeywordRuleEntity, onForget: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun Link(label: String, hint: String, onClick: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun RuleRow(title: String, subtitle: String, allow: Boolean, onForget: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun Section(title: String, first: Boolean = false)</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun SenderRuleRow(rule: SenderRuleEntity, onForget: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun Toggle(label: String, hint: String?, checked: Boolean, onChange: (Boolean) -&gt; Unit)</ID>
+    <ID>FunctionNaming:Theme.kt$@Composable fun AsudehTheme( darkTheme: Boolean = isSystemInDarkTheme(), dynamicColor: Boolean = false, content: @Composable () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:TrashScreen.kt$@Composable fun TrashScreen(model: AsudehViewModel)</ID>
+    <ID>InstanceOfCheckForException:ReceivePipeline.kt$ReceivePipeline$failure is CancellationException</ID>
+    <ID>LargeClass:AsudehRepository.kt$AsudehRepository</ID>
+    <ID>LargeClass:AsudehViewModel.kt$AsudehViewModel : AndroidViewModel</ID>
+    <ID>LongMethod:AsudehApp.kt$@Composable private fun ThreadSelectionActions( model: AsudehViewModel, destination: Destination, isDefaultApp: Boolean, selectedThreads: Set&lt;Long&gt;, )</ID>
+    <ID>LongMethod:AsudehApp.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun ThreadRowContent( model: AsudehViewModel, thread: ThreadSummary, selected: Boolean, selectionMode: Boolean, onClick: () -&gt; Unit, )</ID>
+    <ID>LongMethod:AsudehApp.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AsudehApp( model: AsudehViewModel, isDefaultApp: Boolean, onBecomeDefault: () -&gt; Unit, onContinueReadOnly: () -&gt; Unit, onExit: () -&gt; Unit, )</ID>
+    <ID>LongMethod:AsudehNotifier.kt$AsudehNotifier$@SuppressLint("MissingPermission") override suspend fun notify(message: ClassifiedMessage)</ID>
+    <ID>LongMethod:BackupManager.kt$BackupManager$suspend fun import(input: InputStream, settings: AsudehSettings, isDefaultApp: Boolean): ImportResult</ID>
+    <ID>LongMethod:ConversationScreen.kt$@Composable fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, folder: Folder)</ID>
+    <ID>LongMethod:ConversationScreen.kt$@Composable fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean)</ID>
+    <ID>LongMethod:ConversationScreen.kt$@Composable private fun Composer( model: AsudehViewModel, state: ConversationUiState, draft: String, attachments: List&lt;PendingAttachment&gt;, preparing: Boolean, sims: List&lt;SimCard&gt;, multiSim: Boolean, enabled: Boolean, isDefaultApp: Boolean, mmsSending: Boolean, )</ID>
+    <ID>LongMethod:ConversationScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun MessageBubble( model: AsudehViewModel, message: MessageEntity, dimmed: Boolean, showSender: Boolean, showSim: Boolean, showReason: Boolean, showClock: Boolean, selected: Boolean, selectionMode: Boolean, pickingText: Boolean, showPickHint: Boolean, isDefaultApp: Boolean, onWhy: () -&gt; Unit, onDetails: () -&gt; Unit, onPickText: () -&gt; Unit, onDonePickingText: () -&gt; Unit, onResend: () -&gt; Unit, onRescue: (() -&gt; Unit)? = null, )</ID>
+    <ID>LongMethod:NewConversationScreen.kt$@Composable fun NewConversationScreen(model: AsudehViewModel)</ID>
+    <ID>LongMethod:ReceivePipeline.kt$ReceivePipeline$suspend fun onReceive(raw: RawSms, origin: Origin = Origin.LIVE): ClassifiedMessage</ID>
+    <ID>LongMethod:Router.kt$Router$fun route( verdict: Verdict, input: MessageInput, userRules: UserRules = UserRules.EMPTY, origin: Origin = Origin.LIVE, ): Placement</ID>
+    <ID>LongMethod:ScheduleDialog.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ScheduleDialog(model: AsudehViewModel)</ID>
+    <ID>LongMethod:SettingsScreen.kt$@Composable fun RulesScreen(model: AsudehViewModel)</ID>
+    <ID>LongMethod:SettingsScreen.kt$@Composable fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean)</ID>
+    <ID>LongMethod:TrashScreen.kt$@Composable fun TrashScreen(model: AsudehViewModel)</ID>
+    <ID>LongParameterList:AsudehApp.kt$( items: LazyPagingItems&lt;ThreadSummary&gt;, model: AsudehViewModel, isDefaultApp: Boolean, selectedThreads: Set&lt;Long&gt;, folderFor: (ThreadSummary) -&gt; Folder, onOpenThread: (ThreadSummary) -&gt; Unit, )</ID>
+    <ID>LongParameterList:AsudehApp.kt$( model: AsudehViewModel, thread: ThreadSummary, folder: Folder, isDefaultApp: Boolean, selected: Boolean, selectionMode: Boolean, onClick: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ConversationScreen.kt$( enabled: Boolean, canSchedule: Boolean, menuOpen: Boolean, onSend: () -&gt; Unit, onOpenMenu: () -&gt; Unit, onDismissMenu: () -&gt; Unit, onSchedule: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ConversationScreen.kt$( expanded: Boolean, message: MessageEntity, canDelete: Boolean, onDismiss: () -&gt; Unit, onCopy: () -&gt; Unit, onPickText: () -&gt; Unit, onShare: () -&gt; Unit, onForward: () -&gt; Unit, onSelect: () -&gt; Unit, onDelete: () -&gt; Unit, onWhy: () -&gt; Unit, onDetails: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ConversationScreen.kt$( model: AsudehViewModel, message: MessageEntity, dimmed: Boolean, showSender: Boolean, showSim: Boolean, showReason: Boolean, showClock: Boolean, selected: Boolean, selectionMode: Boolean, pickingText: Boolean, showPickHint: Boolean, isDefaultApp: Boolean, onWhy: () -&gt; Unit, onDetails: () -&gt; Unit, onPickText: () -&gt; Unit, onDonePickingText: () -&gt; Unit, onResend: () -&gt; Unit, onRescue: (() -&gt; Unit)? = null, )</ID>
+    <ID>LongParameterList:ConversationScreen.kt$( model: AsudehViewModel, state: ConversationUiState, draft: String, attachments: List&lt;PendingAttachment&gt;, preparing: Boolean, sims: List&lt;SimCard&gt;, multiSim: Boolean, enabled: Boolean, isDefaultApp: Boolean, mmsSending: Boolean, )</ID>
+    <ID>LongParameterList:MmsCodec.kt$IncomingMms$( val from: String?, val to: List&lt;String&gt;, val cc: List&lt;String&gt;, val subject: String?, /** زمان ارسال بر حسب ثانیه؛ ۰ یعنی نامعلوم. */ val dateSeconds: Long, val messageId: String?, val transactionId: String?, val contentType: String?, val messageClass: String?, val mmsVersion: Int, val parts: List&lt;MmsPart&gt;, )</ID>
+    <ID>LongParameterList:MmsProviderStore.kt$MmsProviderStore$( address: String, recipients: List&lt;String&gt;, date: Long, dateSent: Long, outgoing: Boolean, read: Boolean, subId: Int, parts: List&lt;MmsPart&gt;, )</ID>
+    <ID>LongParameterList:MmsProviderStore.kt$MmsProviderStore$( from: String?, transactionId: String, contentLocation: String, subject: String?, messageSize: Long?, expirySeconds: Long?, mmsVersion: Int?, subscriptionId: Int, now: Long, )</ID>
+    <ID>LongParameterList:ReceivePipeline.kt$ReceivePipeline$( private val store: TelephonyStore, private val index: MessageIndex, private val notifier: Notifier, /** معمولاً `Classifier::classify`؛ در آزمون‌ها با یک تابع ساختگی جایگزین می‌شود. */ private val classify: suspend (MessageInput) -&gt; Verdict, /** آیا این سرشماره در مخاطب‌های گوشی هست (برای قفل ایمنی D31). */ private val isKnownContact: suspend (String) -&gt; Boolean = { false }, private val userRules: suspend () -&gt; UserRules = { UserRules.EMPTY }, private val classifyTimeoutMillis: Long = DEFAULT_CLASSIFY_TIMEOUT_MILLIS, private val onError: (String, Throwable) -&gt; Unit = { _, _ -&gt; }, /** * طبقه‌بندی بیرون از ساختار coroutine مسیر دریافت اجرا می‌شود. کار CPU (مثلاً * یک regex کند) به لغو واکنش نشان نمی‌دهد؛ این‌طور با گذشتن سقف زمانی، مسیر * دریافت منتظر آن نمی‌ماند و پیامک بی‌درنگ در `Inbox` نشان داده می‌شود. */ private val classifyScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default), )</ID>
+    <ID>LongParameterList:ThreadSummaryTriggerTest.kt$ThreadSummaryTriggerTest$( kind: String, providerId: Long, threadId: Long, address: String, body: String, dateReceived: Long, folder: String, read: Boolean, outgoing: Boolean = false, risk: Boolean = false, recipients: String = "", attachments: Int = 0, )</ID>
+    <ID>LoopWithTooManyJumpStatements:AsudehRepository.kt$AsudehRepository$for</ID>
+    <ID>LoopWithTooManyJumpStatements:BackupManager.kt$BackupManager$for</ID>
+    <ID>LoopWithTooManyJumpStatements:Contacts.kt$Contacts$while</ID>
+    <ID>LoopWithTooManyJumpStatements:LinkGuard.kt$LinkGuard$for</ID>
+    <ID>MagicNumber:AsudehNotifier.kt$AsudehNotifier$0x7FFFFFFF</ID>
+    <ID>MagicNumber:AsudehNotifier.kt$AsudehNotifier.Companion$32</ID>
+    <ID>MagicNumber:Avatar.kt$0xFF4DB6AC</ID>
+    <ID>MagicNumber:Avatar.kt$0xFF4FC3F7</ID>
+    <ID>MagicNumber:Avatar.kt$0xFF7986CB</ID>
+    <ID>MagicNumber:Avatar.kt$0xFF81C784</ID>
+    <ID>MagicNumber:Avatar.kt$0xFFA1887F</ID>
+    <ID>MagicNumber:Avatar.kt$0xFFBA68C8</ID>
+    <ID>MagicNumber:Avatar.kt$0xFFE57373</ID>
+    <ID>MagicNumber:Avatar.kt$0xFFFFB74D</ID>
+    <ID>MagicNumber:Avatar.kt$60</ID>
+    <ID>MagicNumber:BackupManager.kt$BackupManager$3</ID>
+    <ID>MagicNumber:BaselineProfileGenerator.kt$BaselineProfileGenerator$5_000</ID>
+    <ID>MagicNumber:Classifier.kt$Classifier$4</ID>
+    <ID>MagicNumber:Databases.kt$IndexMigrations.&lt;no name provided&gt;$3</ID>
+    <ID>MagicNumber:Databases.kt$IndexMigrations.&lt;no name provided&gt;$4</ID>
+    <ID>MagicNumber:Databases.kt$IndexMigrations.&lt;no name provided&gt;$5</ID>
+    <ID>MagicNumber:Databases.kt$IndexMigrations.&lt;no name provided&gt;$6</ID>
+    <ID>MagicNumber:JalaliDate.kt$100</ID>
+    <ID>MagicNumber:JalaliDate.kt$100100</ID>
+    <ID>MagicNumber:JalaliDate.kt$11</ID>
+    <ID>MagicNumber:JalaliDate.kt$1111</ID>
+    <ID>MagicNumber:JalaliDate.kt$1181</ID>
+    <ID>MagicNumber:JalaliDate.kt$12</ID>
+    <ID>MagicNumber:JalaliDate.kt$1210</ID>
+    <ID>MagicNumber:JalaliDate.kt$139361631</ID>
+    <ID>MagicNumber:JalaliDate.kt$14</ID>
+    <ID>MagicNumber:JalaliDate.kt$146097</ID>
+    <ID>MagicNumber:JalaliDate.kt$1461</ID>
+    <ID>MagicNumber:JalaliDate.kt$150</ID>
+    <ID>MagicNumber:JalaliDate.kt$153</ID>
+    <ID>MagicNumber:JalaliDate.kt$1635</ID>
+    <ID>MagicNumber:JalaliDate.kt$179</ID>
+    <ID>MagicNumber:JalaliDate.kt$183187720</ID>
+    <ID>MagicNumber:JalaliDate.kt$185</ID>
+    <ID>MagicNumber:JalaliDate.kt$186</ID>
+    <ID>MagicNumber:JalaliDate.kt$199</ID>
+    <ID>MagicNumber:JalaliDate.kt$20</ID>
+    <ID>MagicNumber:JalaliDate.kt$2060</ID>
+    <ID>MagicNumber:JalaliDate.kt$2097</ID>
+    <ID>MagicNumber:JalaliDate.kt$2192</ID>
+    <ID>MagicNumber:JalaliDate.kt$2262</ID>
+    <ID>MagicNumber:JalaliDate.kt$2324</ID>
+    <ID>MagicNumber:JalaliDate.kt$2394</ID>
+    <ID>MagicNumber:JalaliDate.kt$2456</ID>
+    <ID>MagicNumber:JalaliDate.kt$29</ID>
+    <ID>MagicNumber:JalaliDate.kt$3</ID>
+    <ID>MagicNumber:JalaliDate.kt$30</ID>
+    <ID>MagicNumber:JalaliDate.kt$308</ID>
+    <ID>MagicNumber:JalaliDate.kt$31</ID>
+    <ID>MagicNumber:JalaliDate.kt$3178</ID>
+    <ID>MagicNumber:JalaliDate.kt$33</ID>
+    <ID>MagicNumber:JalaliDate.kt$34840408</ID>
+    <ID>MagicNumber:JalaliDate.kt$38</ID>
+    <ID>MagicNumber:JalaliDate.kt$3908</ID>
+    <ID>MagicNumber:JalaliDate.kt$4</ID>
+    <ID>MagicNumber:JalaliDate.kt$426</ID>
+    <ID>MagicNumber:JalaliDate.kt$5</ID>
+    <ID>MagicNumber:JalaliDate.kt$6</ID>
+    <ID>MagicNumber:JalaliDate.kt$61</ID>
+    <ID>MagicNumber:JalaliDate.kt$621</ID>
+    <ID>MagicNumber:JalaliDate.kt$686</ID>
+    <ID>MagicNumber:JalaliDate.kt$7</ID>
+    <ID>MagicNumber:JalaliDate.kt$752</ID>
+    <ID>MagicNumber:JalaliDate.kt$756</ID>
+    <ID>MagicNumber:JalaliDate.kt$8</ID>
+    <ID>MagicNumber:JalaliDate.kt$818</ID>
+    <ID>MagicNumber:JalaliDate.kt$9</ID>
+    <ID>MagicNumber:JalaliDate.kt$JalaliDate$12</ID>
+    <ID>MagicNumber:JalaliDate.kt$JalaliDate$31</ID>
+    <ID>MagicNumber:JalaliDate.kt$JalaliDate.Companion$7</ID>
+    <ID>MagicNumber:LinkGuard.kt$LinkGuard$3</ID>
+    <ID>MagicNumber:LinkGuard.kt$LinkGuard$4</ID>
+    <ID>MagicNumber:Messages.kt$Addresses$11</ID>
+    <ID>MagicNumber:Messages.kt$Addresses$12</ID>
+    <ID>MagicNumber:Messages.kt$Addresses$3</ID>
+    <ID>MagicNumber:Messages.kt$Addresses$9</ID>
+    <ID>MagicNumber:MmsCodec.kt$MmsCodec$1_000</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$0x7F</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$0x80</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$0xFF</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$1000</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$1013</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$1015</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$127</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$3</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$30</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$31</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$32</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$4</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$5</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$7</ID>
+    <ID>MagicNumber:MmsNotification.kt$MmsNotification.Companion.Reader$8</ID>
+    <ID>MagicNumber:MmsProviderStore.kt$MmsProviderStore$1_000</ID>
+    <ID>MagicNumber:MmsProviderStore.kt$MmsProviderStore$3</ID>
+    <ID>MagicNumber:MmsProviderStore.kt$MmsProviderStore$4</ID>
+    <ID>MagicNumber:MmsProviderStore.kt$MmsProviderStore$5</ID>
+    <ID>MagicNumber:MmsProviderStore.kt$MmsProviderStore$6</ID>
+    <ID>MagicNumber:MmsViews.kt$MmsBitmaps.&lt;no name provided&gt;$4</ID>
+    <ID>MagicNumber:OneTimeCode.kt$OneTimeCode$4</ID>
+    <ID>MagicNumber:OneTimeCode.kt$OneTimeCode$8</ID>
+    <ID>MagicNumber:ReceivePipeline.kt$ReceivePipeline.Companion$1_000</ID>
+    <ID>MagicNumber:SmsUri.kt$SmsUri.Companion$16</ID>
+    <ID>MagicNumber:SmsUri.kt$SmsUri.Companion$3</ID>
+    <ID>MagicNumber:Theme.kt$0xFF00201A</ID>
+    <ID>MagicNumber:Theme.kt$0xFF00382C</ID>
+    <ID>MagicNumber:Theme.kt$0xFF0C1F1C</ID>
+    <ID>MagicNumber:Theme.kt$0xFF0D0F0B</ID>
+    <ID>MagicNumber:Theme.kt$0xFF12140F</ID>
+    <ID>MagicNumber:Theme.kt$0xFF1A1C19</ID>
+    <ID>MagicNumber:Theme.kt$0xFF1A1C1A</ID>
+    <ID>MagicNumber:Theme.kt$0xFF1E201D</ID>
+    <ID>MagicNumber:Theme.kt$0xFF1F5146</ID>
+    <ID>MagicNumber:Theme.kt$0xFF213531</ID>
+    <ID>MagicNumber:Theme.kt$0xFF282A27</ID>
+    <ID>MagicNumber:Theme.kt$0xFF333532</ID>
+    <ID>MagicNumber:Theme.kt$0xFF374B47</ID>
+    <ID>MagicNumber:Theme.kt$0xFF3F4945</ID>
+    <ID>MagicNumber:Theme.kt$0xFF424844</ID>
+    <ID>MagicNumber:Theme.kt$0xFF4F6360</ID>
+    <ID>MagicNumber:Theme.kt$0xFF5F4318</ID>
+    <ID>MagicNumber:Theme.kt$0xFF727873</ID>
+    <ID>MagicNumber:Theme.kt$0xFF7A5A2E</ID>
+    <ID>MagicNumber:Theme.kt$0xFF89938E</ID>
+    <ID>MagicNumber:Theme.kt$0xFFB6CCC7</ID>
+    <ID>MagicNumber:Theme.kt$0xFFB8EBDC</ID>
+    <ID>MagicNumber:Theme.kt$0xFFBFC9C4</ID>
+    <ID>MagicNumber:Theme.kt$0xFFC2C8C2</ID>
+    <ID>MagicNumber:Theme.kt$0xFFD2E8E2</ID>
+    <ID>MagicNumber:Theme.kt$0xFFE2E3DE</ID>
+    <ID>MagicNumber:Theme.kt$0xFFE3E6DF</ID>
+    <ID>MagicNumber:Theme.kt$0xFFE4E1DA</ID>
+    <ID>MagicNumber:Theme.kt$0xFFEAE7E0</ID>
+    <ID>MagicNumber:Theme.kt$0xFFEBC08C</ID>
+    <ID>MagicNumber:Theme.kt$0xFFF0EDE6</ID>
+    <ID>MagicNumber:Theme.kt$0xFFF7F4EE</ID>
+    <ID>MagicNumber:Theme.kt$0xFFFFDDB3</ID>
+    <ID>MagicNumber:Theme.kt$AsudehColors$0xFF2F6F62</ID>
+    <ID>MagicNumber:Theme.kt$AsudehColors$0xFF9CD3C4</ID>
+    <ID>MagicNumber:Theme.kt$AsudehColors$0xFFB8860B</ID>
+    <ID>MagicNumber:Theme.kt$AsudehColors$0xFFF3EFE7</ID>
+    <ID>MagicNumber:Theme.kt$AsudehColors$0xFFFFF3CD</ID>
+    <ID>MagicNumber:ThreadListScrollBenchmark.kt$ThreadListScrollBenchmark$0.8f</ID>
+    <ID>MagicNumber:ThreadListScrollBenchmark.kt$ThreadListScrollBenchmark$1_000</ID>
+    <ID>MagicNumber:ThreadListScrollBenchmark.kt$ThreadListScrollBenchmark$3</ID>
+    <ID>MatchingDeclarationName:Theme.kt$AsudehColors</ID>
+    <ID>MaxLineLength:GoldenSet.kt$GoldenSet$GoldenExample("10001100", "واریز حقوق ۱۵٬۰۰۰٬۰۰۰ ریال به حسابتان انجام شد. مانده: ۱۸٬۰۰۰٬۰۰۰ ریال", expectedCategory = Category.BANK)</ID>
+    <ID>MaxLineLength:GoldenSet.kt$GoldenSet$GoldenExample("20002030", "وام فوری بدون ضامن با تخفیف ویژه! همین حالا تماس بگیرید", expectedCategory = Category.PROMO, note = "تبلیغ وام از سرشمارهٔ بانکی، بانکی نیست")</ID>
+    <ID>MaxLineLength:GoldenSet.kt$GoldenSet$GoldenExample("BaIrancell", "سلام! خبر تازه از ما.", expectedCategory = Category.PROMO, note = "سرشمارهٔ صرفاً تبلیغاتی؛ بدون کلیدواژه هم تبلیغ است")</ID>
+    <ID>MaxLineLength:GoldenSet.kt$GoldenSet$GoldenExample("BaIrancell", "کد تایید شما ۴۸۲۱۳ است", expectedCategory = Category.OTP, note = "رمز یکبار حتی از سرشمارهٔ تبلیغاتی برنده می‌شود")</ID>
+    <ID>MaxLineLength:MessageDao.kt$MessageDao$@Query("SELECT kind, providerId FROM message WHERE threadId = :threadId AND folder = :folder AND read = 0 AND outgoing = 0 AND providerId &gt; 0")</ID>
+    <ID>MaxLineLength:MmsFileProvider.kt$MmsFileProvider$override fun query(uri: Uri, projection: Array&lt;out String&gt;?, selection: String?, selectionArgs: Array&lt;out String&gt;?, sortOrder: String?): Cursor?</ID>
+    <ID>MaxLineLength:MmsProviderStore.kt$MmsProviderStore$"${Telephony.Mms.MESSAGE_BOX} != ? AND ${Telephony.Mms.MESSAGE_TYPE} IN ($TYPE_SEND_REQ, $TYPE_NOTIFICATION_IND, $TYPE_RETRIEVE_CONF)"</ID>
+    <ID>MaxLineLength:MmsViews.kt$TextButton</ID>
+    <ID>NestedBlockDepth:Classifier.kt$Classifier$private fun phishing( text: String, address: String, senderKind: SenderKind, isKnownContact: Boolean, links: List&lt;DetectedLink&gt;, ): Verdict?</ID>
+    <ID>ReturnCount:AsudehNotifier.kt$AsudehNotifier$@SuppressLint("MissingPermission") override suspend fun notify(message: ClassifiedMessage)</ID>
+    <ID>ReturnCount:AsudehRepository.kt$AsudehRepository$private suspend fun syncMms(userRules: UserRules, sweepOrigin: Origin): Int</ID>
+    <ID>ReturnCount:AsudehRepository.kt$AsudehRepository$suspend fun restoreFromTrash(id: Long): Boolean</ID>
+    <ID>ReturnCount:Classifier.kt$Classifier$fun classify(input: MessageInput): Verdict</ID>
+    <ID>ReturnCount:Classifier.kt$Classifier$private fun Verdict.withRisk(links: List&lt;DetectedLink&gt;, trustedSender: Boolean): Verdict</ID>
+    <ID>ReturnCount:Classifier.kt$Classifier$private fun bank(text: String, links: List&lt;DetectedLink&gt;): Verdict?</ID>
+    <ID>ReturnCount:Classifier.kt$Classifier$private fun phishing( text: String, address: String, senderKind: SenderKind, isKnownContact: Boolean, links: List&lt;DetectedLink&gt;, ): Verdict?</ID>
+    <ID>ReturnCount:Classifier.kt$Classifier$private fun promo(text: String, address: String, senderKind: SenderKind): Verdict?</ID>
+    <ID>ReturnCount:LinkGuard.kt$LinkGuard$fun isLookalike(host: String, officialDomain: String): Boolean</ID>
+    <ID>ReturnCount:MainActivity.kt$MainActivity$private fun handle(intent: Intent?)</ID>
+    <ID>ReturnCount:Messages.kt$Addresses$fun kindOf(address: String): SenderKind</ID>
+    <ID>ReturnCount:Messages.kt$Addresses$fun normalize(address: String): String</ID>
+    <ID>ReturnCount:MmsNotification.kt$MmsNotification.Companion.Reader$fun readNotification(nowSeconds: Long): MmsNotification?</ID>
+    <ID>ReturnCount:NotificationActionReceiver.kt$NotificationActionReceiver$override fun onReceive(context: Context, intent: Intent)</ID>
+    <ID>ReturnCount:OneTimeCode.kt$OneTimeCode$private fun codeAfter(text: String, start: Int, excluded: List&lt;String&gt;, lengths: IntRange): String?</ID>
+    <ID>ReturnCount:OtpCode.kt$OtpCode$fun extract(body: String): String?</ID>
+    <ID>ReturnCount:PersianText.kt$PersianText$fun containsWord(normalizedText: String, word: String): Boolean</ID>
+    <ID>ReturnCount:PersianText.kt$PersianText$fun isRightToLeft(text: String): Boolean</ID>
+    <ID>ReturnCount:Router.kt$Router$fun route( verdict: Verdict, input: MessageInput, userRules: UserRules = UserRules.EMPTY, origin: Origin = Origin.LIVE, ): Placement</ID>
+    <ID>ReturnCount:RulePack.kt$CompiledGroup$fun firstHit(normalizedText: String): String?</ID>
+    <ID>ReturnCount:ScheduledSend.kt$ScheduledSendScheduler$suspend fun rescheduleNow(context: Context)</ID>
+    <ID>ReturnCount:SimCards.kt$SimCards$@SuppressLint("MissingPermission") fun active(context: Context): List&lt;SimCard&gt;</ID>
+    <ID>ReturnCount:SimCards.kt$SimCards$@SuppressLint("MissingPermission", "HardwareIds") @Suppress("DEPRECATION") fun ownNumbers(context: Context): Set&lt;String&gt;</ID>
+    <ID>ReturnCount:SimCards.kt$SimCards$fun slotOf(context: Context, subscriptionId: Int): Int?</ID>
+    <ID>ReturnCount:SmsDeliverReceiver.kt$SmsDeliverReceiver$override fun onReceive(context: Context, intent: Intent)</ID>
+    <ID>ReturnCount:SmsSentReceiver.kt$SmsSentReceiver$override fun onReceive(context: Context, intent: Intent)</ID>
+    <ID>ReturnCount:SmsSentReceiver.kt$SmsSentReceiver$private fun isDelivered(intent: Intent): Boolean</ID>
+    <ID>SwallowedException:SmsSender.kt$SmsSender$failure: Exception</ID>
+    <ID>ThrowsCount:BackupFormat.kt$BackupFormat$fun readHeader(reader: BufferedReader): Header</ID>
+    <ID>ThrowsCount:ReceivePipeline.kt$ReceivePipeline$suspend fun onReceive(raw: RawSms, origin: Origin = Origin.LIVE): ClassifiedMessage</ID>
+    <ID>TooGenericExceptionCaught:DefaultAppComponents.kt$MmsDeliverReceiver$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:Digest.kt$DigestReceiver$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:MmsTransport.kt$MmsResultReceiver$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:MmsTransport.kt$MmsSender$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:NotificationActionReceiver.kt$NotificationActionReceiver$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ReceivePipeline.kt$ReceivePipeline$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ScheduledSend.kt$ScheduledSendReceiver$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SmsDeliverReceiver.kt$SmsDeliverReceiver$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SmsSender.kt$SmsSender$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:SmsSentReceiver.kt$SmsSentReceiver$failure: Throwable</ID>
+    <ID>TooManyFunctions:AsudehApp.kt$ir.asudehapp.sms.app.AsudehApp.kt</ID>
+    <ID>TooManyFunctions:AsudehNotifier.kt$AsudehNotifier : Notifier</ID>
+    <ID>TooManyFunctions:AsudehRepository.kt$AsudehRepository</ID>
+    <ID>TooManyFunctions:AsudehViewModel.kt$AsudehViewModel : AndroidViewModel</ID>
+    <ID>TooManyFunctions:BackupFormat.kt$BackupFormat</ID>
+    <ID>TooManyFunctions:ConversationScreen.kt$ir.asudehapp.sms.app.ConversationScreen.kt</ID>
+    <ID>TooManyFunctions:Databases.kt$AsudehConverters</ID>
+    <ID>TooManyFunctions:MainActivity.kt$MainActivity : ComponentActivity</ID>
+    <ID>TooManyFunctions:MessageDao.kt$MessageDao</ID>
+    <ID>TooManyFunctions:MmsCodec.kt$MmsCodec</ID>
+    <ID>TooManyFunctions:MmsProviderStore.kt$MmsProviderStore</ID>
+    <ID>TooManyFunctions:SendSchedule.kt$SendSchedule</ID>
+    <ID>TooManyFunctions:SettingsScreen.kt$ir.asudehapp.sms.app.SettingsScreen.kt</ID>
+    <ID>TooManyFunctions:TelephonyProviderStore.kt$TelephonyProviderStore : TelephonyStore</ID>
+    <ID>TooManyFunctions:Texts.kt$Texts</ID>
+    <ID>UnusedParameter:Texts.kt$Texts$locale: Locale</ID>
+  </CurrentIssues>
+</SmellBaseline>
