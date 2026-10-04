@@ -15,6 +15,7 @@ import ir.asudehapp.sms.classifier.receive.StoredMessage
 import ir.asudehapp.sms.classifier.receive.TelephonyStore
 import ir.asudehapp.sms.data.AsudehRepository
 import ir.asudehapp.sms.data.MessageEntity
+import ir.asudehapp.sms.data.MessageKey
 import ir.asudehapp.sms.data.MmsProviderStore
 import ir.asudehapp.sms.data.SendStatus
 import ir.asudehapp.sms.mms.MmsCodec
@@ -126,17 +127,22 @@ object MmsDownloader {
  */
 object MmsReadReports {
 
-    suspend fun markThreadRead(context: Context, threadId: Long, folder: Folder) {
+    /** پیام‌هایی را که تازه خوانده شدند برمی‌گرداند (برای خط «پیام‌های تازه»). */
+    suspend fun markThreadRead(context: Context, threadId: Long, folder: Folder): List<MessageKey> {
         val appContext = context.applicationContext
         val host = appContext.telephonyHost
         val keys = host.repository.markThreadRead(threadId, folder)
-        if (!host.settings.mmsReadReports) return
+        if (host.settings.mmsReadReports) sendReadReports(appContext, keys)
+        return keys
+    }
+
+    private suspend fun sendReadReports(context: Context, keys: List<MessageKey>) {
         val mmsIds = keys.filter { it.kind == MessageEntity.KIND_MMS }.map { it.providerId }
         if (mmsIds.isEmpty()) return
-        runCatching { host.repository.mms.readReportTargets(mmsIds) }
+        runCatching { context.telephonyHost.repository.mms.readReportTargets(mmsIds) }
             .onFailure { Log.w(TAG, "خواندن درخواست گزارش MMS ممکن نشد", it) }
             .getOrDefault(emptyList())
-            .forEach { MmsDownloader.sendReadReport(appContext, it) }
+            .forEach { MmsDownloader.sendReadReport(context, it) }
     }
 
     private const val TAG = "AsudehMms"

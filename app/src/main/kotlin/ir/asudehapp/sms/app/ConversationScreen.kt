@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -48,14 +49,18 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,6 +105,7 @@ import ir.asudehapp.sms.persian.SmsLength
 import ir.asudehapp.sms.telephony.SimCard
 import ir.asudehapp.sms.telephony.SimCards
 import java.time.ZoneId
+import kotlinx.coroutines.launch
 
 /** یک تکه از گفتگو: یا یک پیامک دیده‌شده، یا نوار جمع‌شدهٔ `HiddenRun`. */
 private sealed interface ConversationItem {
@@ -225,10 +231,32 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
     val zone = remember { ZoneId.systemDefault() }
     val sections = remember(items) { daySections(items, zone) }
     val runEnds = remember(items) { runEnds(items, zone) }
+    // خط «پیام‌های تازه» بالای نخستین پیامکی که هنگام باز شدن خوانده‌نشده بود
+    // (ROADMAP D4)؛ با بیرون رفتن از گفتگو از نو حساب می‌شود.
+    val unreadAtOpen by model.unreadAtOpen.collectAsState()
+    val firstNew = remember(items, unreadAtOpen) { firstNewPosition(items, unreadAtOpen) }
     val listState = rememberLazyListState()
-    LaunchedEffect(items.size, scheduled.size) {
-        val last = items.size + sections.size + scheduled.size - 1
-        if (last >= 0) listState.scrollToItem(last)
+    val scope = rememberCoroutineScope()
+    val atBottom by remember { derivedStateOf { listState.isAtBottom() } }
+    // پیامک تازه فقط وقتی فهرست را پایین می‌برد که کاربر خودش پایین بوده باشد.
+    var followBottom by remember(state.threadId) { mutableStateOf(true) }
+    var placedNewLine by remember(state.threadId) { mutableStateOf(false) }
+    var seenItems by remember(state.threadId) { mutableIntStateOf(0) }
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (!listState.isScrollInProgress) followBottom = atBottom
+    }
+    LaunchedEffect(atBottom, items.size) {
+        if (atBottom) seenItems = items.size
+    }
+    val lastIndex = items.size + sections.size + scheduled.size - 1
+    LaunchedEffect(items.size, scheduled.size, firstNew) {
+        if (lastIndex < 0) return@LaunchedEffect
+        if (firstNew != null && !placedNewLine) {
+            placedNewLine = true
+            listState.scrollToItem(lazyIndexOf(firstNew, sections))
+        } else if (followBottom) {
+            listState.scrollToItem(lastIndex)
+        }
     }
 
     // جای کیبورد از خود Compose گرفته می‌شود، چون پنجره تا لبه‌ها کشیده شده و
@@ -240,94 +268,104 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             .fillMaxSize()
             .imePadding(),
     ) {
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
-            for (section in sections) {
-                stickyHeader { DayHeader(section.firstMillis) }
-                items(section.size) { offset ->
-                    val position = section.start + offset
-                    when (val item = items[position]) {
-                        is ConversationItem.Visible -> MessageBubble(
-                            model = model,
-                            message = item.message,
-                            dimmed = false,
-                            showSender = state.isGroup,
-                            showSim = multiSim,
-                            showReason = settings.showReasonEverywhere,
-                            showClock = settings.showMessageClock,
-                            selected = MessageKey(item.message.kind, item.message.providerId) in selected,
-                            selectionMode = selected.isNotEmpty(),
-                            pickingText = pickingTextIn == MessageKey(item.message.kind, item.message.providerId),
-                            showPickHint = showPickHint,
-                            isDefaultApp = isDefaultApp,
-                            onWhy = { reasonFor = item.message },
-                            onDetails = { detailsFor = item.message },
-                            onPickText = {
-                                pickText(MessageKey(item.message.kind, item.message.providerId))
-                            },
-                            onDonePickingText = { pickingTextIn = null },
-                            onResend = { model.resend(item.message) },
-                            lastInRun = runEnds[position],
-                        )
-
-                        is ConversationItem.Hidden -> {
-                            val key = item.messages.first().providerId
-                            val expanded = key in expandedRuns
-                            HiddenRunBar(
-                                folder = item.folder,
-                                count = item.messages.size,
-                                expanded = expanded,
-                                onToggle = {
-                                    expandedRuns =
-                                        if (expanded) expandedRuns - key else expandedRuns + key
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                for (section in sections) {
+                    stickyHeader { DayHeader(section.firstMillis) }
+                    items(section.size) { offset ->
+                        val position = section.start + offset
+                        if (position == firstNew) NewMessagesLine()
+                        when (val item = items[position]) {
+                            is ConversationItem.Visible -> MessageBubble(
+                                model = model,
+                                message = item.message,
+                                dimmed = false,
+                                showSender = state.isGroup,
+                                showSim = multiSim,
+                                showReason = settings.showReasonEverywhere,
+                                showClock = settings.showMessageClock,
+                                selected = MessageKey(item.message.kind, item.message.providerId) in selected,
+                                selectionMode = selected.isNotEmpty(),
+                                pickingText = pickingTextIn == MessageKey(item.message.kind, item.message.providerId),
+                                showPickHint = showPickHint,
+                                isDefaultApp = isDefaultApp,
+                                onWhy = { reasonFor = item.message },
+                                onDetails = { detailsFor = item.message },
+                                onPickText = {
+                                    pickText(MessageKey(item.message.kind, item.message.providerId))
                                 },
+                                onDonePickingText = { pickingTextIn = null },
+                                onResend = { model.resend(item.message) },
+                                lastInRun = runEnds[position],
                             )
-                            if (expanded && item.folder == Folder.SCAM) {
-                                Text(
-                                    stringResource(R.string.scam_rescue_hint),
-                                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.labelSmall,
+
+                            is ConversationItem.Hidden -> {
+                                val key = item.messages.first().providerId
+                                val expanded = key in expandedRuns
+                                HiddenRunBar(
+                                    folder = item.folder,
+                                    count = item.messages.size,
+                                    expanded = expanded,
+                                    onToggle = {
+                                        expandedRuns =
+                                            if (expanded) expandedRuns - key else expandedRuns + key
+                                    },
                                 )
-                            }
-                            if (expanded) {
-                                for (hidden in item.messages) {
-                                    MessageBubble(
-                                        model = model,
-                                        message = hidden,
-                                        dimmed = true,
-                                        showSender = state.isGroup,
-                                        showSim = multiSim,
-                                        showReason = true,
-                                        showClock = settings.showMessageClock,
-                                        selected = MessageKey(hidden.kind, hidden.providerId) in selected,
-                                        selectionMode = selected.isNotEmpty(),
-                                        pickingText = pickingTextIn == MessageKey(hidden.kind, hidden.providerId),
-                                        showPickHint = showPickHint,
-                                        isDefaultApp = isDefaultApp,
-                                        onWhy = { reasonFor = hidden },
-                                        onDetails = { detailsFor = hidden },
-                                        onPickText = { pickText(MessageKey(hidden.kind, hidden.providerId)) },
-                                        onDonePickingText = { pickingTextIn = null },
-                                        // پیامک مشکوک به کلاهبرداری با یک لمس برنمی‌گردد؛
-                                        // اول باید دلیلش دیده شود (D44).
-                                        onRescue = if (hidden.folder == Folder.PROMO) {
-                                            { model.rescue(hidden) }
-                                        } else {
-                                            null
-                                        },
-                                        onResend = { model.resend(hidden) },
+                                if (expanded && item.folder == Folder.SCAM) {
+                                    Text(
+                                        stringResource(R.string.scam_rescue_hint),
+                                        Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelSmall,
                                     )
+                                }
+                                if (expanded) {
+                                    for (hidden in item.messages) {
+                                        MessageBubble(
+                                            model = model,
+                                            message = hidden,
+                                            dimmed = true,
+                                            showSender = state.isGroup,
+                                            showSim = multiSim,
+                                            showReason = true,
+                                            showClock = settings.showMessageClock,
+                                            selected = MessageKey(hidden.kind, hidden.providerId) in selected,
+                                            selectionMode = selected.isNotEmpty(),
+                                            pickingText = pickingTextIn == MessageKey(hidden.kind, hidden.providerId),
+                                            showPickHint = showPickHint,
+                                            isDefaultApp = isDefaultApp,
+                                            onWhy = { reasonFor = hidden },
+                                            onDetails = { detailsFor = hidden },
+                                            onPickText = { pickText(MessageKey(hidden.kind, hidden.providerId)) },
+                                            onDonePickingText = { pickingTextIn = null },
+                                            // پیامک مشکوک به کلاهبرداری با یک لمس برنمی‌گردد؛
+                                            // اول باید دلیلش دیده شود (D44).
+                                            onRescue = if (hidden.folder == Folder.PROMO) {
+                                                { model.rescue(hidden) }
+                                            } else {
+                                                null
+                                            },
+                                            onResend = { model.resend(hidden) },
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                items(scheduled.size) { position ->
+                    ScheduledRow(
+                        message = scheduled[position],
+                        enabled = isDefaultApp,
+                        onCancel = { model.cancelScheduled(scheduled[position]) },
+                        onSendNow = { model.sendScheduledNow(scheduled[position]) },
+                    )
+                }
             }
-            items(scheduled.size) { position ->
-                ScheduledRow(
-                    message = scheduled[position],
-                    enabled = isDefaultApp,
-                    onCancel = { model.cancelScheduled(scheduled[position]) },
-                    onSendNow = { model.sendScheduledNow(scheduled[position]) },
+            if (!atBottom && lastIndex >= 0) {
+                JumpToBottom(
+                    unseen = (items.size - seenItems).coerceAtLeast(0),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                    onClick = { scope.launch { listState.animateScrollToItem(lastIndex) } },
                 )
             }
         }
@@ -660,6 +698,58 @@ private fun buildItems(
     }
     flush()
     return items
+}
+
+/** نخستین جزئی که پیامک خوانده‌نشدهٔ لحظهٔ باز شدن را دارد. */
+private fun firstNewPosition(items: List<ConversationItem>, unread: Set<MessageKey>): Int? {
+    if (unread.isEmpty()) return null
+    return items.indexOfFirst { item ->
+        when (item) {
+            is ConversationItem.Visible -> MessageKey(item.message.kind, item.message.providerId) in unread
+            is ConversationItem.Hidden -> item.messages.any { MessageKey(it.kind, it.providerId) in unread }
+        }
+    }.takeIf { it >= 0 }
+}
+
+/** جای یک جزء در `LazyColumn`: هر بخش روز یک سرصفحه پیش از خود دارد. */
+private fun lazyIndexOf(position: Int, sections: List<DaySection>): Int {
+    val section = sections.indexOfFirst { position < it.start + it.size }.coerceAtLeast(0)
+    return position + section + 1
+}
+
+private fun LazyListState.isAtBottom(): Boolean {
+    val info = layoutInfo
+    val last = info.visibleItemsInfo.lastOrNull() ?: return true
+    return last.index >= info.totalItemsCount - 1 && last.offset + last.size <= info.viewportEndOffset + 1
+}
+
+@Composable
+private fun NewMessagesLine() {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
+        Text(
+            stringResource(R.string.new_messages),
+            Modifier.padding(horizontal = 8.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/** دکمهٔ «پایین» وقتی کاربر بالا رفته، با شمار پیامک‌هایی که از آن پس رسیده‌اند. */
+@Composable
+private fun JumpToBottom(unseen: Int, modifier: Modifier, onClick: () -> Unit) {
+    val label = stringResource(R.string.jump_to_bottom)
+    SmallFloatingActionButton(
+        onClick = onClick,
+        modifier = modifier.semantics { contentDescription = label },
+    ) {
+        Text(if (unseen > 0) Texts.digits("↓ $unseen") else "↓")
+    }
 }
 
 /** بخش یک روز در گفتگو: [size] جزء از [start]، با زمان نخستینشان. */
