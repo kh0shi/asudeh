@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ارقام فارسی در اعلان‌ها فقط با رابط فارسی (D50). در values-en خاموش است. -->
+    <bool name="notify_persian_digits">true</bool>
+</resources>
