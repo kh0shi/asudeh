@@ -57,6 +57,7 @@ import ir.asudehapp.sms.data.ThemeMode
 import ir.asudehapp.sms.model.DefaultRule
 import ir.asudehapp.sms.model.DefaultRules
 import ir.asudehapp.sms.persian.JalaliDate
+import ir.asudehapp.sms.telephony.DelayedSend
 import ir.asudehapp.sms.ui.LocalUiIsPersian
 import java.util.Calendar
 
@@ -203,6 +204,13 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Toggle(stringResource(R.string.settings_dynamic_color), null, settings.dynamicColor, model::setDynamicColor)
         }
+        SendDelayChoices(settings.sendDelaySeconds, model::setSendDelaySeconds)
+        Toggle(
+            stringResource(R.string.settings_send_enter),
+            stringResource(R.string.settings_send_enter_hint),
+            settings.sendWithEnter,
+            model::setSendWithEnter,
+        )
 
         Section(stringResource(R.string.settings_about))
         Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -279,6 +287,29 @@ private fun TextScaleSlider(scale: Float, onChange: (Float) -> Unit) {
             valueRange = AsudehSettings.TEXT_SCALE_MIN..AsudehSettings.TEXT_SCALE_MAX,
             modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
         )
+    }
+}
+
+/** «تأخیر پیش از ارسال»: خاموش، ۳، ۵ یا ۱۰ ثانیه (ROADMAP D8). */
+@Composable
+private fun SendDelayChoices(selected: Int, onSelect: (Int) -> Unit) {
+    Text(
+        stringResource(R.string.settings_send_delay),
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+        style = MaterialTheme.typography.bodyLarge,
+    )
+    Text(
+        stringResource(R.string.settings_send_delay_hint),
+        Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    for (seconds in DelayedSend.CHOICES_SECONDS) {
+        val label = if (seconds == 0) {
+            stringResource(R.string.send_delay_off)
+        } else {
+            Texts.digits(stringResource(R.string.send_delay_seconds, seconds))
+        }
+        Choice(label, selected == seconds) { onSelect(seconds) }
     }
 }
 

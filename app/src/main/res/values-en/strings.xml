@@ -210,6 +210,14 @@
     <string name="settings_message_clock_hint">Show the time under each message.</string>
     <string name="settings_text_scale">Conversation text size</string>
     <string name="settings_text_scale_sample">Hi, see you tomorrow at 10.</string>
+    <string name="settings_send_delay">Delay before sending</string>
+    <string name="settings_send_delay_hint">Text messages wait a few seconds so you can tap “Cancel”. Attachments and group messages are sent at once.</string>
+    <string name="send_delay_off">No delay</string>
+    <string name="send_delay_seconds">%d seconds</string>
+    <string name="settings_send_enter">Send with Enter</string>
+    <string name="settings_send_enter_hint">The Enter key sends the message; Shift+Enter adds a new line.</string>
+    <string name="send_delayed">Sending in %d s</string>
+    <string name="send_cancel">Cancel</string>
     <string name="settings_sending">Sending</string>
     <string name="settings_delivery">Delivery reports</string>
     <string name="settings_delivery_hint">Show \"Delivered\" once a message reaches its recipient.</string>

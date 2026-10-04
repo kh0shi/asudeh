@@ -32,6 +32,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -68,6 +70,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -84,6 +92,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextDirection
@@ -107,9 +116,11 @@ import ir.asudehapp.sms.persian.DayLabel
 import ir.asudehapp.sms.persian.EmojiOnly
 import ir.asudehapp.sms.persian.MessageGrouping
 import ir.asudehapp.sms.persian.SmsLength
+import ir.asudehapp.sms.telephony.DelayedSend
 import ir.asudehapp.sms.telephony.SimCard
 import ir.asudehapp.sms.telephony.SimCards
 import java.time.ZoneId
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** یک تکه از گفتگو: یا یک پیامک دیده‌شده، یا نوار جمع‌شدهٔ `HiddenRun`. */
@@ -573,6 +584,10 @@ private fun Composer(
                 }
             }
         }
+        val pending by model.pendingSend.collectAsState()
+        pending?.takeIf { it.threadId == state.threadId }?.let { PendingSendRow(it, model::cancelPendingSend) }
+        val sendWithEnter = model.settings.collectAsState().value.sendWithEnter
+        val canSend = enabled && !preparing && (draft.isNotBlank() || attachments.isNotEmpty())
         Row(verticalAlignment = Alignment.CenterVertically) {
             // پیوست یعنی MMS؛ با خاموش بودن MMS این دکمه‌ها هم نیستند.
             if (mmsSending) {
@@ -598,7 +613,18 @@ private fun Composer(
             OutlinedTextField(
                 value = draft,
                 onValueChange = model::updateDraft,
-                modifier = Modifier.weight(1f),
+                // «ارسال با Enter» (D8): کلید صفحه‌کلید و Enter صفحه‌کلید سخت‌افزاری؛
+                // Shift+Enter همچنان خط تازه است.
+                modifier = Modifier
+                    .weight(1f)
+                    .onPreviewKeyEvent { event ->
+                        val send = sendWithEnter && canSend && event.type == KeyEventType.KeyDown &&
+                            event.key == Key.Enter && !event.isShiftPressed
+                        if (send) model.send()
+                        send
+                    },
+                keyboardOptions = if (sendWithEnter) KeyboardOptions(imeAction = ImeAction.Send) else KeyboardOptions.Default,
+                keyboardActions = KeyboardActions(onSend = { if (canSend) model.send() }),
                 enabled = enabled,
                 placeholder = { Text(stringResource(R.string.compose_hint)) },
                 // «۱۲۰/۱۳۴ · ۲ پیامک» (ROADMAP D2)؛ پیوست MMS است و تکه نمی‌شود.
@@ -610,7 +636,7 @@ private fun Composer(
                 maxLines = 5,
             )
             SendButton(
-                enabled = enabled && !preparing && (draft.isNotBlank() || attachments.isNotEmpty()),
+                enabled = canSend,
                 // «بعداً بفرست» فقط برای متن است؛ پیوست زمان‌بندی نمی‌شود (ADR-0011).
                 canSchedule = enabled && !preparing && draft.isNotBlank() && attachments.isEmpty(),
                 menuOpen = sendMenu,
@@ -625,6 +651,39 @@ private fun Composer(
         }
     }
 }
+
+/**
+ * پیامکی که منتظر «تأخیر پیش از ارسال» است، با شمارش معکوس و «لغو» (D8). تا
+ * اینجا هنوز در `OUTBOX` نیست؛ متنش در پیش‌نویس گفتگو ذخیره شده است.
+ */
+@Composable
+private fun PendingSendRow(pending: DelayedSend.Pending, onCancel: () -> Unit) {
+    var left by remember(pending) { mutableIntStateOf((pending.delayMillis / MILLIS_PER_SECOND).toInt()) }
+    LaunchedEffect(pending) {
+        while (left > 0) {
+            delay(MILLIS_PER_SECOND)
+            left -= 1
+        }
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp))
+            .padding(start = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            Texts.digits(stringResource(R.string.send_delayed, left)),
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        TextButton(onClick = onCancel) { Text(stringResource(R.string.send_cancel)) }
+    }
+}
+
+private const val MILLIS_PER_SECOND = 1_000L
 
 /**
  * دکمهٔ ارسال. «بعداً بفرست» دکمهٔ جدا ندارد: با نگه داشتن همین دکمه دیده
