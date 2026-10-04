@@ -1065,6 +1065,7 @@ private fun MessageBubble(
                     starred = MessageKey(message.kind, message.providerId) in starredKeys,
                     onDismiss = { menu = false },
                     onStar = { model.toggleStar(message) },
+                    onRemind = { model.requestReminder(message) },
                     onCopy = { clipboard.setText(AnnotatedString(message.body)) },
                     onPickText = onPickText,
                     onShare = { shareText(context, message.body) },
@@ -1341,6 +1342,7 @@ private fun MessageMenu(
     starred: Boolean,
     onDismiss: () -> Unit,
     onStar: () -> Unit,
+    onRemind: () -> Unit,
     onCopy: () -> Unit,
     onPickText: () -> Unit,
     onShare: () -> Unit,
@@ -1372,6 +1374,10 @@ private fun MessageMenu(
         MessageMenuItem(stringResource(if (starred) R.string.unstar else R.string.star)) {
             onDismiss()
             onStar()
+        }
+        MessageMenuItem(stringResource(R.string.remind_me)) {
+            onDismiss()
+            onRemind()
         }
         MessageMenuItem(stringResource(R.string.select)) {
             onDismiss()

@@ -60,8 +60,9 @@ class AsudehConverters {
         ScheduledMessageEntity::class,
         ThreadSummaryEntity::class,
         StarredMessageEntity::class,
+        ReminderEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
@@ -76,6 +77,8 @@ abstract class IndexDatabase : RoomDatabase() {
     abstract fun scheduled(): ScheduledMessageDao
 
     abstract fun starred(): StarredDao
+
+    abstract fun reminders(): ReminderDao
 
     companion object {
         const val NAME = "index.db"
@@ -95,6 +98,7 @@ abstract class IndexDatabase : RoomDatabase() {
                 IndexMigrations.V4_V5,
                 IndexMigrations.V5_V6,
                 IndexMigrations.V6_V7,
+                IndexMigrations.V7_V8,
             ).addCallback(object : RoomCallback() {
                 override fun onOpen(db: SupportSQLiteDatabase) = IndexMigrations.ensureThreadSummary(db)
             }).build().also { instance = it }
@@ -275,6 +279,20 @@ object IndexMigrations {
         "CREATE TABLE IF NOT EXISTS `starred_message` (`kind` TEXT NOT NULL, `providerId` INTEGER NOT NULL, " +
             "`starredAt` INTEGER NOT NULL, PRIMARY KEY(`kind`, `providerId`))",
         "CREATE INDEX IF NOT EXISTS `index_starred_message_starredAt` ON `starred_message` (`starredAt`)",
+    )
+
+    /** نسخهٔ ۸: جدول یادآورها (ROADMAP E1). چیزی از جدول‌های قبلی عوض نمی‌شود. */
+    val V7_V8: Migration = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V7_V8_SQL) db.execSQL(statement)
+        }
+    }
+
+    internal val V7_V8_SQL: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `reminder` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+            "`kind` TEXT NOT NULL, `providerId` INTEGER NOT NULL, `threadId` INTEGER NOT NULL, " +
+            "`remindAt` INTEGER NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS `index_reminder_remindAt` ON `reminder` (`remindAt`)",
     )
 
     /** ستون‌های خروجی مشترک بین triggerها و پر کردن اولیهٔ `thread_summary`. */

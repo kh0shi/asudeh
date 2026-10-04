@@ -47,11 +47,12 @@ fun ScheduleDialog(model: AsudehViewModel) {
     var step by remember { mutableStateOf(CustomStep.NONE) }
     var chosenDay by remember { mutableStateOf(0L) }
     val zone = ZoneId.systemDefault()
+    val remind = pending.reminder != null
 
     when (step) {
         CustomStep.NONE -> AlertDialog(
             onDismissRequest = model::cancelSchedule,
-            title = { Text(stringResource(R.string.schedule_title)) },
+            title = { Text(stringResource(if (remind) R.string.remind_title else R.string.schedule_title)) },
             text = {
                 Column(
                     Modifier.verticalScroll(rememberScrollState()),
@@ -77,7 +78,7 @@ fun ScheduleDialog(model: AsudehViewModel) {
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     Text(
-                        stringResource(R.string.schedule_note),
+                        stringResource(if (remind) R.string.remind_note else R.string.schedule_note),
                         Modifier.padding(top = 8.dp),
                         style = MaterialTheme.typography.labelSmall,
                     )
@@ -134,7 +135,7 @@ fun ScheduleDialog(model: AsudehViewModel) {
                         model.scheduleSend(
                             SendSchedule.at(zone, chosenDay, timeState.hour, timeState.minute),
                         )
-                    }) { Text(stringResource(R.string.schedule_send)) }
+                    }) { Text(stringResource(if (remind) R.string.remind_me else R.string.schedule_send)) }
                 },
                 dismissButton = {
                     TextButton(onClick = model::cancelSchedule) { Text(stringResource(R.string.cancel)) }

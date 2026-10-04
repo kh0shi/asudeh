@@ -155,6 +155,7 @@ object Texts {
             SchedulePreset.TONIGHT -> text(R.string.schedule_tonight, clock)
             SchedulePreset.TOMORROW_MORNING -> text(R.string.schedule_tomorrow_morning, clock)
             SchedulePreset.TOMORROW_AFTERNOON -> text(R.string.schedule_tomorrow_afternoon, clock)
+            SchedulePreset.IN_ONE_HOUR -> text(R.string.remind_in_hour, clock)
         }
     }
 

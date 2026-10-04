@@ -39,13 +39,15 @@ object ScheduledSendScheduler {
         val alarms = context.getSystemService(AlarmManager::class.java) ?: return
         val intent = pendingIntent(context)
         val now = System.currentTimeMillis()
-        // پیامکی که زمانش رسیده، هشدار نمی‌خواهد: همین حالا فرستاده می‌شود.
-        if (host.repository.dueScheduled(now).isNotEmpty()) {
+        // پیامک یا یادآوری که زمانش رسیده، هشدار نمی‌خواهد: همین حالا انجام می‌شود.
+        val repository = host.repository
+        if (repository.dueScheduled(now).isNotEmpty() || repository.dueReminders(now).isNotEmpty()) {
             alarms.cancel(intent)
             fire(context)
             return
         }
-        val next = host.repository.nextScheduledAfter(now)
+        // یادآورها (ROADMAP E1) در همین صف‌اند؛ هشدار برای نزدیک‌ترینِ هر دو است.
+        val next = listOfNotNull(repository.nextScheduledAfter(now), repository.nextReminderAfter(now)).minOrNull()
         if (next == null) {
             alarms.cancel(intent)
             return
@@ -140,6 +142,7 @@ object ScheduledSend {
     suspend fun sendDue(context: Context) {
         val host = context.telephonyHost
         val now = System.currentTimeMillis()
+        remindDue(context, now)
         for (message in host.repository.dueScheduled(now)) {
             if (SendSchedule.isTooLate(message.sendAt, now)) {
                 host.repository.markScheduleMissed(message.id)
@@ -147,6 +150,19 @@ object ScheduledSend {
                 continue
             }
             sendOne(context, message)
+        }
+    }
+
+    /**
+     * یادآورهایی که زمانشان رسیده است (ROADMAP E1). یادآور دیررسیده هم اعلان
+     * می‌گیرد (برخلاف ارسال، دیر یادآوری کردن غافلگیری نیست). یادآورِ پیامکی
+     * که دیگر نیست بی‌صدا پاک می‌شود.
+     */
+    private suspend fun remindDue(context: Context, now: Long) {
+        val host = context.telephonyHost
+        for (reminder in host.repository.dueReminders(now)) {
+            host.repository.find(reminder.kind, reminder.providerId)?.let { host.notifier.notifyReminder(reminder.id, it) }
+            host.repository.removeReminder(reminder.id)
         }
     }
 

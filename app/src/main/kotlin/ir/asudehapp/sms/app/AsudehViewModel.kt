@@ -161,6 +161,8 @@ data class ScheduleRequest(
     val presets: List<ScheduleChoice>,
     /** متنی که زمان‌بندی می‌شود؛ همان پیش‌نویس لحظهٔ باز شدن برگه. */
     val body: String,
+    /** پر باشد یعنی برگه برای «یادم بینداز» روی همین پیامک است، نه ارسال (ROADMAP E1). */
+    val reminder: MessageEntity? = null,
 )
 
 /** تنظیمات، به‌صورت یک عکس فوری برای رابط (D52). */
@@ -202,6 +204,7 @@ sealed interface UiNotice {
     data class Scheduled(val atMillis: Long) : UiNotice
     data object ScheduleTooSoon : UiNotice
     data object ScheduleSending : UiNotice
+    data object ReminderSet : UiNotice
     data class BackupExported(val messages: Int) : UiNotice
     data class BackupImported(val added: Int, val duplicates: Int, val corrupt: Int) : UiNotice
     data class BackupFailed(val reason: BackupException.Reason?) : UiNotice
@@ -1282,6 +1285,15 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
 
+    /** «یادم بینداز» روی یک پیامک: همان برگهٔ زمان، با پیشنهادهای یادآوری (ROADMAP E1). */
+    fun requestReminder(message: MessageEntity) {
+        _scheduleRequest.value = ScheduleRequest(
+            presets = SendSchedule.reminderPresets(System.currentTimeMillis(), ZoneId.systemDefault()),
+            body = message.body,
+            reminder = message,
+        )
+    }
+
     fun cancelSchedule() {
         _scheduleRequest.value = null
     }
@@ -1300,6 +1312,11 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
         _scheduleRequest.value = null
+        val reminder = request.reminder
+        if (reminder != null) setReminder(reminder, at) else scheduleDraft(request, state, at)
+    }
+
+    private fun scheduleDraft(request: ScheduleRequest, state: ConversationUiState, at: Long) {
         _draft.value = ""
         viewModelScope.launch {
             val threadId = state.threadId.takeIf { it > 0 }
@@ -1317,6 +1334,14 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             }
             ScheduledSendScheduler.reschedule(getApplication())
             _notice.value = UiNotice.Scheduled(at)
+        }
+    }
+
+    private fun setReminder(message: MessageEntity, at: Long) {
+        viewModelScope.launch {
+            repository.addReminder(message, at)
+            ScheduledSendScheduler.reschedule(getApplication())
+            _notice.value = UiNotice.ReminderSet
         }
     }
 

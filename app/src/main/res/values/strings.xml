@@ -378,6 +378,11 @@
     <string name="schedule_pick_day">روز ارسال</string>
     <string name="schedule_pick_time">ساعت ارسال</string>
     <string name="schedule_note">تا آن لحظه، متن فقط در آسوده می‌ماند و جایی فرستاده نمی‌شود. اگر گوشی خاموش باشد، پیامک پس از روشن شدن فرستاده می‌شود.</string>
+    <string name="remind_me">یادم بینداز</string>
+    <string name="remind_title">کی یادآوری شود؟</string>
+    <string name="remind_note">سر وقتش اعلانی با متن همین پیامک می‌آید. اگر گوشی خاموش باشد، پس از روشن شدن یادآوری می‌شود.</string>
+    <string name="remind_in_hour">یک ساعت دیگر، ساعت %1$s</string>
+    <string name="notice_reminder_set">یادآوری تنظیم شد</string>
     <string name="schedule_too_soon">زمان انتخابی گذشته است.</string>
     <string name="scheduled_today">امروز ساعت %1$s فرستاده می‌شود</string>
     <string name="scheduled_tomorrow">فردا ساعت %1$s فرستاده می‌شود</string>

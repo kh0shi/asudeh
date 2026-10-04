@@ -46,7 +46,7 @@
     <ID>LongParameterList:AsudehApp.kt$( items: LazyPagingItems&lt;ThreadSummary&gt;, model: AsudehViewModel, isDefaultApp: Boolean, selectedThreads: Set&lt;Long&gt;, folderFor: (ThreadSummary) -&gt; Folder, onOpenThread: (ThreadSummary) -&gt; Unit, )</ID>
     <ID>LongParameterList:AsudehApp.kt$( model: AsudehViewModel, thread: ThreadSummary, folder: Folder, isDefaultApp: Boolean, selected: Boolean, selectionMode: Boolean, onClick: () -&gt; Unit, )</ID>
     <ID>LongParameterList:ConversationScreen.kt$( enabled: Boolean, canSchedule: Boolean, menuOpen: Boolean, onSend: () -&gt; Unit, onOpenMenu: () -&gt; Unit, onDismissMenu: () -&gt; Unit, onSchedule: () -&gt; Unit, )</ID>
-    <ID>LongParameterList:ConversationScreen.kt$( expanded: Boolean, message: MessageEntity, canDelete: Boolean, starred: Boolean, onDismiss: () -&gt; Unit, onStar: () -&gt; Unit, onCopy: () -&gt; Unit, onPickText: () -&gt; Unit, onShare: () -&gt; Unit, onForward: () -&gt; Unit, onSelect: () -&gt; Unit, onDelete: () -&gt; Unit, onWhy: () -&gt; Unit, onDetails: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ConversationScreen.kt$( expanded: Boolean, message: MessageEntity, canDelete: Boolean, starred: Boolean, onDismiss: () -&gt; Unit, onStar: () -&gt; Unit, onRemind: () -&gt; Unit, onCopy: () -&gt; Unit, onPickText: () -&gt; Unit, onShare: () -&gt; Unit, onForward: () -&gt; Unit, onSelect: () -&gt; Unit, onDelete: () -&gt; Unit, onWhy: () -&gt; Unit, onDetails: () -&gt; Unit, )</ID>
     <ID>LongParameterList:ConversationScreen.kt$( model: AsudehViewModel, message: MessageEntity, dimmed: Boolean, showSender: Boolean, showSim: Boolean, showReason: Boolean, showClock: Boolean, selected: Boolean, selectionMode: Boolean, pickingText: Boolean, showPickHint: Boolean, isDefaultApp: Boolean, onWhy: () -&gt; Unit, onDetails: () -&gt; Unit, onPickText: () -&gt; Unit, onDonePickingText: () -&gt; Unit, onResend: () -&gt; Unit, onRescue: (() -&gt; Unit)? = null, lastInRun: Boolean = true, )</ID>
     <ID>LongParameterList:ConversationScreen.kt$( model: AsudehViewModel, state: ConversationUiState, draft: String, attachments: List&lt;PendingAttachment&gt;, preparing: Boolean, sims: List&lt;SimCard&gt;, multiSim: Boolean, enabled: Boolean, isDefaultApp: Boolean, mmsSending: Boolean, )</ID>
     <ID>LongParameterList:MmsCodec.kt$IncomingMms$( val from: String?, val to: List&lt;String&gt;, val cc: List&lt;String&gt;, val subject: String?, /** زمان ارسال بر حسب ثانیه؛ ۰ یعنی نامعلوم. */ val dateSeconds: Long, val messageId: String?, val transactionId: String?, val contentType: String?, val messageClass: String?, val mmsVersion: Int, val parts: List&lt;MmsPart&gt;, )</ID>
@@ -77,6 +77,7 @@
     <ID>MagicNumber:Databases.kt$IndexMigrations.&lt;no name provided&gt;$5</ID>
     <ID>MagicNumber:Databases.kt$IndexMigrations.&lt;no name provided&gt;$6</ID>
     <ID>MagicNumber:Databases.kt$IndexMigrations.&lt;no name provided&gt;$7</ID>
+    <ID>MagicNumber:Databases.kt$IndexMigrations.&lt;no name provided&gt;$8</ID>
     <ID>MagicNumber:JalaliDate.kt$100</ID>
     <ID>MagicNumber:JalaliDate.kt$100100</ID>
     <ID>MagicNumber:JalaliDate.kt$11</ID>

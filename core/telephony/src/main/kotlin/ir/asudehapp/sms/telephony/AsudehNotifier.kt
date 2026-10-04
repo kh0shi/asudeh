@@ -226,6 +226,25 @@ class AsudehNotifier(
         }
     }
 
+    /** «یادم بینداز» (ROADMAP E1): متن خود پیامک، و لمسش گفتگو را باز می‌کند. */
+    @SuppressLint("MissingPermission")
+    fun notifyReminder(reminderId: Long, message: MessageEntity) {
+        if (!canNotify()) return
+        NotificationChannels.ensure(context)
+        val body = message.body.ifBlank { context.getString(R.string.notify_reminder_no_text) }
+        val notification = NotificationCompat.Builder(context, NotificationChannels.PERSONAL)
+            .setSmallIcon(R.drawable.ic_stat_asudeh)
+            .setContentTitle(context.getString(R.string.notify_reminder_title, sender(message.address)))
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(contentIntent(message.threadId))
+            .setAutoCancel(true)
+            .build()
+        runCatching {
+            NotificationManagerCompat.from(context).notify(idOf(reminderId) xor REMINDER_SALT, notification)
+        }
+    }
+
     /**
      * MMSی که دریافتش از MMSC ممکن نشد. اعلانش در provider هست و از داخل
      * گفتگو دوباره دریافت می‌شود، پس بی‌صدا گم نمی‌شود.
@@ -392,6 +411,7 @@ class AsudehNotifier(
         private const val MAX_PREVIEW = 200
         private const val SEND_FAILED_SALT = 0x5E1D
         private const val SCHEDULE_MISSED_SALT = 0x5C4E
+        private const val REMINDER_SALT = 0x4E31
         private const val THREAD_SALT = 0x7A11
         private const val DIGEST_ID = 0x0D16
 
