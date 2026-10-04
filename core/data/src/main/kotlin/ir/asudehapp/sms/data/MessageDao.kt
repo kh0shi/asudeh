@@ -54,7 +54,13 @@ interface MessageDao {
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
                COALESCE(p.muted, 0) AS muted,
-               COALESCE(p.archived, 0) AS archived
+               COALESCE(p.archived, 0) AS archived,
+               COALESCE(
+                   (SELECT c.category FROM message c
+                     WHERE c.threadId = ts.threadId AND c.folder = ts.folder
+                     ORDER BY c.dateReceived DESC LIMIT 1),
+                   'UNKNOWN'
+               ) AS category
           FROM thread_summary ts
           LEFT JOIN thread_pref p ON p.threadId = ts.threadId
          WHERE ts.folder = :folder
@@ -84,7 +90,13 @@ interface MessageDao {
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
                COALESCE(p.muted, 0) AS muted,
-               COALESCE(p.archived, 0) AS archived
+               COALESCE(p.archived, 0) AS archived,
+               COALESCE(
+                   (SELECT c.category FROM message c
+                     WHERE c.threadId = ts.threadId AND c.folder = ts.folder
+                     ORDER BY c.dateReceived DESC LIMIT 1),
+                   'UNKNOWN'
+               ) AS category
           FROM thread_summary ts
           LEFT JOIN thread_pref p ON p.threadId = ts.threadId
          WHERE ts.folder = :folder
@@ -115,7 +127,13 @@ interface MessageDao {
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
                COALESCE(p.muted, 0) AS muted,
-               COALESCE(p.archived, 0) AS archived
+               COALESCE(p.archived, 0) AS archived,
+               COALESCE(
+                   (SELECT c.category FROM message c
+                     WHERE c.threadId = ts.threadId AND c.folder = ts.folder
+                     ORDER BY c.dateReceived DESC LIMIT 1),
+                   'UNKNOWN'
+               ) AS category
           FROM thread_summary ts
           LEFT JOIN thread_pref p ON p.threadId = ts.threadId
          WHERE ts.folder = :folder
@@ -152,7 +170,13 @@ interface MessageDao {
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
                COALESCE(p.muted, 0) AS muted,
-               p.archived AS archived
+               p.archived AS archived,
+               COALESCE(
+                   (SELECT c.category FROM message c
+                     WHERE c.threadId = ts.threadId AND c.folder = ts.folder
+                     ORDER BY c.dateReceived DESC LIMIT 1),
+                   'UNKNOWN'
+               ) AS category
           FROM thread_summary ts
           JOIN thread_pref p ON p.threadId = ts.threadId
          WHERE p.archived = 1
@@ -179,7 +203,13 @@ interface MessageDao {
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
                COALESCE(p.muted, 0) AS muted,
-               p.archived AS archived
+               p.archived AS archived,
+               COALESCE(
+                   (SELECT c.category FROM message c
+                     WHERE c.threadId = ts.threadId AND c.folder = ts.folder
+                     ORDER BY c.dateReceived DESC LIMIT 1),
+                   'UNKNOWN'
+               ) AS category
           FROM thread_summary ts
           JOIN thread_pref p ON p.threadId = ts.threadId
          WHERE p.archived = 1

@@ -174,6 +174,8 @@ data class SettingsState(
     val showReasonEverywhere: Boolean = false,
     /** ساعت هر پیامک، زیر خودش. */
     val showMessageClock: Boolean = true,
+    /** ضریب اندازهٔ متن گفتگو (ROADMAP D7). */
+    val conversationTextScale: Float = 1f,
     val mmsAutoDownload: Boolean = true,
     val mmsSending: Boolean = true,
     /** گزارش خوانده‌شدن MMS؛ پیش‌فرض خاموش (ADR-0009). */
@@ -475,6 +477,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         deliveryReports = settingsStore.deliveryReports,
         showReasonEverywhere = settingsStore.showReasonEverywhere,
         showMessageClock = settingsStore.showMessageClock,
+        conversationTextScale = settingsStore.conversationTextScale,
         mmsAutoDownload = settingsStore.mmsAutoDownload,
         mmsSending = settingsStore.mmsSending,
         mmsReadReports = settingsStore.mmsReadReports,
@@ -1340,6 +1343,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setShowMessageClock(enabled: Boolean) {
         settingsStore.showMessageClock = enabled
+    }
+
+    fun setConversationTextScale(scale: Float) {
+        settingsStore.conversationTextScale = scale
     }
 
     fun setMmsAutoDownload(enabled: Boolean) {
