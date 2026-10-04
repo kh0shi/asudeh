@@ -91,6 +91,9 @@ sealed interface Destination {
 
     /** «بایگانی» (PARITY §الف). */
     data object Archive : Destination
+
+    /** «نشان‌دارها»: پیامک‌هایی که کاربر نشان کرده، از همهٔ گفتگوها (D6). */
+    data object Starred : Destination
 }
 
 /** یک `UiState` تغییرناپذیر برای هر صفحه (D56). */
@@ -265,6 +268,13 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), 0)
     val scamCount: StateFlow<Int> = repository.count(Folder.SCAM)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), 0)
+
+    /** پیامک‌های نشان‌دار، تازه‌ترین نشان اول (D6). */
+    val starredMessages: StateFlow<List<MessageEntity>> = repository.starredMessages()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
+
+    val starredKeys: StateFlow<Set<MessageKey>> = repository.starredKeys()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptySet())
 
     private val _conversation = MutableStateFlow(ConversationUiState())
     val conversation: StateFlow<ConversationUiState> = _conversation.asStateFlow()
@@ -1031,6 +1041,13 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         val key = MessageKey(message.kind, message.providerId)
         val current = _selectedMessages.value
         _selectedMessages.value = if (key in current) current - key else current + key
+    }
+
+    /** نشان فقط در index.db است؛ به خود پیامک در provider دست نمی‌زند (D6). */
+    fun toggleStar(message: MessageEntity) {
+        val key = MessageKey(message.kind, message.providerId)
+        val starred = key !in starredKeys.value
+        viewModelScope.launch { repository.setStarred(key, starred) }
     }
 
     fun selectAllMessages() {

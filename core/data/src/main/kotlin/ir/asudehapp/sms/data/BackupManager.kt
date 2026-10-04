@@ -47,6 +47,8 @@ class BackupManager(
             val keywords = rulesDatabase.keywordRules().all()
             val smsFolders = repository.foldersByProviderId(MessageEntity.KIND_SMS)
             val mmsFolders = repository.foldersByProviderId(MessageEntity.KIND_MMS)
+            val smsStars = repository.starredIds(MessageEntity.KIND_SMS)
+            val mmsStars = repository.starredIds(MessageEntity.KIND_MMS)
             var count = 0
             output.bufferedWriter(Charsets.UTF_8).use { writer ->
                 BackupFormat.writeHeader(
@@ -88,12 +90,13 @@ class BackupManager(
                                 read = cursor.getInt(read) == 1,
                                 subId = cursor.getInt(subId),
                                 folder = smsFolders[cursor.getLong(id)]?.name,
+                                starred = cursor.getLong(id) in smsStars,
                             ),
                         )
                         count++
                     }
                 } ?: error("Telephony Provider در دسترس نیست")
-                count += exportMms(writer, mmsFolders)
+                count += exportMms(writer, mmsFolders, mmsStars)
             }
             ExportResult(count, rules.size + keywords.size)
         }
@@ -104,7 +107,7 @@ class BackupManager(
      * می‌شوند: چیزی برای پشتیبان‌گیری ندارند و با دریافت دوباره یا اعلان WAP
      * بعدی جایگزین می‌شوند.
      */
-    private suspend fun exportMms(writer: Writer, folders: Map<Long, Folder>): Int {
+    private suspend fun exportMms(writer: Writer, folders: Map<Long, Folder>, stars: Set<Long>): Int {
         val threadRecipients = mmsStore.threadRecipients()
         var count = 0
         for (chunk in mmsStore.readIds().chunked(MMS_CHUNK)) {
@@ -122,6 +125,7 @@ class BackupManager(
                         read = pm.read,
                         subId = pm.subId,
                         folder = folders[pm.id]?.name,
+                        starred = pm.id in stars,
                         parts = parts.map {
                             BackupFormat.Part(
                                 contentType = it.contentType,
@@ -181,6 +185,8 @@ class BackupManager(
                 var corrupt = 0
                 val smsPlacements = HashMap<Long, Folder>()
                 val mmsPlacements = HashMap<Long, Folder>()
+                val smsStars = ArrayList<Long>()
+                val mmsStars = ArrayList<Long>()
                 for (message in BackupFormat.readMessages(reader) { corrupt++ }) {
                     when (message) {
                         is BackupFormat.Sms -> {
@@ -198,6 +204,7 @@ class BackupManager(
                             if (folder != null && folder != Folder.INBOX) {
                                 smsPlacements[ContentUris.parseId(uri)] = folder
                             }
+                            if (message.starred) smsStars += ContentUris.parseId(uri)
                         }
                         is BackupFormat.Mms -> {
                             if (!existingMms.add(message.key)) {
@@ -231,6 +238,7 @@ class BackupManager(
                             added++
                             val folder = message.folder?.let { runCatching { Folder.valueOf(it) }.getOrNull() }
                             if (folder != null && folder != Folder.INBOX) mmsPlacements[stored.providerId] = folder
+                            if (message.starred) mmsStars += stored.providerId
                         }
                     }
                 }
@@ -240,6 +248,8 @@ class BackupManager(
                 repository.sync()
                 repository.restoreFolders(MessageEntity.KIND_SMS, smsPlacements)
                 repository.restoreFolders(MessageEntity.KIND_MMS, mmsPlacements)
+                repository.restoreStars(MessageEntity.KIND_SMS, smsStars)
+                repository.restoreStars(MessageEntity.KIND_MMS, mmsStars)
                 ImportResult(added, duplicates, corrupt, rules)
             }
         }

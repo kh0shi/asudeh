@@ -32,6 +32,18 @@ class BackupFormatTest {
     }
 
     @Test
+    fun `stars survive a backup and older lines read as unstarred`() {
+        val out = StringWriter()
+        BackupFormat.writeHeader(out, header)
+        BackupFormat.writeSms(out, BackupFormat.Sms("0912", "مهم", 30, type = 1, starred = true))
+        out.write("{\"address\":\"0935\",\"body\":\"قدیمی\",\"date\":40,\"type\":1}\n")
+
+        val reader = StringReader(out.toString()).buffered()
+        BackupFormat.readHeader(reader)
+        assertEquals(listOf(true, false), BackupFormat.readSms(reader).map { it.starred }.toList())
+    }
+
+    @Test
     fun `a corrupt line is skipped and counted, not fatal`() {
         val text = buildString {
             val out = StringWriter()

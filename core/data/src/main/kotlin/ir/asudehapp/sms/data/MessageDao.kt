@@ -504,3 +504,30 @@ interface ScheduledMessageDao {
     @Query("DELETE FROM scheduled_message WHERE id = :id")
     suspend fun remove(id: Long)
 }
+
+/** نشان‌ها (ROADMAP D6). */
+@Dao
+interface StarredDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(rows: List<StarredMessageEntity>)
+
+    @Query("DELETE FROM starred_message WHERE kind = :kind AND providerId = :providerId")
+    suspend fun remove(kind: String, providerId: Long)
+
+    /** پیامک‌های نشان‌دار، تازه‌ترین نشان اول؛ نشانِ پیامک حذف‌شده دیده نمی‌شود. */
+    @Query(
+        """
+        SELECT m.* FROM message m
+          JOIN starred_message s ON s.kind = m.kind AND s.providerId = m.providerId
+         ORDER BY s.starredAt DESC
+        """,
+    )
+    fun observeStarred(): Flow<List<MessageEntity>>
+
+    @Query("SELECT * FROM starred_message")
+    fun observeAll(): Flow<List<StarredMessageEntity>>
+
+    @Query("SELECT providerId FROM starred_message WHERE kind = :kind")
+    suspend fun providerIds(kind: String): List<Long>
+}
