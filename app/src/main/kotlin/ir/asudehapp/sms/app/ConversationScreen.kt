@@ -85,6 +85,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -785,6 +786,7 @@ private fun SendButton(
     onDismissMenu: () -> Unit,
     onSchedule: () -> Unit,
 ) {
+    val view = LocalView.current
     Box {
         Box(
             Modifier
@@ -792,8 +794,18 @@ private fun SendButton(
                 .clip(CircleShape)
                 .combinedClickable(
                     enabled = enabled || canSchedule,
-                    onClick = { if (enabled) onSend() },
-                    onLongClick = { if (canSchedule) onOpenMenu() },
+                    onClick = {
+                        if (enabled) {
+                            Haptics.send(view)
+                            onSend()
+                        }
+                    },
+                    onLongClick = {
+                        if (canSchedule) {
+                            Haptics.longPress(view)
+                            onOpenMenu()
+                        }
+                    },
                     role = Role.Button,
                 ),
             contentAlignment = Alignment.Center,
@@ -1028,6 +1040,7 @@ private fun MessageBubble(
     lastInRun: Boolean = true,
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val clipboard = LocalClipboardManager.current
     val starredKeys by model.starredKeys.collectAsState()
     var menu by remember { mutableStateOf(false) }
@@ -1110,6 +1123,7 @@ private fun MessageBubble(
                                 // نگه داشتن: انتخاب. نگه داشتن روی پیامکِ انتخاب‌شده:
                                 // برداشتن بخشی از متن (مثل تلگرام).
                                 onLongClick = {
+                                    Haptics.longPress(view)
                                     if (selected) onPickText() else model.toggleMessage(message)
                                 },
                             )

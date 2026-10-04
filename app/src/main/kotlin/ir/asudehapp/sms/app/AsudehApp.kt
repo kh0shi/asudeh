@@ -33,6 +33,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import ir.asudehapp.sms.data.BackupException
 import androidx.compose.foundation.background
@@ -1333,6 +1334,11 @@ private fun ThreadRow(
             false
         },
     )
+    // لرزش وقتی کشیدن از آستانه می‌گذرد، نه وقتی انگشت برداشته می‌شود.
+    val view = LocalView.current
+    LaunchedEffect(dismissState.targetValue) {
+        if (dismissState.targetValue != SwipeToDismissBoxValue.Settled) Haptics.threshold(view)
+    }
     SwipeToDismissBox(
         state = dismissState,
         enableDismissFromEndToStart = isDefaultApp,
@@ -1378,6 +1384,7 @@ private fun ThreadRowContent(
     selectionMode: Boolean,
     onClick: () -> Unit,
 ) {
+    val view = LocalView.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -1388,7 +1395,10 @@ private fun ThreadRowContent(
                 onClickLabel = stringResource(if (selectionMode) R.string.a11y_select else R.string.a11y_open_conversation),
                 onLongClickLabel = stringResource(R.string.a11y_select),
                 onClick = { if (selectionMode) model.toggleThread(thread.threadId) else onClick() },
-                onLongClick = { model.toggleThread(thread.threadId) },
+                onLongClick = {
+                    Haptics.longPress(view)
+                    model.toggleThread(thread.threadId)
+                },
             )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top,
