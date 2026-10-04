@@ -16,6 +16,7 @@ import ir.asudehapp.sms.model.Confidence
 import ir.asudehapp.sms.model.DefaultRule
 import ir.asudehapp.sms.model.DefaultRules
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.model.InboxFilter
 import ir.asudehapp.sms.model.MessageInput
 import ir.asudehapp.sms.model.Origin
 import ir.asudehapp.sms.model.ReasonCode
@@ -111,6 +112,14 @@ class AsudehRepository(
         Pager(PagingConfig(pageSize = PAGE_SIZE, prefetchDistance = PAGE_SIZE, enablePlaceholders = true)) {
             dao.pagingSource(folder)
         }.flow
+
+    /** [pagedThreads] با تراشهٔ فیلتر صندوق (ROADMAP D5)؛ `ALL` همان فهرست کامل است. */
+    fun pagedThreads(folder: Folder, filter: InboxFilter): Flow<PagingData<ThreadSummary>> {
+        val categories = filter.categories?.map { it.name } ?: return pagedThreads(folder)
+        return Pager(PagingConfig(pageSize = PAGE_SIZE, prefetchDistance = PAGE_SIZE, enablePlaceholders = true)) {
+            dao.filteredPagingSource(folder, categories)
+        }.flow
+    }
 
     /** همان [archivedThreads]، صفحه‌به‌صفحه. */
     fun pagedArchivedThreads(): Flow<PagingData<ThreadSummary>> =

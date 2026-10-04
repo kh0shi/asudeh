@@ -95,6 +95,41 @@ interface MessageDao {
     fun pagingSource(folder: Folder): PagingSource<Int, ThreadSummary>
 
     /**
+     * همان [pagingSource] با تراشهٔ فیلتر صندوق (ROADMAP D5): فقط گفتگوهایی که
+     * دست‌کم یک پیامک این پوشه با یکی از [categories] دارند. زیرپرس‌وجو همبسته
+     * نیست و یک بار برای کل فهرست اجرا می‌شود، نه در هر ردیف؛ پس هدف
+     * `thread_summary` برای ۱۰ هزار گفتگو سر جایش می‌ماند.
+     */
+    @Query(
+        """
+        SELECT ts.threadId AS threadId,
+               ts.folder AS folder,
+               ts.address AS address,
+               ts.snippet AS snippet,
+               ts.lastDate AS lastDate,
+               ts.unread AS unread,
+               ts.total AS total,
+               ts.hasRisk AS hasRisk,
+               ts.recipients AS recipients,
+               ts.attachments AS attachments,
+               COALESCE(p.pinned, 0) AS pinned,
+               COALESCE(p.draft, '') AS draft,
+               COALESCE(p.muted, 0) AS muted,
+               COALESCE(p.archived, 0) AS archived
+          FROM thread_summary ts
+          LEFT JOIN thread_pref p ON p.threadId = ts.threadId
+         WHERE ts.folder = :folder
+           AND COALESCE(p.archived, 0) = 0
+           AND ts.threadId IN (
+               SELECT m.threadId FROM message m
+                WHERE m.folder = :folder AND m.category IN (:categories)
+           )
+         ORDER BY pinned DESC, lastDate DESC
+        """,
+    )
+    fun filteredPagingSource(folder: Folder, categories: List<String>): PagingSource<Int, ThreadSummary>
+
+    /**
      * گفتگوهای بایگانی‌شده، از هر پوشه‌ای که باشند (PARITY §الف). برخلاف
      * [observeThreads]، به یک پوشه محدود نیست: پیش‌نمایش و شمار خوانده‌نشده از
      * **همهٔ** پیامک‌های گفتگو حساب می‌شوند، نه فقط یک پوشه. چون `thread_summary`
