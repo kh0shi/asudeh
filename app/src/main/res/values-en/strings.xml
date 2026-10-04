@@ -222,6 +222,14 @@
     <string name="theme_dark">Dark</string>
     <string name="theme_black">Pure black</string>
     <string name="settings_rules">My rules</string>
+    <string name="contact_card_open">Show contact</string>
+    <string name="contact_rules">Rules for this sender</string>
+    <string name="contact_rule_none">No rule; Asudeh decides on its own.</string>
+    <string name="contact_rule_allowed">Always goes to the inbox.</string>
+    <string name="contact_rule_blocked">Its ads are always hidden.</string>
+    <string name="contact_rule_allow">Always inbox</string>
+    <string name="contact_rule_block">Hide its ads</string>
+    <string name="contact_rule_forget">Remove rule</string>
     <string name="settings_rules_hint">Numbers and words that always go to the Inbox or always count as ads</string>
     <string name="settings_message_clock">Message time</string>
     <string name="settings_message_clock_hint">Show the time under each message.</string>

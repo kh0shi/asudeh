@@ -1061,6 +1061,11 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.block(address) }
     }
 
+    /** «همیشه در صندوق»: تبلیغ‌های قبلی همین فرستنده هم به صندوق برمی‌گردند. */
+    fun allowSender(address: String) {
+        viewModelScope.launch { repository.alwaysAllow(address) }
+    }
+
     fun forgetRule(address: String) {
         viewModelScope.launch { repository.forgetRule(address) }
     }
