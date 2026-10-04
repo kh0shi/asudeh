@@ -39,6 +39,10 @@ jobs:
       - name: اجرای آزمون‌های واحد
         run: ./gradlew --no-daemon :core:model:test :core:persian:test :core:classifier:test :core:mms:test
 
+      # D62: فقط کد تازه سنجیده می‌شود؛ وضع موجود در config/detekt/baseline.xml است.
+      - name: detekt
+        run: ./gradlew --no-daemon :detekt
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

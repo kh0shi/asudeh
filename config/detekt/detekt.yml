@@ -1,0 +1,14 @@
+# D62: پیکربندی detekt. روی پیش‌فرض‌های detekt ساخته می‌شود
+# (--build-upon-default-config)؛ اینجا فقط تفاوت‌ها می‌آیند.
+build:
+  maxIssues: 0
+
+style:
+  # متن‌ها و توضیح‌ها فارسی‌اند و خط‌های طولانی‌تری دارند.
+  MaxLineLength:
+    maxLineLength: 140
+
+naming:
+  # تابع‌های Compose طبق قرارداد با حرف بزرگ شروع می‌شوند.
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
