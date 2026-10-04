@@ -13,6 +13,7 @@
   اضافه شدند (D63)
 - CI با بررسی `NoNet` روی manifest ادغام‌شدهٔ **debug و release** (ADR-0002، D62)
 - فایل `LICENSE` با متن کامل GPL-3.0 در ریشهٔ مخزن (ROADMAP A1)
+- نسخه‌گذاری SemVer: `versionName` برابر `1.0.0-beta1`، `versionCode` شمارندهٔ یکنواخت (D66، ROADMAP A2)
 - فهرست ثابت مجوزها؛ هر مجوز تازه CI را متوقف می‌کند (D62)
 - CI حجم APK **release** را با سقف ۱۰ مگابایت (اصل ۷) می‌سنجد، نه debug را (ROADMAP A0)
 - تم و رنگ برند، با گزینهٔ رنگ پویا (D49)

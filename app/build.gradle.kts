@@ -16,8 +16,11 @@ android {
         applicationId = "ir.asudehapp.sms"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // D66: versionName نسخهٔ SemVer است. versionCode شمارنده‌ای است که با هر
+        // انتشار (بتا هم) یکی بالا می‌رود و هرگز پایین نمی‌آید؛ اندروید نصب
+        // نسخه‌ای با versionCode کمتر را روی نسخهٔ نصب‌شده نمی‌پذیرد.
+        versionCode = 2
+        versionName = "1.0.0-beta1"
     }
 
     buildTypes {
