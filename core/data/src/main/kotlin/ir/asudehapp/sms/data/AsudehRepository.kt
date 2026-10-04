@@ -237,69 +237,44 @@ class AsudehRepository(
         }
     }
 
-    suspend fun setPinned(threadId: Long, pinned: Boolean) {
-        val current = prefDao.get(threadId)
-        savePref(
-            threadId,
-            pinned = pinned,
-            draft = current?.draft.orEmpty(),
-            muted = current?.muted ?: false,
-            archived = current?.archived ?: false,
-        )
-    }
+    suspend fun setPinned(threadId: Long, pinned: Boolean) = updatePref(threadId) { it.copy(pinned = pinned) }
 
     suspend fun draft(threadId: Long): String = prefDao.get(threadId)?.draft.orEmpty()
 
     suspend fun isPinned(threadId: Long): Boolean = prefDao.get(threadId)?.pinned ?: false
 
     /** بی‌صدا کردن یک گفتگو: پیامک‌های تازه‌اش هیچ اعلانی نمی‌گیرند، ولی جایی پنهان نمی‌شوند. */
-    suspend fun setMuted(threadId: Long, muted: Boolean) {
-        val current = prefDao.get(threadId)
-        savePref(
-            threadId,
-            pinned = current?.pinned ?: false,
-            draft = current?.draft.orEmpty(),
-            muted = muted,
-            archived = current?.archived ?: false,
-        )
-    }
+    suspend fun setMuted(threadId: Long, muted: Boolean) = updatePref(threadId) { it.copy(muted = muted) }
 
     suspend fun isMuted(threadId: Long): Boolean = prefDao.get(threadId)?.muted ?: false
 
     /** بایگانی: گفتگو از فهرست پوشه‌اش برداشته می‌شود، ولی جایی حذف نمی‌شود. */
-    suspend fun setArchived(threadId: Long, archived: Boolean) {
-        val current = prefDao.get(threadId)
-        savePref(
-            threadId,
-            pinned = current?.pinned ?: false,
-            draft = current?.draft.orEmpty(),
-            muted = current?.muted ?: false,
-            archived = archived,
-        )
-    }
+    suspend fun setArchived(threadId: Long, archived: Boolean) = updatePref(threadId) { it.copy(archived = archived) }
 
     suspend fun isArchived(threadId: Long): Boolean = prefDao.get(threadId)?.archived ?: false
 
     /** پیش‌نویس گفتگو (D53). متن خالی پیش‌نویس را برمی‌دارد. */
     suspend fun saveDraft(threadId: Long, text: String) {
-        if (threadId <= 0) return
-        val current = prefDao.get(threadId)
-        if ((current?.draft ?: "") == text) return
-        savePref(
-            threadId,
-            pinned = current?.pinned ?: false,
-            draft = text,
-            muted = current?.muted ?: false,
-            archived = current?.archived ?: false,
-        )
+        if (threadId <= 0 || draft(threadId) == text) return
+        updatePref(threadId) { it.copy(draft = text) }
     }
 
-    private suspend fun savePref(threadId: Long, pinned: Boolean, draft: String, muted: Boolean, archived: Boolean) {
-        if (!pinned && draft.isEmpty() && !muted && !archived) {
-            prefDao.remove(threadId)
-        } else {
-            prefDao.put(ThreadPrefEntity(threadId, pinned, draft, System.currentTimeMillis(), muted, archived))
-        }
+    /**
+     * سیم‌کارتی که این گفتگو آخرین بار با آن فرستاده شد (ROADMAP E7)؛ جعبهٔ
+     * نوشتن همان را پیش‌فرض می‌گیرد. منفی یعنی چیزی ذخیره نشده است.
+     */
+    suspend fun lastSendSim(threadId: Long): Int = prefDao.get(threadId)?.subId ?: -1
+
+    suspend fun rememberSendSim(threadId: Long, subId: Int) {
+        if (threadId <= 0 || subId < 0) return
+        updatePref(threadId) { it.copy(subId = subId) }
+    }
+
+    /** ردیفی که همه‌اش پیش‌فرض است نگه داشته نمی‌شود. */
+    private suspend fun updatePref(threadId: Long, change: (ThreadPrefEntity) -> ThreadPrefEntity) {
+        val current = prefDao.get(threadId) ?: ThreadPrefEntity(threadId, pinned = false, draft = "", updatedAt = 0)
+        val next = change(current).copy(updatedAt = System.currentTimeMillis())
+        if (next.isDefault) prefDao.remove(threadId) else prefDao.put(next)
     }
 
     /**
