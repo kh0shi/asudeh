@@ -22,7 +22,8 @@ enum class DateStyle { AUTO, JALALI, GREGORIAN }
 enum class NotificationContent { FULL, NAME_ONLY, NONE }
 
 /** تم رابط (D49، D52). */
-enum class ThemeMode { SYSTEM, LIGHT, DARK }
+/** `BLACK` همان تیره است با پس‌زمینهٔ سیاه کامل، برای صفحه‌های AMOLED (ROADMAP E8). */
+enum class ThemeMode { SYSTEM, LIGHT, DARK, BLACK }
 
 /**
  * تنظیمات کاربر (D52). در انتقال گوشی‌به‌گوشی و در پشتیبان فایل (D57) منتقل

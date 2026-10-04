@@ -220,6 +220,7 @@
     <string name="theme_system">Match device</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="theme_black">Pure black</string>
     <string name="settings_rules">My rules</string>
     <string name="settings_rules_hint">Numbers and words that always go to the Inbox or always count as ads</string>
     <string name="settings_message_clock">Message time</string>

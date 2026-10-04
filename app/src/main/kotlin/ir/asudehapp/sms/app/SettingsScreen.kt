@@ -100,6 +100,7 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             ThemeMode.SYSTEM to R.string.theme_system,
             ThemeMode.LIGHT to R.string.theme_light,
             ThemeMode.DARK to R.string.theme_dark,
+            ThemeMode.BLACK to R.string.theme_black,
         )) {
             Choice(stringResource(label), settings.theme == value) { model.setTheme(value) }
         }

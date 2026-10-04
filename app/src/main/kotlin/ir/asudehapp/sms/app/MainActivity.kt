@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
             val dark = when (settings.theme) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
-                ThemeMode.DARK -> true
+                ThemeMode.DARK, ThemeMode.BLACK -> true
             }
             // پوستهٔ Compose فقط محتوا را رنگ می‌کند و به پنجره نمی‌رسد. اگر
             // اینجا به سامانه نگوییم نوارها روشن‌اند یا تاریک، سامانه به
@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
                     isAppearanceLightNavigationBars = !dark
                 }
             }
-            AsudehTheme(darkTheme = dark, dynamicColor = settings.dynamicColor) {
+            AsudehTheme(dark, settings.dynamicColor, pureBlack = settings.theme == ThemeMode.BLACK) {
                 val clipboard = LocalClipboardManager.current
                 CompositionLocalProvider(
                     // ارقام فارسی فقط در رابط فارسی معنی دارند.
