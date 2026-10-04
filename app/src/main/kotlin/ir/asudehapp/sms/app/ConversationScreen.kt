@@ -62,7 +62,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -659,10 +658,11 @@ private fun Composer(
  */
 @Composable
 private fun PendingSendRow(pending: DelayedSend.Pending, onCancel: () -> Unit) {
-    val left by produceState((pending.delayMillis / MILLIS_PER_SECOND).toInt(), pending) {
-        while (value > 0) {
+    var left by remember(pending) { mutableIntStateOf((pending.delayMillis / MILLIS_PER_SECOND).toInt()) }
+    LaunchedEffect(pending) {
+        while (left > 0) {
             delay(MILLIS_PER_SECOND)
-            value = value - 1
+            left -= 1
         }
     }
     Row(
