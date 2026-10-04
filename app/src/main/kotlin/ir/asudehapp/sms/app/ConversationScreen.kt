@@ -91,6 +91,7 @@ import ir.asudehapp.sms.data.SendStatus
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.persian.CopyKind
 import ir.asudehapp.sms.persian.CopyableNumbers
+import ir.asudehapp.sms.persian.SmsLength
 import ir.asudehapp.sms.telephony.SimCard
 import ir.asudehapp.sms.telephony.SimCards
 
@@ -535,6 +536,12 @@ private fun Composer(
                 modifier = Modifier.weight(1f),
                 enabled = enabled,
                 placeholder = { Text(stringResource(R.string.compose_hint)) },
+                // «۱۲۰/۱۳۴ · ۲ پیامک» (ROADMAP D2)؛ پیوست MMS است و تکه نمی‌شود.
+                supportingText = if (draft.isNotEmpty() && attachments.isEmpty()) {
+                    { SmsCounter(draft) }
+                } else {
+                    null
+                },
                 maxLines = 5,
             )
             SendButton(
@@ -937,6 +944,17 @@ private fun MessageBody(
         } else {
             MaterialTheme.colorScheme.onSurface
         },
+    )
+}
+
+/** شمار نویسه و تکهٔ پیامک در حال نوشتن (ROADMAP D2). */
+@Composable
+private fun SmsCounter(draft: String) {
+    val length = remember(draft) { SmsLength.of(draft) }
+    Text(
+        Texts.digits(
+            stringResource(R.string.sms_counter, length.used, length.capacity, length.segments),
+        ),
     )
 }
 
