@@ -385,4 +385,9 @@
     <string name="rating_body">It has been setting ads aside for a few weeks. If you\'re happy with it, rate it on Bazaar. You won\'t see this card again.</string>
     <string name="rating_rate">Rate it</string>
     <string name="rating_not_now">No, thanks</string>
+    <string name="chip_copy_code">Copy code</string>
+    <string name="chip_copy_card">Copy card</string>
+    <string name="chip_copy_sheba">Copy IBAN</string>
+    <string name="chip_copy_phone">Copy number</string>
+    <string name="chip_call">Call</string>
 </resources>
