@@ -28,7 +28,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import ir.asudehapp.sms.data.BackupException
@@ -81,6 +83,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
@@ -1000,6 +1003,10 @@ private fun rememberTopAnchoredListState(items: LazyPagingItems<ThreadSummary>):
     return state
 }
 
+/** شناسهٔ فهرست گفتگوها برای `ThreadListScrollBenchmark` (`By.res`). */
+private const val THREAD_LIST_TAG = "thread_list"
+
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun HomeScreen(
     model: AsudehViewModel,
@@ -1017,7 +1024,14 @@ private fun HomeScreen(
     val syncFailed by model.syncFailed.collectAsState()
 
     val listState = rememberTopAnchoredListState(lazyThreads)
-    LazyColumn(Modifier.fillMaxSize(), listState) {
+    LazyColumn(
+        Modifier
+            .fillMaxSize()
+            // بنچمارک با UiAutomator فهرست را با همین tag پیدا می‌کند.
+            .semantics { testTagsAsResourceId = true }
+            .testTag(THREAD_LIST_TAG),
+        listState,
+    ) {
         if (!isDefaultApp) {
             item { DefaultAppCard(onBecomeDefault) }
         }
