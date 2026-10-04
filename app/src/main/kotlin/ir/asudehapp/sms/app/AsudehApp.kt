@@ -281,7 +281,7 @@ private fun HomeActions(model: AsudehViewModel) {
     val scamCount by model.scamCount.collectAsState()
     var menu by remember { mutableStateOf(false) }
 
-    IconButton(onClick = { model.navigate(Destination.Search) }) {
+    IconButton(onClick = { model.openSearch() }) {
         Icon(Icons.Default.Search, stringResource(R.string.search))
     }
     IconButton(onClick = { menu = true }) {

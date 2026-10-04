@@ -165,6 +165,15 @@
     <!-- Search (D20) -->
     <string name="search_hint">Search all messages</string>
     <string name="search_empty">Nothing found</string>
+    <string name="search_this_thread">This conversation</string>
+    <string name="search_kind_attachments">Photos and attachments</string>
+    <string name="search_kind_otp">Codes</string>
+    <string name="search_kind_bank">Bank</string>
+    <string name="search_kind_hidden">Hidden folders</string>
+    <string name="search_one_sender">One sender</string>
+    <string name="search_sender_hint">Number or sender ID</string>
+    <string name="search_in_thread">Search in conversation</string>
+    <string name="jump_to_date">Jump to date</string>
     <string name="search_in_folder">In \"%1$s\"</string>
 
     <!-- Conversation -->

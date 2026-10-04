@@ -20,6 +20,7 @@ import ir.asudehapp.sms.model.InboxFilter
 import ir.asudehapp.sms.model.MessageInput
 import ir.asudehapp.sms.model.Origin
 import ir.asudehapp.sms.model.ReasonCode
+import ir.asudehapp.sms.model.SearchScope
 import ir.asudehapp.sms.model.UserRules
 import ir.asudehapp.sms.persian.KeywordMatch
 import ir.asudehapp.sms.persian.SearchText
@@ -308,6 +309,27 @@ class AsudehRepository(
     suspend fun search(query: String, limit: Int = SEARCH_LIMIT): List<MessageEntity> {
         val match = SearchText.ftsQuery(query) ?: return emptyList()
         return runCatching { dao.search(match, limit) }.getOrDefault(emptyList())
+    }
+
+    /**
+     * جستجو با دامنه (ROADMAP E6). متن فقط از `SearchText.ftsQuery` به `MATCH`
+     * می‌رسد؛ دامنه پارامتر جداست. بدون متن، فقط دامنهٔ محدودشده نتیجه دارد.
+     */
+    suspend fun search(query: String, scope: SearchScope, limit: Int = SEARCH_LIMIT): List<MessageEntity> {
+        val match = SearchText.ftsQuery(query)
+        if (match == null && !scope.narrowed) return emptyList()
+        return runCatching {
+            if (match != null) {
+                dao.searchScoped(
+                    match, scope.threadId, scope.senderKey, scope.onlyAttachments, scope.onlyHidden,
+                    scope.categories, limit,
+                )
+            } else {
+                dao.filterScoped(
+                    scope.threadId, scope.senderKey, scope.onlyAttachments, scope.onlyHidden, scope.categories, limit,
+                )
+            }
+        }.getOrDefault(emptyList())
     }
 
     /** شمار پیامک‌های پنهان‌شده از [since]، برای `Digest` (D40). */

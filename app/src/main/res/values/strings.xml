@@ -166,6 +166,15 @@
     <!-- جستجو (D20) -->
     <string name="search_hint">جستجو در همهٔ پیامک‌ها</string>
     <string name="search_empty">چیزی پیدا نشد</string>
+    <string name="search_this_thread">همین گفتگو</string>
+    <string name="search_kind_attachments">تصویر و پیوست</string>
+    <string name="search_kind_otp">رمز</string>
+    <string name="search_kind_bank">بانک</string>
+    <string name="search_kind_hidden">پوشه‌های پنهان</string>
+    <string name="search_one_sender">یک فرستنده</string>
+    <string name="search_sender_hint">شماره یا سرشماره</string>
+    <string name="search_in_thread">جستجو در گفتگو</string>
+    <string name="jump_to_date">پرش به تاریخ</string>
     <string name="search_in_folder">در «%1$s»</string>
 
     <!-- گفتگو -->

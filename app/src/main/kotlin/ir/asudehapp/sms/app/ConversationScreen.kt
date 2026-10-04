@@ -43,17 +43,22 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -115,6 +120,7 @@ import ir.asudehapp.sms.persian.CopyableNumbers
 import ir.asudehapp.sms.persian.DayLabel
 import ir.asudehapp.sms.persian.EmojiOnly
 import ir.asudehapp.sms.persian.MessageGrouping
+import ir.asudehapp.sms.persian.SendSchedule
 import ir.asudehapp.sms.persian.SmsLength
 import ir.asudehapp.sms.telephony.DelayedSend
 import ir.asudehapp.sms.telephony.SimCard
@@ -141,10 +147,28 @@ private sealed interface ConversationItem {
 fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, folder: Folder) {
     var menu by remember { mutableStateOf(false) }
     var confirmUnsub by remember { mutableStateOf(false) }
+    var pickDay by remember { mutableStateOf(false) }
     IconButton(onClick = { menu = true }) {
         Icon(Icons.Default.MoreVert, stringResource(R.string.more))
     }
     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        // جستجو داخل همین گفتگو و «پرش به تاریخ» (PARITY §ب-۵، ROADMAP E6).
+        if (state.threadId > 0) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.search_in_thread)) },
+                onClick = {
+                    menu = false
+                    model.openSearch(state.threadId)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.jump_to_date)) },
+                onClick = {
+                    menu = false
+                    pickDay = true
+                },
+            )
+        }
         if (state.threadId > 0) {
             DropdownMenuItem(
                 text = { Text(stringResource(if (state.pinned) R.string.unpin else R.string.pin)) },
@@ -219,6 +243,39 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
             },
         )
     }
+    if (pickDay) {
+        JumpToDateDialog(onDismiss = { pickDay = false }) { epochDay ->
+            pickDay = false
+            model.jumpToDay(epochDay)
+        }
+    }
+}
+
+/** انتخاب روز برای «پرش به تاریخ»؛ روز آینده انتخاب‌شدنی نیست. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun JumpToDateDialog(onDismiss: () -> Unit, onPick: (Long) -> Unit) {
+    val now = remember { System.currentTimeMillis() }
+    val zone = ZoneId.systemDefault()
+    val dayState = rememberDatePickerState(
+        initialSelectedDateMillis = now,
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                SendSchedule.epochDayOfUtcMillis(utcTimeMillis) <= SendSchedule.today(now, zone)
+        },
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = { onPick(SendSchedule.epochDayOfUtcMillis(dayState.selectedDateMillis ?: now)) },
+                enabled = dayState.selectedDateMillis != null,
+            ) { Text(stringResource(R.string.jump_to_date)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    ) {
+        DatePicker(dayState)
+    }
 }
 
 @Composable
@@ -281,8 +338,20 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
         if (atBottom) seenItems = items.size
     }
     val lastIndex = items.size + sections.size + scheduled.size - 1
+    // نتیجهٔ جستجو یا «پرش به تاریخ» (E6): گفتگو روی همان پیامک باز می‌شود و
+    // دیگر خودش پایین نمی‌رود.
+    val jumpTo by model.jumpTo.collectAsState()
+    LaunchedEffect(jumpTo, items.size) {
+        val target = jumpTo ?: return@LaunchedEffect
+        if (items.isEmpty()) return@LaunchedEffect
+        val position = items.indexOfFirst { it.endMillis() >= target }.takeIf { it >= 0 } ?: items.lastIndex
+        followBottom = false
+        placedNewLine = true
+        listState.scrollToItem(lazyIndexOf(position, sections))
+        model.consumeJump()
+    }
     LaunchedEffect(items.size, scheduled.size, firstNew) {
-        if (lastIndex < 0) return@LaunchedEffect
+        if (lastIndex < 0 || jumpTo != null) return@LaunchedEffect
         if (firstNew != null && !placedNewLine) {
             placedNewLine = true
             listState.scrollToItem(lazyIndexOf(firstNew, sections))
@@ -841,6 +910,11 @@ private fun JumpToBottom(unseen: Int, modifier: Modifier, onClick: () -> Unit) {
 
 /** بخش یک روز در گفتگو: [size] جزء از [start]، با زمان نخستینشان. */
 private data class DaySection(val start: Int, val size: Int, val firstMillis: Long)
+
+private fun ConversationItem.endMillis(): Long = when (this) {
+    is ConversationItem.Visible -> message.dateReceived
+    is ConversationItem.Hidden -> messages.last().dateReceived
+}
 
 private fun ConversationItem.millis(): Long = when (this) {
     is ConversationItem.Visible -> message.dateReceived
