@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +53,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -89,8 +91,10 @@ import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.data.MoveSuggestion
+import ir.asudehapp.sms.data.SyncProgress
 import ir.asudehapp.sms.data.ThreadSummary
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.model.InboxFilter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1042,6 +1046,7 @@ private fun HomeScreen(
     val syncing by model.syncing.collectAsState()
     val syncProgress by model.syncProgress.collectAsState()
     val syncFailed by model.syncFailed.collectAsState()
+    val filter by model.inboxFilter.collectAsState()
 
     val listState = rememberTopAnchoredListState(lazyThreads)
     LazyColumn(
@@ -1055,35 +1060,16 @@ private fun HomeScreen(
         if (!isDefaultApp) {
             item { DefaultAppCard(onBecomeDefault) }
         }
-        if (syncing) {
-            // مرحلهٔ سوم اولین اجرا: فهرست از همین لحظه قابل استفاده است (D47).
-            // درصد واقعی فقط وقتی کار بزرگ است؛ چند پیامک تازه نوار بی‌درصد می‌گیرد (D48).
-            val fraction = syncProgress?.takeIf { it.total > SYNC_PERCENT_FROM }?.fraction
-            item {
-                if (fraction != null) {
-                    LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
-                } else {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                }
-            }
-        }
-        if (syncing || syncFailed) {
-            val percent = syncProgress?.takeIf { it.total > SYNC_PERCENT_FROM }?.percent
-            item {
-                Text(
-                    when {
-                        !syncing -> stringResource(R.string.sync_failed)
-                        percent != null -> Texts.digits(stringResource(R.string.syncing_percent, percent))
-                        else -> stringResource(R.string.syncing)
-                    },
-                    Modifier.fillMaxWidth().padding(16.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
+        syncStatusItems(syncing, syncProgress, syncFailed)
 
         if (threads.isEmpty() && !syncing) {
             item { EmptyState(stringResource(R.string.empty_inbox)) }
+        }
+        if (threads.isNotEmpty()) {
+            item { InboxFilterChips(filter, model::setInboxFilter) }
+            if (filter != InboxFilter.ALL && lazyThreads.itemCount == 0) {
+                item { EmptyState(stringResource(R.string.filter_empty)) }
+            }
         }
         pagedThreadItems(
             items = lazyThreads,
@@ -1093,6 +1079,68 @@ private fun HomeScreen(
             folderFor = { Folder.INBOX },
             onOpenThread = { thread -> onOpenThread(thread.threadId) },
         )
+    }
+}
+
+/** نوار و متن «در حال بررسی پیامک‌ها» بالای صندوق (D47، D48). */
+private fun LazyListScope.syncStatusItems(syncing: Boolean, syncProgress: SyncProgress?, syncFailed: Boolean) {
+    if (syncing) {
+        // مرحلهٔ سوم اولین اجرا: فهرست از همین لحظه قابل استفاده است (D47).
+        // درصد واقعی فقط وقتی کار بزرگ است؛ چند پیامک تازه نوار بی‌درصد می‌گیرد (D48).
+        val fraction = syncProgress?.takeIf { it.total > SYNC_PERCENT_FROM }?.fraction
+        item {
+            if (fraction != null) {
+                LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+            } else {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+        }
+    }
+    if (syncing || syncFailed) {
+        val percent = syncProgress?.takeIf { it.total > SYNC_PERCENT_FROM }?.percent
+        item {
+            Text(
+                when {
+                    !syncing -> stringResource(R.string.sync_failed)
+                    percent != null -> Texts.digits(stringResource(R.string.syncing_percent, percent))
+                    else -> stringResource(R.string.syncing)
+                },
+                Modifier.fillMaxWidth().padding(16.dp),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+/** تراشه‌های «همه · شخصی · بانک · رمز · خدمات» بالای صندوق (ROADMAP D5). */
+@Composable
+private fun InboxFilterChips(selected: InboxFilter, onSelect: (InboxFilter) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for (filter in InboxFilter.entries) {
+            FilterChip(
+                selected = filter == selected,
+                onClick = { onSelect(filter) },
+                label = {
+                    Text(
+                        stringResource(
+                            when (filter) {
+                                InboxFilter.ALL -> R.string.filter_all
+                                InboxFilter.PERSONAL -> R.string.filter_personal
+                                InboxFilter.BANK -> R.string.filter_bank
+                                InboxFilter.OTP -> R.string.filter_otp
+                                InboxFilter.SERVICE -> R.string.filter_service
+                            },
+                        ),
+                    )
+                },
+            )
+        }
     }
 }
 

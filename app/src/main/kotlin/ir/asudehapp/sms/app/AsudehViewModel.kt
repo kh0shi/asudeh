@@ -30,6 +30,7 @@ import ir.asudehapp.sms.mms.MmsPart
 import ir.asudehapp.sms.model.Addresses
 import ir.asudehapp.sms.model.DefaultRule
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.model.InboxFilter
 import ir.asudehapp.sms.model.RatingPrompt
 import ir.asudehapp.sms.model.RatingSignals
 import ir.asudehapp.sms.persian.ScheduleChoice
@@ -242,8 +243,17 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
 
     /** نسخهٔ صفحه‌بندی‌شده (Paging 3) همان چهار فهرست بالا، فقط برای رندر فهرست. */
-    val pagedInboxThreads: Flow<PagingData<ThreadSummary>> =
-        repository.pagedThreads(Folder.INBOX).cachedIn(viewModelScope)
+    /** تراشهٔ فیلتر بالای صندوق (ROADMAP D5)؛ فقط نمایشی. */
+    private val _inboxFilter = MutableStateFlow(InboxFilter.ALL)
+    val inboxFilter: StateFlow<InboxFilter> = _inboxFilter.asStateFlow()
+
+    val pagedInboxThreads: Flow<PagingData<ThreadSummary>> = _inboxFilter
+        .flatMapLatest { filter -> repository.pagedThreads(Folder.INBOX, filter) }
+        .cachedIn(viewModelScope)
+
+    fun setInboxFilter(filter: InboxFilter) {
+        _inboxFilter.value = filter
+    }
     val pagedPromoThreads: Flow<PagingData<ThreadSummary>> =
         repository.pagedThreads(Folder.PROMO).cachedIn(viewModelScope)
     val pagedScamThreads: Flow<PagingData<ThreadSummary>> =
