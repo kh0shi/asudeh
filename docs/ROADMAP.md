@@ -81,7 +81,7 @@
 - **تمام است وقتی:** هر دو job روی `main` سبزند و بررسی حجم هنوز با APK بیش از
   ۱۰ مگابایت قرمز می‌شود.
 
-### A1. فایل LICENSE 🤖
+### A1. فایل LICENSE 🤖 ✅ (PR #6)
 - **چه:** متن کامل GPL-3.0 در `LICENSE` در ریشهٔ مخزن. README مجوز را GPL-3.0
   می‌گوید ولی فایلی نیست. کد PDU برگرفته از AOSP
   (`core/mms/src/main/java/ir/asudehapp/sms/mms/pdu/`) باید سرفایل Apache 2.0
