@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asudehapp.ir/schema/rulepack.json",
+  "title": "RulePack آسوده (D33، D62)",
+  "description": "قرارداد rulepack.json. هم‌خوان با کلاس RulePack در :core:classifier؛ هر کلید تازه باید هم اینجا و هم آنجا بیاید.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "description": "نسخهٔ تاریخی، سال و ماه شمسی (D66)، مثل 1405.07",
+      "type": "string",
+      "pattern": "^1[3-5][0-9]{2}\\.(0[1-9]|1[0-2])$"
+    },
+    "adLinePrefixes": { "$ref": "#/$defs/digitList" },
+    "otp": { "$ref": "#/$defs/patternGroup" },
+    "bank": { "$ref": "#/$defs/patternGroup" },
+    "bankTransaction": { "$ref": "#/$defs/patternGroup" },
+    "service": { "$ref": "#/$defs/patternGroup" },
+    "promo": { "$ref": "#/$defs/patternGroup" },
+    "promoStrong": { "$ref": "#/$defs/patternGroup" },
+    "scamBait": { "$ref": "#/$defs/patternGroup" },
+    "codeNotOtp": { "$ref": "#/$defs/patternGroup" },
+    "amount": { "$ref": "#/$defs/patternGroup" },
+    "knownHosts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/host" }
+    },
+    "promoSenders": { "$ref": "#/$defs/stringList" },
+    "trustedSenders": { "$ref": "#/$defs/stringList" },
+    "brands": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/brand" }
+    },
+    "bayes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bias": { "type": "number" },
+        "threshold": { "type": "number" },
+        "weights": {
+          "type": "object",
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": { "type": "number" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "stringList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonEmpty" }
+    },
+    "digitList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[0-9]+$" }
+    },
+    "host": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
+    },
+    "patternGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "keywords": { "$ref": "#/$defs/stringList" },
+        "regexes": {
+          "type": "array",
+          "description": "هر الگو در RulePackSchemaTest با Regex خود Kotlin کامپایل می‌شود، همان موتوری که طبقه‌بند به کار می‌برد.",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "brand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "senders": { "$ref": "#/$defs/digitList" },
+        "senderIds": { "$ref": "#/$defs/stringList" },
+        "domains": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/host" }
+        },
+        "mentions": { "$ref": "#/$defs/stringList" },
+        "sensitive": { "type": "boolean" }
+      }
+    }
+  }
+}

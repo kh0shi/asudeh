@@ -157,7 +157,7 @@
   `config/detekt/detekt.yml` و `config/detekt/baseline.xml` (تازه)، `ci.yml`.
 - **تمام است وقتی:** CI با کد فعلی سبز است و یک تخلف تازه آن را قرمز می‌کند.
 
-### B3. اعتبارسنجی schema برای `RulePack` (D62) 🤖
+### B3. اعتبارسنجی schema برای `RulePack` (D62) 🤖 ✅ (PR #11)
 - **چه:** یک JSON Schema برای `rulepack.json` و یک آزمون JVM در
   `:core:classifier` که فایل را با آن می‌سنجد (کلید ناشناخته، نوع اشتباه، الگوی
   regex نامعتبر، نسخهٔ بدون قالب `1405.07`). اگر کتابخانهٔ اعتبارسنجی حجم APK را

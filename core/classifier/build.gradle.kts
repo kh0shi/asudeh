@@ -22,4 +22,6 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // D62: فقط برای آزمون؛ به APK نمی‌رسد.
+    testImplementation(libs.json.schema.validator)
 }
