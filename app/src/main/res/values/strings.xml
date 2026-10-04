@@ -391,4 +391,5 @@
     <string name="chip_copy_sheba">کپی شبا</string>
     <string name="chip_copy_phone">کپی شماره</string>
     <string name="chip_call">تماس</string>
+    <string name="sms_counter">%1$d/%2$d · %3$d پیامک</string>
 </resources>
