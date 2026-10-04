@@ -218,6 +218,8 @@
     <string name="settings_mms_auto_hint">پیام چندرسانه‌ای به‌محض رسیدن اعلانش دریافت شود. خاموش که باشد، در گفتگو با دکمهٔ «دریافت» می‌ماند و گم نمی‌شود.</string>
     <string name="settings_mms_sending">فرستادن پیوست و پیام گروهی</string>
     <string name="settings_mms_sending_hint">پیوست تصویر و گفتگوی گروهی با MMS فرستاده می‌شوند و ممکن است هزینهٔ بیشتری داشته باشند.</string>
+    <string name="settings_mms_read_reports">گزارش خوانده‌شدن</string>
+    <string name="settings_mms_read_reports_hint">اگر فرستندهٔ پیام چندرسانه‌ای خواسته باشد، وقتی آن را می‌خوانید به او خبر داده شود.</string>
     <string name="mms_sending_off">فرستادن پیام چندرسانه‌ای در تنظیمات خاموش است، پس این پیام گروهی فرستاده نمی‌شود.</string>
 
     <string name="settings_backup">پشتیبان</string>

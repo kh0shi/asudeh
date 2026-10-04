@@ -195,10 +195,12 @@ class AsudehRepository(
         return true
     }
 
-    suspend fun markThreadRead(threadId: Long, folder: Folder) {
+    /** پیام‌هایی را که تازه خوانده شدند برمی‌گرداند، برای گزارش خوانده‌شدن MMS (ADR-0009). */
+    suspend fun markThreadRead(threadId: Long, folder: Folder): List<MessageKey> {
         val keys = dao.unreadInThread(threadId, folder)
         dao.markThreadRead(threadId, folder)
         store.markRead(keys, read = true)
+        return keys
     }
 
     /** «همه خوانده شد» در `PromoFolder` (D45). */

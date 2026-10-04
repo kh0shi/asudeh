@@ -82,6 +82,14 @@ class AsudehSettings(context: Context) {
         get() = prefs.getBoolean(KEY_MMS_AUTO_DOWNLOAD, true)
         set(value) = prefs.edit().putBoolean(KEY_MMS_AUTO_DOWNLOAD, value).apply()
 
+    /**
+     * گزارش خوانده‌شدن MMS (`M-Read-Rec.ind`، ADR-0009)، فقط وقتی فرستنده خواسته
+     * باشد. پیش‌فرض خاموش است: خبر دادن از خواندن پیام به دیگری انتخاب کاربر است.
+     */
+    var mmsReadReports: Boolean
+        get() = prefs.getBoolean(KEY_MMS_READ_REPORTS, false)
+        set(value) = prefs.edit().putBoolean(KEY_MMS_READ_REPORTS, value).apply()
+
     /** فرستادن پیوست و پیام گروهی (MMS). خاموش که باشد، فقط پیامک ساده فرستاده می‌شود. */
     var mmsSending: Boolean
         get() = prefs.getBoolean(KEY_MMS_SENDING, true)
@@ -125,6 +133,7 @@ class AsudehSettings(context: Context) {
         put(KEY_MESSAGE_CLOCK, showMessageClock.toString())
         put(KEY_MMS_AUTO_DOWNLOAD, mmsAutoDownload.toString())
         put(KEY_MMS_SENDING, mmsSending.toString())
+        put(KEY_MMS_READ_REPORTS, mmsReadReports.toString())
         put(KEY_DISABLED_DEFAULTS, disabledDefaultRules.joinToString(SET_SEPARATOR))
         put(KEY_DISABLED_KEYWORDS, disabledDefaultKeywords.joinToString(SET_SEPARATOR))
     }
@@ -141,13 +150,18 @@ class AsudehSettings(context: Context) {
         values[KEY_SHOW_REASON]?.toBooleanStrictOrNull()?.let { showReasonEverywhere = it }
         values[KEY_MESSAGE_CLOCK]?.toBooleanStrictOrNull()?.let { showMessageClock = it }
         values[KEY_MMS_AUTO_DOWNLOAD]?.toBooleanStrictOrNull()?.let { mmsAutoDownload = it }
-        values[KEY_MMS_SENDING]?.toBooleanStrictOrNull()?.let { mmsSending = it }
+        importMms(values)
         values[KEY_DISABLED_DEFAULTS]?.let {
             disabledDefaultRules = it.split(SET_SEPARATOR).filter(String::isNotBlank).toSet()
         }
         values[KEY_DISABLED_KEYWORDS]?.let {
             disabledDefaultKeywords = it.split(SET_SEPARATOR).filter(String::isNotBlank).toSet()
         }
+    }
+
+    private fun importMms(values: Map<String, String>) {
+        values[KEY_MMS_SENDING]?.toBooleanStrictOrNull()?.let { mmsSending = it }
+        values[KEY_MMS_READ_REPORTS]?.toBooleanStrictOrNull()?.let { mmsReadReports = it }
     }
 
     private inline fun <reified T : Enum<T>> enumOr(name: String?, fallback: T): T =
@@ -176,6 +190,7 @@ class AsudehSettings(context: Context) {
         private const val KEY_MESSAGE_CLOCK = "show_message_clock"
         private const val KEY_MMS_AUTO_DOWNLOAD = "mms_auto_download"
         private const val KEY_MMS_SENDING = "mms_sending"
+        private const val KEY_MMS_READ_REPORTS = "mms_read_reports"
         private const val KEY_DISABLED_DEFAULTS = "disabled_default_rules"
         private const val KEY_DISABLED_KEYWORDS = "disabled_default_keywords"
 

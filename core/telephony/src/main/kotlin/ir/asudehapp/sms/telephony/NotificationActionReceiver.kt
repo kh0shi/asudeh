@@ -38,7 +38,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
             }
 
             ACTION_MARK_READ -> launch {
-                host.repository.markThreadRead(threadId, folder)
+                MmsReadReports.markThreadRead(context, threadId, folder)
                 host.notifier.cancelThread(threadId)
             }
 
@@ -54,7 +54,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     // اگر ثبت یا ارسال شکست بخورد، `SmsSender` خودش اعلان «ارسال نشد» می‌دهد.
                     runCatching { host.smsSender.send(address, text, subscriptionId) }
                         .onFailure { Log.e(TAG, "پاسخ از اعلان ثبت نشد", it) }
-                    host.repository.markThreadRead(threadId, folder)
+                    MmsReadReports.markThreadRead(context, threadId, folder)
                     host.notifier.cancelThread(threadId)
                 }
             }

@@ -1,5 +1,6 @@
 package ir.asudehapp.sms.mms
 
+import ir.asudehapp.sms.mms.pdu.AcknowledgeInd
 import ir.asudehapp.sms.mms.pdu.CharacterSets
 import ir.asudehapp.sms.mms.pdu.ContentType
 import ir.asudehapp.sms.mms.pdu.EncodedStringValue
@@ -10,6 +11,7 @@ import ir.asudehapp.sms.mms.pdu.PduComposer
 import ir.asudehapp.sms.mms.pdu.PduHeaders
 import ir.asudehapp.sms.mms.pdu.PduParser
 import ir.asudehapp.sms.mms.pdu.PduPart
+import ir.asudehapp.sms.mms.pdu.ReadRecInd
 import ir.asudehapp.sms.mms.pdu.RetrieveConf
 import ir.asudehapp.sms.mms.pdu.SendConf
 import ir.asudehapp.sms.mms.pdu.SendReq
@@ -41,7 +43,8 @@ class MmsPart(
     }
 }
 
-/** پیام چندرسانه‌ای دریافت‌شده (`M-Retrieve.conf`). */
+/** پیام چندرسانه‌ای دریافت‌شده (`M-Retrieve.conf`)؛ هر پارامتر یک سرایند PDU است. */
+@Suppress("LongParameterList")
 class IncomingMms(
     val from: String?,
     val to: List<String>,
@@ -55,6 +58,8 @@ class IncomingMms(
     val messageClass: String?,
     val mmsVersion: Int,
     val parts: List<MmsPart>,
+    /** فرستنده گزارش خوانده‌شدن خواسته است (`X-Mms-Read-Report: Yes`). */
+    val readReportRequested: Boolean = false,
 ) {
     /** متن‌های پیام، کنار هم. */
     val text: String
@@ -89,6 +94,7 @@ object MmsCodec {
             messageClass = parsed.messageClass?.let { String(it) },
             mmsVersion = parsed.mmsVersion,
             parts = parsed.body.toParts(),
+            readReportRequested = parsed.readReport == PduHeaders.VALUE_YES,
         )
     }
 
@@ -141,15 +147,45 @@ object MmsCodec {
      * `M-NotifyResp.ind`: به MMSC می‌گوید پیام دریافت شد، تا دوباره فرستاده
      * نشود.
      */
-    fun composeNotifyResp(transactionId: String, mmsVersion: Int): ByteArray {
-        val response = NotifyRespInd(
-            mmsVersion.takeIf { it != 0 } ?: PduHeaders.CURRENT_MMS_VERSION,
-            transactionId.toByteArray(),
-            PduHeaders.STATUS_RETRIEVED,
-        )
+    fun composeNotifyResp(
+        transactionId: String,
+        mmsVersion: Int,
+        status: Int = PduHeaders.STATUS_RETRIEVED,
+    ): ByteArray {
+        val response = NotifyRespInd(versionOrCurrent(mmsVersion), transactionId.toByteArray(), status)
         response.reportAllowed = PduHeaders.VALUE_NO
         return PduComposer(response).make() ?: error("ساختن PDU ممکن نشد")
     }
+
+    /**
+     * `M-Acknowledge.ind` (OMA-TS-MMS-ENC §6.4): تأیید دریافت برای پیامی که
+     * دیرتر، با دکمهٔ «دریافت»، گرفته شده است؛ پاسخ اعلانش پیش‌تر «Deferred» بوده
+     * یا اصلاً نرفته است.
+     */
+    fun composeAcknowledge(transactionId: String, mmsVersion: Int): ByteArray {
+        val ack = AcknowledgeInd(versionOrCurrent(mmsVersion), transactionId.toByteArray())
+        ack.reportAllowed = PduHeaders.VALUE_NO
+        return PduComposer(ack).make() ?: error("ساختن PDU ممکن نشد")
+    }
+
+    /**
+     * `M-Read-Rec.ind` (OMA-TS-MMS-ENC §6.7.2): گزارش خوانده‌شدن، فقط وقتی
+     * فرستنده خواسته و کاربر در تنظیمات روشنش کرده است. فرستندهٔ گزارش
+     * `insert-address-token` است تا MMSC شمارهٔ خود گوشی را بگذارد.
+     */
+    fun composeReadRec(messageId: String, originalSender: String, dateSeconds: Long, mmsVersion: Int = 0): ByteArray {
+        val report = ReadRecInd(
+            EncodedStringValue(PduHeaders.FROM_INSERT_ADDRESS_TOKEN_STR),
+            messageId.toByteArray(),
+            versionOrCurrent(mmsVersion),
+            PduHeaders.READ_STATUS_READ,
+            arrayOf(EncodedStringValue(originalSender)),
+        )
+        report.date = dateSeconds
+        return PduComposer(report).make() ?: error("ساختن PDU ممکن نشد")
+    }
+
+    private fun versionOrCurrent(mmsVersion: Int): Int = mmsVersion.takeIf { it != 0 } ?: PduHeaders.CURRENT_MMS_VERSION
 
     private fun smil(parts: List<MmsPart>): MmsPart {
         val regions = buildString {
