@@ -22,7 +22,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHost
@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -72,7 +73,11 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -83,6 +88,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -156,26 +162,22 @@ fun AsudehApp(
         }
     }
 
+    // صفحهٔ اصلی نوار بزرگی دارد که با اسکرول جمع می‌شود، و دکمهٔ «گفتگوی
+    // تازه» هم‌زمان با آن کوچک می‌شود (ROADMAP E8).
+    val largeBar = destination == Destination.Home && selectionCount == 0
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
+        modifier = if (largeBar) Modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier,
         topBar = {
-            TopAppBar(
+            AppTopBar(
+                large = largeBar,
+                scrollBehavior = scrollBehavior,
                 title = {
                     Text(
                         if (selectionCount > 0) {
                             Texts.count(R.plurals.selected_count, selectionCount)
                         } else {
-                            when (val current = destination) {
-                                Destination.Home -> stringResource(R.string.app_name)
-                                is Destination.FolderView -> Texts.folderName(current.folder)
-                                is Destination.Conversation -> Texts.participants(conversation.participants)
-                                Destination.Search -> stringResource(R.string.search)
-                                Destination.Settings -> stringResource(R.string.settings)
-                                Destination.Rules -> stringResource(R.string.settings_rules)
-                                Destination.NewConversation -> stringResource(R.string.new_conversation)
-                                Destination.Trash -> stringResource(R.string.trash)
-                                Destination.Archive -> stringResource(R.string.archive)
-                                Destination.Starred -> stringResource(R.string.starred)
-                            }
+                            destinationTitle(destination, conversation)
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -207,8 +209,8 @@ fun AsudehApp(
         },
         floatingActionButton = {
             if (destination == Destination.Home && isDefaultApp) {
-                FloatingActionButton(onClick = { model.navigate(Destination.NewConversation) }) {
-                    Icon(Icons.Default.Add, stringResource(R.string.new_conversation))
+                NewConversationButton(expanded = scrollBehavior.state.collapsedFraction < FAB_SHRINK_AT) {
+                    model.navigate(Destination.NewConversation)
                 }
             }
         },
@@ -267,6 +269,53 @@ fun AsudehApp(
     SuggestionSampleDialog(model)
     CrashReportDialog(model)
 }
+
+@Composable
+private fun destinationTitle(destination: Destination, conversation: ConversationUiState): String =
+    when (destination) {
+        Destination.Home -> stringResource(R.string.app_name)
+        is Destination.FolderView -> Texts.folderName(destination.folder)
+        is Destination.Conversation -> Texts.participants(conversation.participants)
+        Destination.Search -> stringResource(R.string.search)
+        Destination.Settings -> stringResource(R.string.settings)
+        Destination.Rules -> stringResource(R.string.settings_rules)
+        Destination.NewConversation -> stringResource(R.string.new_conversation)
+        Destination.Trash -> stringResource(R.string.trash)
+        Destination.Archive -> stringResource(R.string.archive)
+        Destination.Starred -> stringResource(R.string.starred)
+    }
+
+/** نوار بالا؛ در صفحهٔ اصلی بزرگ و جمع‌شونده (ROADMAP E8). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppTopBar(
+    large: Boolean,
+    scrollBehavior: TopAppBarScrollBehavior,
+    title: @Composable () -> Unit,
+    navigationIcon: @Composable () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+) {
+    if (large) {
+        LargeTopAppBar(title, navigationIcon = navigationIcon, actions = actions, scrollBehavior = scrollBehavior)
+    } else {
+        TopAppBar(title, navigationIcon = navigationIcon, actions = actions)
+    }
+}
+
+/** «گفتگوی تازه»: با متن، تا وقتی فهرست اسکرول شود و فقط آیکون بماند. */
+@Composable
+private fun NewConversationButton(expanded: Boolean, onClick: () -> Unit) {
+    val label = stringResource(R.string.new_conversation)
+    ExtendedFloatingActionButton(
+        text = { Text(label) },
+        icon = { Icon(Icons.Default.Add, if (expanded) null else label) },
+        expanded = expanded,
+        onClick = onClick,
+    )
+}
+
+/** وقتی نوار بالا تا این اندازه جمع شد، دکمهٔ «گفتگوی تازه» هم کوچک می‌شود. */
+private const val FAB_SHRINK_AT = 0.5f
 
 /**
  * نوار بالای صفحهٔ اصلی: جستجو، و منوی سه‌نقطه.
