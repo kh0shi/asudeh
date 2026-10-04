@@ -39,6 +39,7 @@ import ir.asudehapp.sms.telephony.DigestScheduler
 import ir.asudehapp.sms.telephony.MmsDownloader
 import ir.asudehapp.sms.telephony.MmsAttachments
 import ir.asudehapp.sms.telephony.MmsImages
+import ir.asudehapp.sms.telephony.MmsReadReports
 import ir.asudehapp.sms.telephony.ScheduledSend
 import ir.asudehapp.sms.telephony.ScheduledSendScheduler
 import ir.asudehapp.sms.telephony.SimCard
@@ -169,6 +170,8 @@ data class SettingsState(
     val showMessageClock: Boolean = true,
     val mmsAutoDownload: Boolean = true,
     val mmsSending: Boolean = true,
+    /** گزارش خوانده‌شدن MMS؛ پیش‌فرض خاموش (ADR-0009). */
+    val mmsReadReports: Boolean = false,
     /** نام‌های `DefaultRule`ی که خاموش شده‌اند (ADR-0012). */
     val disabledDefaultRules: Set<String> = emptySet(),
     /** شناسهٔ کلیدواژه‌های پیش‌فرضی که خاموش شده‌اند (ADR-0012). */
@@ -448,6 +451,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         showMessageClock = settingsStore.showMessageClock,
         mmsAutoDownload = settingsStore.mmsAutoDownload,
         mmsSending = settingsStore.mmsSending,
+        mmsReadReports = settingsStore.mmsReadReports,
         disabledDefaultRules = settingsStore.disabledDefaultRules,
         disabledDefaultKeywords = settingsStore.disabledDefaultKeywords,
     )
@@ -641,7 +645,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         // تا وقتی این گفتگو روی صفحه است، پیامک تازه‌اش اعلان نمی‌گیرد.
         ActiveConversation.set(target.threadId)
         viewModelScope.launch {
-            repository.markThreadRead(target.threadId, target.folder)
+            MmsReadReports.markThreadRead(getApplication(), target.threadId, target.folder)
             container.notifier.cancelThread(target.threadId)
         }
         conversationJob?.cancel()
@@ -849,7 +853,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun markRead(threadId: Long, folder: Folder) {
-        viewModelScope.launch { repository.markThreadRead(threadId, folder) }
+        viewModelScope.launch { MmsReadReports.markThreadRead(getApplication(), threadId, folder) }
     }
 
     /** «همه خوانده شد» در `PromoFolder` (D45). */
@@ -1266,6 +1270,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setMmsSending(enabled: Boolean) {
         settingsStore.mmsSending = enabled
+    }
+
+    fun setMmsReadReports(enabled: Boolean) {
+        settingsStore.mmsReadReports = enabled
     }
 
     // ——— پشتیبان (D57) ———

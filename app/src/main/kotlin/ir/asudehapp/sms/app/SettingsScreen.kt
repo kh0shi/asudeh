@@ -142,6 +142,12 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             settings.mmsSending,
             model::setMmsSending,
         )
+        Toggle(
+            stringResource(R.string.settings_mms_read_reports),
+            stringResource(R.string.settings_mms_read_reports_hint),
+            settings.mmsReadReports,
+            model::setMmsReadReports,
+        )
 
         Section(stringResource(R.string.settings_backup))
         Text(

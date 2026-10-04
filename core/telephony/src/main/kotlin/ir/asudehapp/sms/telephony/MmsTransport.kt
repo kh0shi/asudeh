@@ -15,14 +15,18 @@ import ir.asudehapp.sms.classifier.receive.StoredMessage
 import ir.asudehapp.sms.classifier.receive.TelephonyStore
 import ir.asudehapp.sms.data.AsudehRepository
 import ir.asudehapp.sms.data.MessageEntity
+import ir.asudehapp.sms.data.MmsProviderStore
 import ir.asudehapp.sms.data.SendStatus
 import ir.asudehapp.sms.mms.MmsCodec
 import ir.asudehapp.sms.mms.MmsPart
+import ir.asudehapp.sms.mms.pdu.PduHeaders
+import ir.asudehapp.sms.model.Folder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 
 /**
  * دریافت MMS از MMSC با `SmsManager.downloadMultimediaMessage` (D26). خود
@@ -31,7 +35,17 @@ import kotlinx.coroutines.withContext
  */
 object MmsDownloader {
 
-    fun download(context: Context, providerId: Long, contentLocation: String, subscriptionId: Int) {
+    /**
+     * [deferred] یعنی پیام دیرتر از رسیدن اعلانش، با دکمهٔ «دریافت»، گرفته
+     * می‌شود؛ تأییدش آن‌وقت `M-Acknowledge.ind` است، نه `M-NotifyResp.ind`.
+     */
+    fun download(
+        context: Context,
+        providerId: Long,
+        contentLocation: String,
+        subscriptionId: Int,
+        deferred: Boolean = false,
+    ) {
         val name = "dl-$providerId.pdu"
         MmsFileProvider.file(context, name).delete()
         val uri = MmsFileProvider.uri(context, name)
@@ -39,6 +53,7 @@ object MmsDownloader {
             .setAction(MmsResultReceiver.ACTION_DOWNLOADED)
             .setData(Uri.parse("asudeh-mms://download/$providerId"))
             .putExtra(MmsResultReceiver.EXTRA_PROVIDER_ID, providerId)
+            .putExtra(MmsResultReceiver.EXTRA_DEFERRED, deferred)
         grantToPhone(context, uri)
         SmsSender.smsManagerFor(context, subscriptionId)
             .downloadMultimediaMessage(context, contentLocation, uri, null, resultIntent(context, intent))
@@ -47,25 +62,81 @@ object MmsDownloader {
     /** «دوباره دریافت کن» از داخل گفتگو. */
     suspend fun retry(context: Context, repository: AsudehRepository, providerId: Long): Boolean {
         val info = repository.mms.downloadInfo(providerId) ?: return false
-        return runCatching { download(context, providerId, info.contentLocation, info.subscriptionId) }
+        return runCatching { download(context, providerId, info.contentLocation, info.subscriptionId, deferred = true) }
             .onFailure { Log.w(TAG, "درخواست دریافت MMS ممکن نشد", it) }
             .isSuccess
     }
 
     /**
-     * `M-NotifyResp.ind`: به MMSC می‌گوید پیام رسید، تا دوباره فرستاده نشود.
-     * اگر نرسد، بدترین حالت یک اعلان تکراری است که [MmsProviderStore] آن را
-     * نادیده می‌گیرد.
+     * `M-NotifyResp.ind` پس از دریافت فوری: به MMSC می‌گوید پیام رسید، تا
+     * دوباره فرستاده نشود. اگر نرسد، بدترین حالت یک اعلان تکراری است که
+     * [MmsProviderStore] آن را نادیده می‌گیرد.
      */
     fun acknowledge(context: Context, providerId: Long, transactionId: String, mmsVersion: Int, subscriptionId: Int) {
         if (transactionId.isBlank()) return
+        sendPdu(context, "ack-$providerId.pdu", MmsCodec.composeNotifyResp(transactionId, mmsVersion), subscriptionId)
+    }
+
+    /** `M-Acknowledge.ind` برای پیامی که دیرتر، با دکمهٔ «دریافت»، گرفته شده است (ADR-0009). */
+    fun acknowledgeDeferred(context: Context, providerId: Long, transactionId: String, mmsVersion: Int, subscriptionId: Int) {
+        if (transactionId.isBlank()) return
+        sendPdu(context, "ack-$providerId.pdu", MmsCodec.composeAcknowledge(transactionId, mmsVersion), subscriptionId)
+    }
+
+    /**
+     * دریافت خودکار خاموش است: به MMSC گفته می‌شود پیام بعداً گرفته می‌شود
+     * (`M-NotifyResp.ind` با وضعیت Deferred)، تا تا زمان انقضا نگهش دارد.
+     */
+    fun defer(context: Context, providerId: Long, notification: MmsNotification, subscriptionId: Int) {
+        if (notification.transactionId.isBlank()) return
+        val pdu = MmsCodec.composeNotifyResp(
+            notification.transactionId,
+            notification.mmsVersion ?: 0,
+            PduHeaders.STATUS_DEFERRED,
+        )
+        sendPdu(context, "defer-$providerId.pdu", pdu, subscriptionId)
+    }
+
+    /** `M-Read-Rec.ind` برای یک MMS خوانده‌شده (ADR-0009). */
+    fun sendReadReport(context: Context, target: MmsProviderStore.ReadReportTarget) {
+        val pdu = MmsCodec.composeReadRec(
+            target.messageId,
+            target.from,
+            TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()),
+            target.mmsVersion,
+        )
+        sendPdu(context, "read-${target.providerId}.pdu", pdu, target.subscriptionId)
+    }
+
+    private fun sendPdu(context: Context, name: String, pdu: ByteArray, subscriptionId: Int) {
         runCatching {
-            val name = "ack-$providerId.pdu"
-            MmsFileProvider.file(context, name).writeBytes(MmsCodec.composeNotifyResp(transactionId, mmsVersion))
+            MmsFileProvider.file(context, name).writeBytes(pdu)
             val uri = MmsFileProvider.uri(context, name)
             grantToPhone(context, uri)
             SmsSender.smsManagerFor(context, subscriptionId).sendMultimediaMessage(context, uri, null, null, null)
-        }.onFailure { Log.w(TAG, "تأیید دریافت MMS فرستاده نشد", it) }
+        }.onFailure { Log.w(TAG, "فرستادن $name به MMSC ممکن نشد", it) }
+    }
+
+    private const val TAG = "AsudehMms"
+}
+
+/**
+ * خواندن یک گفتگو، و گزارش خوانده‌شدن برای MMSهایی که فرستنده‌شان خواسته
+ * است، فقط اگر کاربر آن را در تنظیمات روشن کرده باشد (ADR-0009).
+ */
+object MmsReadReports {
+
+    suspend fun markThreadRead(context: Context, threadId: Long, folder: Folder) {
+        val appContext = context.applicationContext
+        val host = appContext.telephonyHost
+        val keys = host.repository.markThreadRead(threadId, folder)
+        if (!host.settings.mmsReadReports) return
+        val mmsIds = keys.filter { it.kind == MessageEntity.KIND_MMS }.map { it.providerId }
+        if (mmsIds.isEmpty()) return
+        runCatching { host.repository.mms.readReportTargets(mmsIds) }
+            .onFailure { Log.w(TAG, "خواندن درخواست گزارش MMS ممکن نشد", it) }
+            .getOrDefault(emptyList())
+            .forEach { MmsDownloader.sendReadReport(appContext, it) }
     }
 
     private const val TAG = "AsudehMms"
@@ -151,7 +222,7 @@ class MmsResultReceiver : BroadcastReceiver() {
         scope.launch {
             try {
                 when (intent.action) {
-                    ACTION_DOWNLOADED -> onDownloaded(appContext, providerId, ok)
+                    ACTION_DOWNLOADED -> onDownloaded(appContext, providerId, ok, intent.getBooleanExtra(EXTRA_DEFERRED, false))
                     ACTION_SENT -> onSent(appContext, providerId, ok, sendConf)
                 }
             } catch (failure: Throwable) {
@@ -162,7 +233,7 @@ class MmsResultReceiver : BroadcastReceiver() {
         }
     }
 
-    private suspend fun onDownloaded(context: Context, providerId: Long, ok: Boolean) {
+    private suspend fun onDownloaded(context: Context, providerId: Long, ok: Boolean, deferred: Boolean) {
         val host = context.telephonyHost
         val repository = host.repository
         val file = MmsFileProvider.file(context, "dl-$providerId.pdu")
@@ -203,13 +274,12 @@ class MmsResultReceiver : BroadcastReceiver() {
             onError = { stage, error -> Log.w(TAG, "مرحلهٔ $stage شکست خورد", error) },
         ).onReceive(raw)
 
-        MmsDownloader.acknowledge(
-            context,
-            providerId,
-            info?.transactionId ?: incoming.transactionId.orEmpty(),
-            incoming.mmsVersion,
-            raw.subscriptionId,
-        )
+        val transactionId = info?.transactionId ?: incoming.transactionId.orEmpty()
+        if (deferred) {
+            MmsDownloader.acknowledgeDeferred(context, providerId, transactionId, incoming.mmsVersion, raw.subscriptionId)
+        } else {
+            MmsDownloader.acknowledge(context, providerId, transactionId, incoming.mmsVersion, raw.subscriptionId)
+        }
     }
 
     private suspend fun onSent(context: Context, providerId: Long, ok: Boolean, sendConf: ByteArray?) {
@@ -231,6 +301,7 @@ class MmsResultReceiver : BroadcastReceiver() {
         const val ACTION_DOWNLOADED = "ir.asudehapp.sms.MMS_DOWNLOADED"
         const val ACTION_SENT = "ir.asudehapp.sms.MMS_SENT"
         const val EXTRA_PROVIDER_ID = "ir.asudehapp.sms.PROVIDER_ID"
+        const val EXTRA_DEFERRED = "ir.asudehapp.sms.DEFERRED"
         private const val TAG = "AsudehMmsResult"
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }

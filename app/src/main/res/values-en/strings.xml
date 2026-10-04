@@ -217,6 +217,8 @@
     <string name="settings_mms_auto_hint">Download multimedia messages as soon as they\'re announced. When off, they stay in the conversation with a Download button and are never lost.</string>
     <string name="settings_mms_sending">Sending attachments and group messages</string>
     <string name="settings_mms_sending_hint">Image attachments and group conversations are sent as MMS and may cost more.</string>
+    <string name="settings_mms_read_reports">Read reports</string>
+    <string name="settings_mms_read_reports_hint">When the sender of a multimedia message asks for it, let them know once you\'ve read it.</string>
     <string name="mms_sending_off">Sending multimedia messages is off in settings, so this group message won\'t be sent.</string>
 
     <string name="settings_backup">Backup</string>

@@ -159,22 +159,26 @@ class MmsProviderStore(private val context: Context) {
         for (address in message.to) insertAddress(providerId, address, ADDRESS_TO)
         for (address in message.cc) insertAddress(providerId, address, ADDRESS_CC)
 
-        val values = ContentValues().apply {
-            put(Telephony.Mms.THREAD_ID, threadId)
-            put(Telephony.Mms.MESSAGE_TYPE, TYPE_RETRIEVE_CONF)
-            if (message.dateSeconds > 0) put(Telephony.Mms.DATE_SENT, message.dateSeconds)
-            message.messageId?.let { put(Telephony.Mms.MESSAGE_ID, it) }
-            message.contentType?.let { put(Telephony.Mms.CONTENT_TYPE, it) }
-            message.messageClass?.let { put(Telephony.Mms.MESSAGE_CLASS, it) }
-            if (message.mmsVersion != 0) put(Telephony.Mms.MMS_VERSION, message.mmsVersion)
-            message.subject?.let {
-                put(Telephony.Mms.SUBJECT, it)
-                put(Telephony.Mms.SUBJECT_CHARSET, CHARSET_UTF8)
-            }
-            put(Telephony.Mms.MESSAGE_SIZE, message.parts.sumOf { it.data.size })
-        }
+        val values = retrievedValues(message, threadId)
         if (resolver.update(uri, values, null, null) == 0) error("به‌روزرسانی MMS در provider ناموفق بود")
         StoredMms(providerId, threadId, participants)
+    }
+
+    /** سرایندهای `M-Retrieve.conf` برای ردیف provider. */
+    private fun retrievedValues(message: IncomingMms, threadId: Long) = ContentValues().apply {
+        put(Telephony.Mms.THREAD_ID, threadId)
+        put(Telephony.Mms.MESSAGE_TYPE, TYPE_RETRIEVE_CONF)
+        if (message.dateSeconds > 0) put(Telephony.Mms.DATE_SENT, message.dateSeconds)
+        message.messageId?.let { put(Telephony.Mms.MESSAGE_ID, it) }
+        message.contentType?.let { put(Telephony.Mms.CONTENT_TYPE, it) }
+        message.messageClass?.let { put(Telephony.Mms.MESSAGE_CLASS, it) }
+        if (message.mmsVersion != 0) put(Telephony.Mms.MMS_VERSION, message.mmsVersion)
+        message.subject?.let {
+            put(Telephony.Mms.SUBJECT, it)
+            put(Telephony.Mms.SUBJECT_CHARSET, CHARSET_UTF8)
+        }
+        put(Telephony.Mms.MESSAGE_SIZE, message.parts.sumOf { it.data.size })
+        put(Telephony.Mms.READ_REPORT, if (message.readReportRequested) PDU_YES else PDU_NO)
     }
 
     /**
@@ -232,6 +236,37 @@ class MmsProviderStore(private val context: Context) {
                 resolver.update(ContentUris.withAppendedId(Telephony.Mms.CONTENT_URI, providerId), values, null, null)
             }
         }
+
+    /**
+     * MMSهای دریافتی که فرستنده‌شان گزارش خوانده‌شدن خواسته است (ADR-0009). پیام
+     * بدون Message-ID یا فرستندهٔ معلوم کنار گذاشته می‌شود.
+     */
+    suspend fun readReportTargets(providerIds: List<Long>): List<ReadReportTarget> = withContext(Dispatchers.IO) {
+        providerIds.mapNotNull { id ->
+            val header = resolver.query(
+                ContentUris.withAppendedId(Telephony.Mms.CONTENT_URI, id),
+                arrayOf(
+                    Telephony.Mms.READ_REPORT,
+                    Telephony.Mms.MESSAGE_ID,
+                    Telephony.Mms.MMS_VERSION,
+                    Telephony.Mms.SUBSCRIPTION_ID,
+                    Telephony.Mms.MESSAGE_BOX,
+                ),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use null
+                val wanted = cursor.getInt(0) == PDU_YES && cursor.getInt(4) == Telephony.Mms.MESSAGE_BOX_INBOX
+                val messageId = cursor.getString(1)?.takeIf { it.isNotBlank() }
+                if (!wanted || messageId == null) null else ReadReportTarget(id, messageId, "", cursor.getInt(2), cursor.getInt(3))
+            } ?: return@mapNotNull null
+            val from = addressesBlocking(id).firstOrNull { it.second == ADDRESS_FROM }?.first
+                ?.takeIf { it.isNotBlank() && it != INSERT_ADDRESS_TOKEN }
+                ?: return@mapNotNull null
+            header.copy(from = from)
+        }
+    }
 
     /** partهای یک MMS، به ترتیب، برای نمایش در گفتگو. */
     suspend fun parts(providerId: Long): List<MmsPartInfo> = withContext(Dispatchers.IO) {
@@ -545,6 +580,14 @@ class MmsProviderStore(private val context: Context) {
     private fun addressUri(id: Long): Uri = Telephony.Mms.CONTENT_URI.buildUpon()
         .appendPath(id.toString()).appendPath("addr").build()
 
+    data class ReadReportTarget(
+        val providerId: Long,
+        val messageId: String,
+        val from: String,
+        val mmsVersion: Int,
+        val subscriptionId: Int,
+    )
+
     data class DownloadInfo(val contentLocation: String, val transactionId: String, val subscriptionId: Int)
 
     companion object {
@@ -557,6 +600,10 @@ class MmsProviderStore(private val context: Context) {
         const val CHARSET_UTF8 = 106
         const val MMS_VERSION_1_2 = 0x12
         const val INSERT_ADDRESS_TOKEN = "insert-address-token"
+
+        /** مقدار «بله» و «نه» در سرایندهای PDU (OMA-TS-MMS-ENC §7.3). */
+        private const val PDU_YES = 0x80
+        private const val PDU_NO = 0x81
         private const val UNKNOWN = TelephonyProviderStore.UNKNOWN_SENDER
         private const val CHUNK = 200
 
