@@ -381,4 +381,8 @@
     <string name="a11y_select">Select</string>
     <string name="a11y_message_options">Options</string>
     <string name="a11y_thread_risk">Has a suspicious message</string>
+    <string name="rating_title">Is Asudeh working for you?</string>
+    <string name="rating_body">It has been setting ads aside for a few weeks. If you\'re happy with it, rate it on Bazaar. You won\'t see this card again.</string>
+    <string name="rating_rate">Rate it</string>
+    <string name="rating_not_now">No, thanks</string>
 </resources>

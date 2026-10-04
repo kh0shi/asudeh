@@ -33,10 +33,22 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_TEXT_PICK_HINT, false)
         set(value) = prefs.edit().putBoolean(KEY_TEXT_PICK_HINT, value).apply()
 
+    /** آخرین `Rescue`، برای «لحظهٔ موفق» (D67)؛ ۰ یعنی هرگز. */
+    var lastRescueAt: Long
+        get() = prefs.getLong(KEY_LAST_RESCUE, 0L)
+        set(value) = prefs.edit().putLong(KEY_LAST_RESCUE, value).apply()
+
+    /** کارت درخواست امتیاز یک بار نشان داده شده است (D67). */
+    var ratingAsked: Boolean
+        get() = prefs.getBoolean(KEY_RATING_ASKED, false)
+        set(value) = prefs.edit().putBoolean(KEY_RATING_ASKED, value).apply()
+
     private companion object {
         const val NAME = "asudeh-ui"
         const val KEY_ONBOARDED = "onboarded"
         const val KEY_SWEEP_ANSWERED = "sweep_offer_answered"
         const val KEY_TEXT_PICK_HINT = "text_pick_hint_seen"
+        const val KEY_LAST_RESCUE = "last_rescue_at"
+        const val KEY_RATING_ASKED = "rating_asked"
     }
 }

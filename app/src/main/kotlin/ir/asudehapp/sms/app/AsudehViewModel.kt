@@ -30,6 +30,8 @@ import ir.asudehapp.sms.mms.MmsPart
 import ir.asudehapp.sms.model.Addresses
 import ir.asudehapp.sms.model.DefaultRule
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.model.RatingPrompt
+import ir.asudehapp.sms.model.RatingSignals
 import ir.asudehapp.sms.persian.ScheduleChoice
 import ir.asudehapp.sms.persian.SendSchedule
 import ir.asudehapp.sms.telephony.ActiveConversation
@@ -370,6 +372,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     /** فهرست مخاطب‌ها برای «گفتگوی تازه»؛ بدون مجوز خالی می‌ماند. */
     private val _contacts = MutableStateFlow<List<ContactPhone>>(emptyList())
     val contacts: StateFlow<List<ContactPhone>> = _contacts.asStateFlow()
+
+    /** کارت درخواست امتیاز در `PromoFolder`، فقط یک بار (D67). */
+    private val _ratingCard = MutableStateFlow(false)
+    val ratingCard: StateFlow<Boolean> = _ratingCard.asStateFlow()
 
     /** راهنمای انتخاب بخشی از متن، فقط بار اول (AppPrefs). */
     private val _textPickHintSeen = MutableStateFlow(prefs.textPickHintSeen)
@@ -871,10 +877,46 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         _conversation.value = _conversation.value.copy(subscriptionId = subscriptionId)
     }
 
+    // ——— درخواست امتیاز (D67) ———
+
+    /**
+     * با باز شدن `PromoFolder` صدا زده می‌شود. اگر «لحظهٔ موفق» رسیده باشد،
+     * کارت نشان داده و همان لحظه «پرسیده شد» ثبت می‌شود، تا فقط یک بار دیده شود.
+     */
+    fun checkRatingMoment() {
+        if (prefs.ratingAsked || _ratingCard.value) return
+        val app = getApplication<Application>()
+        viewModelScope.launch {
+            val signals = RatingSignals(
+                firstUseAt = runCatching {
+                    app.packageManager.getPackageInfo(app.packageName, 0).firstInstallTime
+                }.getOrDefault(System.currentTimeMillis()),
+                hiddenAds = repository.hiddenSince(0L).promo,
+                lastRescueAt = prefs.lastRescueAt.takeIf { it > 0 },
+                alreadyAsked = prefs.ratingAsked,
+                storeInstalled = StoreRating.available(app),
+            )
+            if (RatingPrompt.shouldAsk(signals, System.currentTimeMillis())) {
+                prefs.ratingAsked = true
+                _ratingCard.value = true
+            }
+        }
+    }
+
+    fun rate() {
+        StoreRating.open(getApplication())
+        _ratingCard.value = false
+    }
+
+    fun dismissRatingCard() {
+        _ratingCard.value = false
+    }
+
     // ——— Rescue، Block، Unsub11 ———
 
     /** «این تبلیغ نیست»: فقط همین پیامک به `Inbox` برمی‌گردد (ADR-0006 بند ۱). */
     fun rescue(message: MessageEntity) {
+        prefs.lastRescueAt = System.currentTimeMillis()
         viewModelScope.launch {
             repository.rescue(message)
             _rescueFollowUp.value = RescueFollowUp(
