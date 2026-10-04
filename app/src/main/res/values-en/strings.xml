@@ -377,4 +377,8 @@
     <string name="crash_body">Send a report? The report contains no message text or phone numbers; you can see its full text below.</string>
     <string name="crash_send">Send report</string>
     <string name="crash_dismiss">No</string>
+    <string name="a11y_open_conversation">Open conversation</string>
+    <string name="a11y_select">Select</string>
+    <string name="a11y_message_options">Options</string>
+    <string name="a11y_thread_risk">Has a suspicious message</string>
 </resources>

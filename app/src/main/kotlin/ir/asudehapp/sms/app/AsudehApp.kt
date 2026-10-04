@@ -1290,6 +1290,8 @@ private fun ThreadRowContent(
                 if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Unspecified,
             )
             .combinedClickable(
+                onClickLabel = stringResource(if (selectionMode) R.string.a11y_select else R.string.a11y_open_conversation),
+                onLongClickLabel = stringResource(R.string.a11y_select),
                 onClick = { if (selectionMode) model.toggleThread(thread.threadId) else onClick() },
                 onLongClick = { model.toggleThread(thread.threadId) },
             )
@@ -1324,7 +1326,12 @@ private fun ThreadRowContent(
                     )
                 }
                 if (thread.hasRisk) {
-                    Text("⚠ ", style = MaterialTheme.typography.bodyMedium)
+                    val riskLabel = stringResource(R.string.a11y_thread_risk)
+                    Text(
+                        "⚠ ",
+                        Modifier.semantics { contentDescription = riskLabel },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
                 Text(
                     Texts.thread(thread.address, thread.recipients),
