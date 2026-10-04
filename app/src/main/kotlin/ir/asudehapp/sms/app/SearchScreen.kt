@@ -1,6 +1,8 @@
 package ir.asudehapp.sms.app
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,20 +10,28 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -32,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.MessageEntity
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.model.SearchKind
+import ir.asudehapp.sms.model.SearchScope
 
 /**
  * جستجو در همهٔ پیامک‌ها، از هر سه پوشه (D20). پیامک پنهان هم پیدا می‌شود و
@@ -41,6 +53,7 @@ import ir.asudehapp.sms.model.Folder
 fun SearchScreen(model: AsudehViewModel) {
     val query by model.searchQuery.collectAsState()
     val results by model.searchResults.collectAsState()
+    val scope by model.searchScope.collectAsState()
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
@@ -53,8 +66,9 @@ fun SearchScreen(model: AsudehViewModel) {
             leadingIcon = { Icon(Icons.Default.Search, null) },
             singleLine = true,
         )
+        SearchScopeChips(scope, model)
         LazyColumn(Modifier.fillMaxSize()) {
-            if (query.isNotBlank() && results.isEmpty()) {
+            if ((query.isNotBlank() || scope.narrowed) && results.isEmpty()) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
                         Text(stringResource(R.string.search_empty), style = MaterialTheme.typography.bodyMedium)
@@ -67,6 +81,80 @@ fun SearchScreen(model: AsudehViewModel) {
             }
         }
     }
+}
+
+/**
+ * فیلتر نتیجه (ROADMAP E6): نوع پیامک، «یک فرستنده» و «همین گفتگو». هیچ‌کدام
+ * وارد عبارت FTS نمی‌شوند (`SearchScope`).
+ */
+@Composable
+private fun SearchScopeChips(scope: SearchScope, model: AsudehViewModel) {
+    var askSender by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (scope.threadId > 0) {
+            FilterChip(
+                selected = true,
+                onClick = model::clearSearchThread,
+                label = { Text(stringResource(R.string.search_this_thread)) },
+                trailingIcon = { Icon(Icons.Default.Close, stringResource(R.string.cancel), Modifier.size(16.dp)) },
+            )
+        }
+        for ((kind, label) in listOf(
+            SearchKind.ATTACHMENTS to R.string.search_kind_attachments,
+            SearchKind.OTP to R.string.search_kind_otp,
+            SearchKind.BANK to R.string.search_kind_bank,
+            SearchKind.HIDDEN to R.string.search_kind_hidden,
+        )) {
+            FilterChip(
+                selected = scope.kind == kind,
+                onClick = { model.setSearchKind(if (scope.kind == kind) SearchKind.ALL else kind) },
+                label = { Text(stringResource(label)) },
+            )
+        }
+        FilterChip(
+            selected = scope.sender.isNotEmpty(),
+            onClick = { if (scope.sender.isNotEmpty()) model.setSearchSender("") else askSender = true },
+            label = {
+                Text(
+                    if (scope.sender.isNotEmpty()) {
+                        Texts.sender(scope.sender)
+                    } else {
+                        stringResource(R.string.search_one_sender)
+                    },
+                )
+            },
+        )
+    }
+    if (askSender) {
+        SenderDialog(onDismiss = { askSender = false }) { sender ->
+            askSender = false
+            model.setSearchSender(sender)
+        }
+    }
+}
+
+@Composable
+private fun SenderDialog(onDismiss: () -> Unit, onDone: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.search_one_sender)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text(stringResource(R.string.search_sender_hint)) },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onDone(text) }, enabled = text.isNotBlank()) { Text(stringResource(R.string.search)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 /**

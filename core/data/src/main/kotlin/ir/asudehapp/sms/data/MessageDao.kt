@@ -298,6 +298,31 @@ interface MessageDao {
     )
     suspend fun search(query: String, limit: Int): List<MessageEntity>
 
+    /** جستجو با دامنه (E6)؛ SQL در [SearchSql]. */
+    @Query(SearchSql.SCOPED_MATCH)
+    @Suppress("LongParameterList")
+    suspend fun searchScoped(
+        query: String,
+        threadId: Long,
+        sender: String,
+        onlyAttachments: Boolean,
+        onlyHidden: Boolean,
+        categories: String,
+        limit: Int,
+    ): List<MessageEntity>
+
+    /** همان دامنه، بدون متن. */
+    @Query(SearchSql.SCOPED_ONLY)
+    @Suppress("LongParameterList")
+    suspend fun filterScoped(
+        threadId: Long,
+        sender: String,
+        onlyAttachments: Boolean,
+        onlyHidden: Boolean,
+        categories: String,
+        limit: Int,
+    ): List<MessageEntity>
+
     /** ایندکس‌های نسخهٔ ۱ متن جستجو نداشتند؛ این‌ها در همگام‌سازی پر می‌شوند. */
     @Query("SELECT * FROM message WHERE searchText = '' AND (body != '' OR address != '') LIMIT :limit")
     suspend fun missingSearchText(limit: Int): List<MessageEntity>

@@ -35,6 +35,8 @@ import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.InboxFilter
 import ir.asudehapp.sms.model.RatingPrompt
 import ir.asudehapp.sms.model.RatingSignals
+import ir.asudehapp.sms.model.SearchKind
+import ir.asudehapp.sms.model.SearchScope
 import ir.asudehapp.sms.persian.ScheduleChoice
 import ir.asudehapp.sms.persian.SendSchedule
 import ir.asudehapp.sms.telephony.ActiveConversation
@@ -439,10 +441,19 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    val searchResults: StateFlow<List<MessageEntity>> = _searchQuery
-        .debounce(SEARCH_DEBOUNCE)
-        .mapLatest { query -> if (query.isBlank()) emptyList() else repository.search(query) }
+    /** فیلتر نتیجه، یک فرستنده یا یک گفتگو (ROADMAP E6). */
+    private val _searchScope = MutableStateFlow(SearchScope())
+    val searchScope: StateFlow<SearchScope> = _searchScope.asStateFlow()
+
+    val searchResults: StateFlow<List<MessageEntity>> = combine(_searchQuery.debounce(SEARCH_DEBOUNCE), _searchScope) { query, scope ->
+        query to scope
+    }
+        .mapLatest { (query, scope) -> repository.search(query, scope) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
+
+    /** زمان پیامکی که گفتگو باید رویش باز شود: نتیجهٔ جستجو یا «پرش به تاریخ» (E6). */
+    private val _jumpTo = MutableStateFlow<Long?>(null)
+    val jumpTo: StateFlow<Long?> = _jumpTo.asStateFlow()
 
     /** سیم‌کارت‌های فعال (D27)؛ خالی یعنی یکی است یا اجازه‌اش داده نشده. */
     private val _sims = MutableStateFlow<List<SimCard>>(emptyList())
@@ -1405,6 +1416,35 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun openSearchResult(message: MessageEntity) {
         navigate(Destination.Conversation(message.threadId, message.folder))
+        _jumpTo.value = message.dateReceived
+    }
+
+    /** جستجو از صفحهٔ اصلی، یا با [threadId] «جستجو در همین گفتگو» (E6). */
+    fun openSearch(threadId: Long = 0) {
+        _searchQuery.value = ""
+        _searchScope.value = SearchScope(threadId = threadId)
+        navigate(Destination.Search)
+    }
+
+    fun setSearchKind(kind: SearchKind) {
+        _searchScope.value = _searchScope.value.copy(kind = kind)
+    }
+
+    fun setSearchSender(sender: String) {
+        _searchScope.value = _searchScope.value.copy(sender = sender.trim())
+    }
+
+    fun clearSearchThread() {
+        _searchScope.value = _searchScope.value.copy(threadId = 0)
+    }
+
+    /** «پرش به تاریخ»: اولین پیامک آن روز یا پس از آن. */
+    fun jumpToDay(epochDay: Long) {
+        _jumpTo.value = SendSchedule.at(ZoneId.systemDefault(), epochDay, 0, 0)
+    }
+
+    fun consumeJump() {
+        _jumpTo.value = null
     }
 
     // ——— تنظیمات (D52) ———
