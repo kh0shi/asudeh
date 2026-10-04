@@ -16,6 +16,9 @@ enum class SchedulePreset {
 
     /** فردا بعدازظهر، ساعت ۱۴. */
     TOMORROW_AFTERNOON,
+
+    /** یک ساعت دیگر؛ فقط برای «یادم بینداز» (ROADMAP E1). */
+    IN_ONE_HOUR,
 }
 
 /** یک پیشنهاد آماده، با زمان دقیقش. */
@@ -74,6 +77,22 @@ object SendSchedule {
         }
         choices += ScheduleChoice(SchedulePreset.TOMORROW_MORNING, now.plusDays(1).atHour(MORNING_HOUR).millis())
         choices += ScheduleChoice(SchedulePreset.TOMORROW_AFTERNOON, now.plusDays(1).atHour(AFTERNOON_HOUR).millis())
+        return choices
+    }
+
+    /**
+     * پیشنهادهای «یادم بینداز» روی یک پیامک (ROADMAP E1): یک ساعت دیگر، امشب
+     * (اگر هنوز معنی دارد) و فردا صبح. زمان دلخواه از همان [validate] می‌گذرد.
+     */
+    fun reminderPresets(nowMillis: Long, zone: ZoneId): List<ScheduleChoice> {
+        val now = ZonedDateTime.ofInstant(Instant.ofEpochMilli(nowMillis), zone)
+        val tonight = now.atHour(TONIGHT_HOUR)
+        val choices = mutableListOf(ScheduleChoice(SchedulePreset.IN_ONE_HOUR, now.plusHours(1).millis()))
+        // «امشب» وقتی یک ساعت دیگر خودش شب است، تکراری است.
+        if (tonight.isUsableAfter(now.plusHours(1))) {
+            choices += ScheduleChoice(SchedulePreset.TONIGHT, tonight.millis())
+        }
+        choices += ScheduleChoice(SchedulePreset.TOMORROW_MORNING, now.plusDays(1).atHour(MORNING_HOUR).millis())
         return choices
     }
 

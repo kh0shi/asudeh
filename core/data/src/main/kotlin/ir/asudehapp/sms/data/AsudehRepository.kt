@@ -89,6 +89,7 @@ class AsudehRepository(
     private val prefDao: ThreadPrefDao get() = indexDatabase.threadPrefs()
     private val trashDao: TrashDao get() = indexDatabase.trash()
     private val starredDao: StarredDao get() = indexDatabase.starred()
+    private val reminderDao: ReminderDao get() = indexDatabase.reminders()
     private val scheduleDao: ScheduledMessageDao get() = indexDatabase.scheduled()
     private val ruleDao: SenderRuleDao get() = rulesDatabase.senderRules()
     private val keywordDao: KeywordRuleDao get() = rulesDatabase.keywordRules()
@@ -963,6 +964,20 @@ class AsudehRepository(
     suspend fun waitingScheduled(): List<ScheduledMessageEntity> = scheduleDao.waiting()
 
     suspend fun nextScheduledAfter(now: Long): Long? = scheduleDao.nextAfter(now)
+
+    // ——— «یادم بینداز» (ROADMAP E1) ———
+
+    suspend fun addReminder(message: MessageEntity, at: Long): Long = reminderDao.insert(
+        ReminderEntity(kind = message.kind, providerId = message.providerId, threadId = message.threadId, remindAt = at),
+    )
+
+    suspend fun dueReminders(now: Long): List<ReminderEntity> = reminderDao.due(now)
+
+    suspend fun nextReminderAfter(now: Long): Long? = reminderDao.nextAfter(now)
+
+    suspend fun removeReminder(id: Long) = reminderDao.remove(id)
+
+    fun remindersFor(threadId: Long): Flow<List<ReminderEntity>> = reminderDao.observeForThread(threadId)
 
     suspend fun markScheduleMissed(id: Long) = scheduleDao.setState(id, ScheduleState.MISSED)
 

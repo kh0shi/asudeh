@@ -561,3 +561,23 @@ interface StarredDao {
     @Query("SELECT providerId FROM starred_message WHERE kind = :kind")
     suspend fun providerIds(kind: String): List<Long>
 }
+
+/** یادآورها (ROADMAP E1). */
+@Dao
+interface ReminderDao {
+
+    @Insert
+    suspend fun insert(reminder: ReminderEntity): Long
+
+    @Query("DELETE FROM reminder WHERE id = :id")
+    suspend fun remove(id: Long)
+
+    @Query("SELECT * FROM reminder WHERE remindAt <= :now ORDER BY remindAt")
+    suspend fun due(now: Long): List<ReminderEntity>
+
+    @Query("SELECT MIN(remindAt) FROM reminder WHERE remindAt > :now")
+    suspend fun nextAfter(now: Long): Long?
+
+    @Query("SELECT * FROM reminder WHERE threadId = :threadId ORDER BY remindAt")
+    fun observeForThread(threadId: Long): Flow<List<ReminderEntity>>
+}

@@ -358,3 +358,17 @@ data class StarredMessageEntity(
     val providerId: Long,
     val starredAt: Long,
 )
+
+/**
+ * «یادم بینداز» روی یک پیامک (ROADMAP E1). در همان صف هشدار ارسال
+ * زمان‌بندی‌شده است (ADR-0011): یک هشدار برای نزدیک‌ترین کار، بدون مجوز تازه.
+ * پس از رسیدن زمانش اعلان می‌گیرد و ردیفش پاک می‌شود؛ خود پیامک دست نمی‌خورد.
+ */
+@Entity(tableName = "reminder", indices = [Index(value = ["remindAt"])])
+data class ReminderEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val kind: String,
+    val providerId: Long,
+    val threadId: Long,
+    val remindAt: Long,
+)

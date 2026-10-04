@@ -121,4 +121,30 @@ class SendScheduleTest {
         val epochDay = SendSchedule.epochDayOfUtcMillis(utcMidnight)
         assertEquals(at(2026, 9, 20, 8, 0), SendSchedule.at(tehran, epochDay, 8, 0))
     }
+
+    @Test
+    fun `reminder offers an hour from now tonight and tomorrow morning`() {
+        val now = at(2026, 9, 19, 10, 30)
+        val presets = SendSchedule.reminderPresets(now, tehran)
+        assertEquals(
+            listOf(SchedulePreset.IN_ONE_HOUR, SchedulePreset.TONIGHT, SchedulePreset.TOMORROW_MORNING),
+            presets.map { it.preset },
+        )
+        assertEquals(at(2026, 9, 19, 11, 30), presets[0].atMillis)
+        assertEquals(at(2026, 9, 20, SendSchedule.MORNING_HOUR), presets[2].atMillis)
+    }
+
+    /** ساعت ۲۰:۳۰ «یک ساعت دیگر» خودش شب است؛ «امشب» تکراری می‌شد. */
+    @Test
+    fun `reminder drops tonight when an hour from now is already later`() {
+        val presets = SendSchedule.reminderPresets(at(2026, 9, 19, 20, 30), tehran)
+        assertEquals(listOf(SchedulePreset.IN_ONE_HOUR, SchedulePreset.TOMORROW_MORNING), presets.map { it.preset })
+    }
+
+    /** یک ساعت دیگر، روی ساعت دیواری و نه با جابه‌جایی تقویم، از نیمه‌شب هم می‌گذرد. */
+    @Test
+    fun `an hour from now can cross midnight`() {
+        val presets = SendSchedule.reminderPresets(at(2026, 9, 19, 23, 30), tehran)
+        assertEquals(at(2026, 9, 20, 0, 30), presets.first().atMillis)
+    }
 }

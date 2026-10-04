@@ -377,6 +377,11 @@
     <string name="schedule_pick_day">Send day</string>
     <string name="schedule_pick_time">Send time</string>
     <string name="schedule_note">Until then, the text stays in Asudeh and isn\'t sent anywhere. If your phone is off, it\'ll be sent once you turn it back on.</string>
+    <string name="remind_me">Remind me</string>
+    <string name="remind_title">When should I remind you?</string>
+    <string name="remind_note">You’ll get a notification with this message’s text. If the phone is off, the reminder comes once it’s back on.</string>
+    <string name="remind_in_hour">In an hour, at %1$s</string>
+    <string name="notice_reminder_set">Reminder set</string>
     <string name="schedule_too_soon">That time has already passed.</string>
     <string name="scheduled_today">Will be sent today at %1$s</string>
     <string name="scheduled_tomorrow">Will be sent tomorrow at %1$s</string>
