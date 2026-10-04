@@ -53,7 +53,14 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // B6: R8 کد و منابع بی‌استفاده را برمی‌دارد. قواعد keep در
+            // proguard-rules.pro است؛ Room، kotlinx.serialization و androidx
+            // قواعد خودشان را همراه دارند. فایل mapping هر نسخه
+            // (app/build/outputs/mapping/release/mapping.txt) برای خواندن گزارش
+            // خطای کاربران (D58) لازم است و باید کنار APK منتشرشده نگه داشته شود.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }

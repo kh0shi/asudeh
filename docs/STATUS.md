@@ -13,6 +13,7 @@
   اضافه شدند (D63)
 - CI با بررسی `NoNet` روی manifest ادغام‌شدهٔ **debug و release** (ADR-0002، D62)
 - فایل `LICENSE` با متن کامل GPL-3.0 در ریشهٔ مخزن (ROADMAP A1)
+- نسخهٔ release با R8 کوچک می‌شود (`isMinifyEnabled` و `isShrinkResources`، `app/proguard-rules.pro`، ROADMAP B6). **روی گوشی آزموده نشده** (⚑ U3). `mapping.txt` هر نسخه را برای خواندن گزارش خطا نگه دارید
 - امضای release از متغیرهای `ASUDEH_KEYSTORE*` بیرون از مخزن؛ بدون آن‌ها release مثل قبل بدون امضا ساخته می‌شود (D65، ROADMAP A3، docs/BUILD.md). کلید واقعی هنوز ساخته نشده (⚑ U1)
 - پیش‌نویس سیاست حریم خصوصی و متن فروشگاه، فارسی و انگلیسی، در `docs/store/` (ROADMAP A4)؛ انتشارش با صاحب پروژه است (⚑ U4)
 - نسخه‌گذاری SemVer: `versionName` برابر `1.0.0-beta1`، `versionCode` شمارندهٔ یکنواخت (D66، ROADMAP A2)
