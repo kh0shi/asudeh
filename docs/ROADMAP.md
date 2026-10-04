@@ -194,7 +194,7 @@
   می‌گیرد و طبقه‌بندی می‌کند (⚑).
 - **وابستگی:** پیش از B5 انجام شود یا B5 دوباره سنجیده شود.
 
-### B7. تعمیر `ThreadListScrollBenchmark` 🤖
+### B7. تعمیر `ThreadListScrollBenchmark` 🤖 ✅ (PR #20؛ اجرا روی گوشی هنوز ⚑)
 - **چه:** روی گوشی عنصر قابل‌پیمایش پیدا نکرد. `LazyColumn` فهرست گفتگوها
   `testTag` یا `resourceId` لازم دارد (`Modifier.semantics { testTagsAsResourceId = true }`
   در ریشه) و بنچمارک باید با `By.res(...)` پیدایش کند. اگر inbox آزمون خالی است،

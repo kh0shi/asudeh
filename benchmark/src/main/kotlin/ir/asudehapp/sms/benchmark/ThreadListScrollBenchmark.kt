@@ -39,11 +39,27 @@ class ThreadListScrollBenchmark {
             startActivityAndWait()
         },
     ) {
-        val list = device.findObject(By.scrollable(true)) ?: return@measureRepeated
+        // فهرست گفتگوها `testTag` دارد و `testTagsAsResourceId` آن را برای
+        // UiAutomator شناسهٔ منبع می‌کند (AsudehApp.kt، HomeScreen). صفحهٔ خوش‌آمد
+        // یا فهرست خالی اصلاً پیمایش ندارد؛ آن‌وقت پیام روشن بهتر از نتیجهٔ خالی است.
+        val list = device.wait(Until.findObject(By.res(THREAD_LIST_RES)), LIST_TIMEOUT_MS)
+            ?: error(
+                "فهرست گفتگوها پیدا نشد: آسوده باید اپ پیش‌فرض باشد، صفحهٔ خوش‌آمد را رد کرده " +
+                    "باشد و چند گفتگو داشته باشد",
+            )
         repeat(3) {
             list.scroll(Direction.DOWN, 0.8f)
             device.waitForIdle()
         }
-        device.wait(Until.hasObject(By.scrollable(true)), 1_000)
+        repeat(3) {
+            list.scroll(Direction.UP, 0.8f)
+            device.waitForIdle()
+        }
+    }
+
+    private companion object {
+        /** همان `THREAD_LIST_TAG` در AsudehApp.kt. */
+        const val THREAD_LIST_RES = "thread_list"
+        const val LIST_TIMEOUT_MS = 5_000L
     }
 }
