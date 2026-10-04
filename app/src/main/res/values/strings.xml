@@ -238,6 +238,7 @@
     <string name="theme_black">تیرهٔ کامل (سیاه)</string>
     <string name="settings_rules">قواعد من</string>
     <string name="contact_card_open">نمایش مخاطب</string>
+    <string name="verified_sender">فرستندهٔ تأییدشده</string>
     <string name="contact_rules">قواعد این فرستنده</string>
     <string name="contact_rule_none">قاعده‌ای ندارد؛ آسوده خودش تصمیم می‌گیرد.</string>
     <string name="contact_rule_allowed">همیشه در صندوق می‌آید.</string>

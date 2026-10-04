@@ -1077,6 +1077,9 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.block(address) }
     }
 
+    /** نشان «تأییدشده» کنار نام فرستنده (ROADMAP E2)؛ فهرستش را کاربر تأیید کرده است. */
+    fun isVerifiedSender(address: String): Boolean = repository.rules.isVerifiedSender(Addresses.normalize(address))
+
     /** «همیشه در صندوق»: تبلیغ‌های قبلی همین فرستنده هم به صندوق برمی‌گردند. */
     fun allowSender(address: String) {
         viewModelScope.launch { repository.alwaysAllow(address) }

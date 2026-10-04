@@ -237,6 +237,7 @@
     <string name="theme_black">Pure black</string>
     <string name="settings_rules">My rules</string>
     <string name="contact_card_open">Show contact</string>
+    <string name="verified_sender">Verified sender</string>
     <string name="contact_rules">Rules for this sender</string>
     <string name="contact_rule_none">No rule; Asudeh decides on its own.</string>
     <string name="contact_rule_allowed">Always goes to the inbox.</string>
