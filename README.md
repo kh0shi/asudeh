@@ -22,4 +22,4 @@
   پله برگشت دارد: پیامک حذف‌شده به «حذف‌شده‌ها» می‌رود و آنجا فقط خود کاربر
   خالی‌اش می‌کند ([ADR-0010](docs/decisions/0010-delete-with-a-trash.md)).
 
-مجوز: GPL-3.0
+مجوز: [GPL-3.0](LICENSE). کد PDU برگرفته از AOSP در `:core:mms` مجوز Apache 2.0 خودش را نگه داشته است ([core/mms/NOTICE.md](core/mms/NOTICE.md)).
