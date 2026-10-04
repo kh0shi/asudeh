@@ -71,6 +71,8 @@ object BackupFormat {
          * عادی‌اند، برای همین پیش‌فرض «sms» است.
          */
         val kind: String = "sms",
+        /** نشان کاربر (ROADMAP D6). پشتیبان‌های قدیمی‌تر این کلید را ندارند. */
+        val starred: Boolean = false,
     ) : Message {
         override val key: String get() = dedupeKey(address, date, type, body)
     }
@@ -100,6 +102,8 @@ object BackupFormat {
         val folder: String? = null,
         val parts: List<Part> = emptyList(),
         val kind: String = "mms",
+        /** نشان کاربر (ROADMAP D6). */
+        val starred: Boolean = false,
     ) : Message {
         /**
          * کلید تکراری بودن. متن یا partها معیار مطمئنی نیستند (عکس یک پیام ممکن

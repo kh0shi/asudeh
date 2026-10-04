@@ -69,6 +69,28 @@ fun SearchScreen(model: AsudehViewModel) {
     }
 }
 
+/**
+ * پیامک‌های نشان‌دار از همهٔ گفتگوها، تازه‌ترین نشان اول (D6). هر ردیف همان
+ * ردیف جستجوست و به گفتگوی خودش می‌برد.
+ */
+@Composable
+fun StarredScreen(model: AsudehViewModel) {
+    val starred by model.starredMessages.collectAsState()
+    LazyColumn(Modifier.fillMaxSize()) {
+        if (starred.isEmpty()) {
+            item {
+                Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.starred_empty), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+        items(starred, key = { "${it.kind}-${it.providerId}" }) { message ->
+            SearchResult(message) { model.openSearchResult(message) }
+            HorizontalDivider()
+        }
+    }
+}
+
 @Composable
 private fun SearchResult(message: MessageEntity, onClick: () -> Unit) {
     Column(

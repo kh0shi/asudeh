@@ -336,6 +336,10 @@
     <string name="trash_hint">These have been deleted from the phone and only remain in Asudeh. You can restore them as long as they\'re here.</string>
     <string name="trash_empty_state">You haven\'t deleted anything.</string>
     <string name="archive">Archive</string>
+    <string name="starred">Starred</string>
+    <string name="starred_empty">No starred messages yet. Choose “Star” from a message’s menu.</string>
+    <string name="star">Star</string>
+    <string name="unstar">Remove star</string>
     <string name="unarchive">Remove from archive</string>
     <string name="trash_restore">Restore</string>
     <string name="trash_not_restorable">Multimedia messages can\'t be restored; only their text is kept.</string>

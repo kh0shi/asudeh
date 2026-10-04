@@ -340,3 +340,19 @@ data class ScheduledMessageEntity(
 ) {
     val addresses: List<String> get() = recipients.split(MessageEntity.RECIPIENT_SEPARATOR)
 }
+
+/**
+ * پیامک نشان‌دار (ROADMAP D6). جدا از `message` است تا بازطبقه‌بندی یا
+ * همگام‌سازی که ردیف پیامک را دوباره می‌نویسد نشان را پاک نکند. چون `index.db`
+ * منتقل نمی‌شود (D57)، نشان‌ها در پشتیبان فایل هم هستند.
+ */
+@Entity(
+    tableName = "starred_message",
+    primaryKeys = ["kind", "providerId"],
+    indices = [Index(value = ["starredAt"])],
+)
+data class StarredMessageEntity(
+    val kind: String,
+    val providerId: Long,
+    val starredAt: Long,
+)

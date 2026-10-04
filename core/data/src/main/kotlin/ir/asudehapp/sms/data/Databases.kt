@@ -59,8 +59,9 @@ class AsudehConverters {
         TrashedMessageEntity::class,
         ScheduledMessageEntity::class,
         ThreadSummaryEntity::class,
+        StarredMessageEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
@@ -73,6 +74,8 @@ abstract class IndexDatabase : RoomDatabase() {
     abstract fun trash(): TrashDao
 
     abstract fun scheduled(): ScheduledMessageDao
+
+    abstract fun starred(): StarredDao
 
     companion object {
         const val NAME = "index.db"
@@ -91,6 +94,7 @@ abstract class IndexDatabase : RoomDatabase() {
                 IndexMigrations.V3_V4,
                 IndexMigrations.V4_V5,
                 IndexMigrations.V5_V6,
+                IndexMigrations.V6_V7,
             ).addCallback(object : RoomCallback() {
                 override fun onOpen(db: SupportSQLiteDatabase) = IndexMigrations.ensureThreadSummary(db)
             }).build().also { instance = it }
@@ -259,6 +263,19 @@ object IndexMigrations {
             for (statement in V5_V6_SQL) db.execSQL(statement)
         }
     }
+
+    /** نسخهٔ ۷: جدول پیامک‌های نشان‌دار (ROADMAP D6). چیزی از جدول‌های قبلی عوض نمی‌شود. */
+    val V6_V7: Migration = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V6_V7_SQL) db.execSQL(statement)
+        }
+    }
+
+    internal val V6_V7_SQL: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `starred_message` (`kind` TEXT NOT NULL, `providerId` INTEGER NOT NULL, " +
+            "`starredAt` INTEGER NOT NULL, PRIMARY KEY(`kind`, `providerId`))",
+        "CREATE INDEX IF NOT EXISTS `index_starred_message_starredAt` ON `starred_message` (`starredAt`)",
+    )
 
     /** ستون‌های خروجی مشترک بین triggerها و پر کردن اولیهٔ `thread_summary`. */
     private const val THREAD_SUMMARY_COLUMNS =

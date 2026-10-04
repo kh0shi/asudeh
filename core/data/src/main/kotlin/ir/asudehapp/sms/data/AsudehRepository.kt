@@ -88,6 +88,7 @@ class AsudehRepository(
     private val dao: MessageDao get() = indexDatabase.messages()
     private val prefDao: ThreadPrefDao get() = indexDatabase.threadPrefs()
     private val trashDao: TrashDao get() = indexDatabase.trash()
+    private val starredDao: StarredDao get() = indexDatabase.starred()
     private val scheduleDao: ScheduledMessageDao get() = indexDatabase.scheduled()
     private val ruleDao: SenderRuleDao get() = rulesDatabase.senderRules()
     private val keywordDao: KeywordRuleDao get() = rulesDatabase.keywordRules()
@@ -785,6 +786,31 @@ class AsudehRepository(
     }
 
     // ——— حذف، با سطل بازیافت (ADR-0010) ———
+
+    // ——— نشان‌ها (ROADMAP D6) ———
+
+    fun starredMessages(): Flow<List<MessageEntity>> = starredDao.observeStarred()
+
+    fun starredKeys(): Flow<Set<MessageKey>> =
+        starredDao.observeAll().map { rows -> rows.map { MessageKey(it.kind, it.providerId) }.toSet() }
+
+    suspend fun setStarred(key: MessageKey, starred: Boolean) {
+        if (starred) {
+            starredDao.put(listOf(StarredMessageEntity(key.kind, key.providerId, System.currentTimeMillis())))
+        } else {
+            starredDao.remove(key.kind, key.providerId)
+        }
+    }
+
+    /** برای پشتیبان: شناسه‌های نشان‌دار یک نوع پیام. */
+    suspend fun starredIds(kind: String): Set<Long> = starredDao.providerIds(kind).toSet()
+
+    /** پس از بازگردانی پشتیبان، نشان پیام‌های تازه‌نوشته‌شده برمی‌گردد. */
+    suspend fun restoreStars(kind: String, providerIds: Collection<Long>) {
+        if (providerIds.isEmpty()) return
+        val now = System.currentTimeMillis()
+        starredDao.put(providerIds.map { StarredMessageEntity(kind, it, now) })
+    }
 
     fun trash(): Flow<List<TrashedMessageEntity>> = trashDao.observeAll()
 

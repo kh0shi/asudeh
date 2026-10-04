@@ -868,6 +868,7 @@ private fun MessageBubble(
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    val starredKeys by model.starredKeys.collectAsState()
     var menu by remember { mutableStateOf(false) }
     var openLink by remember { mutableStateOf<LinkSpan?>(null) }
     // روی `ScamFolder` و `Suspect` لینک شکل لینک ندارد و برگه‌اش فقط هشدار و کپی است.
@@ -982,7 +983,9 @@ private fun MessageBubble(
                     expanded = menu,
                     message = message,
                     canDelete = isDefaultApp,
+                    starred = MessageKey(message.kind, message.providerId) in starredKeys,
                     onDismiss = { menu = false },
+                    onStar = { model.toggleStar(message) },
                     onCopy = { clipboard.setText(AnnotatedString(message.body)) },
                     onPickText = onPickText,
                     onShare = { shareText(context, message.body) },
@@ -1256,7 +1259,9 @@ private fun MessageMenu(
     expanded: Boolean,
     message: MessageEntity,
     canDelete: Boolean,
+    starred: Boolean,
     onDismiss: () -> Unit,
+    onStar: () -> Unit,
     onCopy: () -> Unit,
     onPickText: () -> Unit,
     onShare: () -> Unit,
@@ -1284,6 +1289,10 @@ private fun MessageMenu(
                 onDismiss()
                 onShare()
             }
+        }
+        MessageMenuItem(stringResource(if (starred) R.string.unstar else R.string.star)) {
+            onDismiss()
+            onStar()
         }
         MessageMenuItem(stringResource(R.string.select)) {
             onDismiss()

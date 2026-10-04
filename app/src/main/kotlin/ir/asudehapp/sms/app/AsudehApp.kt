@@ -171,6 +171,7 @@ fun AsudehApp(
                                 Destination.NewConversation -> stringResource(R.string.new_conversation)
                                 Destination.Trash -> stringResource(R.string.trash)
                                 Destination.Archive -> stringResource(R.string.archive)
+                                Destination.Starred -> stringResource(R.string.starred)
                             }
                         },
                         maxLines = 1,
@@ -248,6 +249,7 @@ fun AsudehApp(
                     isDefaultApp = isDefaultApp,
                     onOpenThread = { threadId, folder -> model.navigate(Destination.Conversation(threadId, folder)) },
                 )
+                Destination.Starred -> StarredScreen(model)
             }
         }
     }
@@ -300,6 +302,13 @@ private fun HomeActions(model: AsudehViewModel) {
             model.navigate(Destination.FolderView(Folder.SCAM))
         }
         HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.starred)) },
+            onClick = {
+                menu = false
+                model.navigate(Destination.Starred)
+            },
+        )
         DropdownMenuItem(
             text = { Text(stringResource(R.string.archive)) },
             onClick = {

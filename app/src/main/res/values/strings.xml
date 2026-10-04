@@ -337,6 +337,10 @@
     <string name="trash_hint">این‌ها از گوشی پاک شده‌اند و فقط در آسوده مانده‌اند. تا وقتی اینجا هستند، برگرداندنی‌اند.</string>
     <string name="trash_empty_state">چیزی حذف نکرده‌اید.</string>
     <string name="archive">بایگانی</string>
+    <string name="starred">نشان‌دارها</string>
+    <string name="starred_empty">هنوز پیامکی نشان نکرده‌اید. از منوی هر پیامک «نشان کن» را بزنید.</string>
+    <string name="star">نشان کن</string>
+    <string name="unstar">برداشتن نشان</string>
     <string name="unarchive">خروج از بایگانی</string>
     <string name="trash_restore">برگردان</string>
     <string name="trash_not_restorable">پیام چندرسانه‌ای برنمی‌گردد؛ فقط متنش نگه داشته شده است.</string>
