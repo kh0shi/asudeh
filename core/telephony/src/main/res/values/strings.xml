@@ -19,6 +19,7 @@
     <string name="notify_schedule_missed_text">متنش نگه داشته شده است. برای فرستادن، گفتگو را باز کنید.</string>
     <string name="notify_reminder_title">یادآوری · %s</string>
     <string name="notify_reminder_no_text">پیام بدون متن</string>
+    <string name="notify_me">من</string>
     <string name="notify_mms_title">پیام چندرسانه‌ای از %1$s</string>
     <string name="notify_mms_image">🖼 تصویر</string>
     <string name="notify_mms_attachment">📎 پیوست</string>

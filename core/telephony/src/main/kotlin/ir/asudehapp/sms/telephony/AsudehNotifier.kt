@@ -16,6 +16,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
 import ir.asudehapp.sms.classifier.OtpCode
@@ -79,6 +80,11 @@ class AsudehNotifier(
     private val openConversation: (Long) -> Intent,
     private val openFolder: (Folder) -> Intent,
     private val isMuted: suspend (Long) -> Boolean = { false },
+    /**
+     * میان‌بر گفتگو را می‌سازد و شناسه‌اش را برمی‌گرداند (ROADMAP E3)، تا اعلان
+     * پیامک شخصی در بخش «گفتگوها»ی اندروید ۱۱ به بالا برود.
+     */
+    private val conversationShortcut: (threadId: Long, name: String) -> String? = { _, _ -> null },
 ) : Notifier {
 
     @SuppressLint("MissingPermission")
@@ -126,6 +132,18 @@ class AsudehNotifier(
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setWhen(raw.receivedAt)
+        if (isConversation(message)) {
+            val name = sender(raw.address)
+            conversationShortcut(message.threadId, name)?.let { shortcutId ->
+                val person = Person.Builder().setName(name).setKey(shortcutId).build()
+                builder.setShortcutId(shortcutId)
+                    .setStyle(
+                        NotificationCompat.MessagingStyle(Person.Builder().setName(context.getString(R.string.notify_me)).build())
+                            .addMessage(text, raw.receivedAt, person),
+                    )
+            }
+        }
+        builder
             .setAutoCancel(true)
             .setSilent(silent)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
@@ -397,6 +415,16 @@ class AsudehNotifier(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
         return ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
+    }
+
+    /**
+     * فقط پیامک شخصی یک نفر (نه رمز، بانک، هشدار یا گروه) در بخش «گفتگوها»
+     * می‌رود؛ بقیه اعلان معمولی می‌مانند (E3).
+     */
+    private fun isConversation(message: ClassifiedMessage): Boolean {
+        val category = message.verdict.category
+        val personal = category == Category.PERSONAL || category == Category.UNKNOWN
+        return personal && !message.placement.showWarning && !message.raw.isGroup && canReplyTo(message.raw.address)
     }
 
     private fun channelFor(message: ClassifiedMessage): String = when {

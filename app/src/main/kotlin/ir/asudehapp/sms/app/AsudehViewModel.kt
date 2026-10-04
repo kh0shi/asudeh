@@ -624,6 +624,13 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         resetTo(Destination.NewConversation)
     }
 
+    /** اشتراک‌گذاری مستقیم با میان‌بر یک گفتگو (E3): متن در جعبهٔ نوشتن، پیوست کنارش. */
+    fun shareIntoConversation(threadId: Long, share: Share) {
+        resetTo(Destination.Conversation(threadId, Folder.INBOX))
+        share.text?.takeIf { it.isNotEmpty() }?.let { _draft.value = it }
+        share.image?.let(::attach)
+    }
+
     /**
      * فوروارد: متن پیامک‌ها به «گفتگوی تازه» می‌رود و آنجا فقط گیرنده پرسیده
      * می‌شود. برخلاف اشتراک‌گذاری از اپ دیگر، پشتهٔ ناوبری نگه داشته می‌شود تا
@@ -856,6 +863,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             }
             _sendError.value = true
         }.onSuccess { sent ->
+            if (!state.isGroup) {
+                val name = Contacts.displayName(getApplication(), state.address) ?: state.address
+                ConversationShortcuts.push(getApplication(), sent.threadId, name)
+            }
             // پیش‌نویس ذخیره‌شدهٔ پیامکی که هنوز منتظر تأخیر است پاک نمی‌شود.
             if (delayedSend.pending.value?.threadId != sent.threadId) repository.saveDraft(sent.threadId, "")
             // گفتگوی تازه (`sms:`) حالا شناسهٔ واقعی دارد.
@@ -1240,6 +1251,9 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             } else {
                 UiNotice.Deleted(trashed.size, trashed)
             }
+            // گفتگویی که خالی شد، میان‌برش هم پاک می‌شود (E3).
+            val emptied = request.messages.map { it.threadId }.distinct().filter { repository.threadMessageCount(it) == 0 }
+            ConversationShortcuts.remove(getApplication(), emptied)
         }
     }
 

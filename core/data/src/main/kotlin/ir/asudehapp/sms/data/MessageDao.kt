@@ -220,6 +220,9 @@ interface MessageDao {
     )
     fun archivedPagingSource(): PagingSource<Int, ThreadSummary>
 
+    @Query("SELECT COUNT(*) FROM message WHERE threadId = :threadId")
+    suspend fun countInThread(threadId: Long): Int
+
     /** همهٔ پیامک‌های یک گفتگو، از همهٔ پوشه‌ها، برای نمایش `HiddenRun` (D43). */
     @Query("SELECT * FROM message WHERE threadId = :threadId ORDER BY dateReceived ASC")
     fun observeConversation(threadId: Long): Flow<List<MessageEntity>>
