@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package ir.asudehapp.sms.app
 
 import android.Manifest
@@ -90,10 +92,14 @@ import ir.asudehapp.sms.data.ScheduledMessageEntity
 import ir.asudehapp.sms.data.SendStatus
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.persian.CopyKind
+import ir.asudehapp.sms.persian.BubbleMeta
 import ir.asudehapp.sms.persian.CopyableNumbers
+import ir.asudehapp.sms.persian.DayLabel
+import ir.asudehapp.sms.persian.MessageGrouping
 import ir.asudehapp.sms.persian.SmsLength
 import ir.asudehapp.sms.telephony.SimCard
 import ir.asudehapp.sms.telephony.SimCards
+import java.time.ZoneId
 
 /** یک تکه از گفتگو: یا یک پیامک دیده‌شده، یا نوار جمع‌شدهٔ `HiddenRun`. */
 private sealed interface ConversationItem {
@@ -215,9 +221,13 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
     val multiSim = remember(state.messages, sims) {
         sims.size > 1 || state.messages.map { it.subId }.filter { it >= 0 }.distinct().size > 1
     }
+    // جداکنندهٔ روز و دسته‌های حباب (ROADMAP D3)، با منطقهٔ زمانی گوشی.
+    val zone = remember { ZoneId.systemDefault() }
+    val sections = remember(items) { daySections(items, zone) }
+    val runEnds = remember(items) { runEnds(items, zone) }
     val listState = rememberLazyListState()
     LaunchedEffect(items.size, scheduled.size) {
-        val last = items.size + scheduled.size - 1
+        val last = items.size + sections.size + scheduled.size - 1
         if (last >= 0) listState.scrollToItem(last)
     }
 
@@ -231,77 +241,82 @@ fun ConversationScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             .imePadding(),
     ) {
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
-            items(items.size) { position ->
-                when (val item = items[position]) {
-                    is ConversationItem.Visible -> MessageBubble(
-                        model = model,
-                        message = item.message,
-                        dimmed = false,
-                        showSender = state.isGroup,
-                        showSim = multiSim,
-                        showReason = settings.showReasonEverywhere,
-                        showClock = settings.showMessageClock,
-                        selected = MessageKey(item.message.kind, item.message.providerId) in selected,
-                        selectionMode = selected.isNotEmpty(),
-                        pickingText = pickingTextIn == MessageKey(item.message.kind, item.message.providerId),
-                        showPickHint = showPickHint,
-                        isDefaultApp = isDefaultApp,
-                        onWhy = { reasonFor = item.message },
-                        onDetails = { detailsFor = item.message },
-                        onPickText = {
-                            pickText(MessageKey(item.message.kind, item.message.providerId))
-                        },
-                        onDonePickingText = { pickingTextIn = null },
-                        onResend = { model.resend(item.message) },
-                    )
-
-                    is ConversationItem.Hidden -> {
-                        val key = item.messages.first().providerId
-                        val expanded = key in expandedRuns
-                        HiddenRunBar(
-                            folder = item.folder,
-                            count = item.messages.size,
-                            expanded = expanded,
-                            onToggle = {
-                                expandedRuns =
-                                    if (expanded) expandedRuns - key else expandedRuns + key
+            for (section in sections) {
+                stickyHeader { DayHeader(section.firstMillis) }
+                items(section.size) { offset ->
+                    val position = section.start + offset
+                    when (val item = items[position]) {
+                        is ConversationItem.Visible -> MessageBubble(
+                            model = model,
+                            message = item.message,
+                            dimmed = false,
+                            showSender = state.isGroup,
+                            showSim = multiSim,
+                            showReason = settings.showReasonEverywhere,
+                            showClock = settings.showMessageClock,
+                            selected = MessageKey(item.message.kind, item.message.providerId) in selected,
+                            selectionMode = selected.isNotEmpty(),
+                            pickingText = pickingTextIn == MessageKey(item.message.kind, item.message.providerId),
+                            showPickHint = showPickHint,
+                            isDefaultApp = isDefaultApp,
+                            onWhy = { reasonFor = item.message },
+                            onDetails = { detailsFor = item.message },
+                            onPickText = {
+                                pickText(MessageKey(item.message.kind, item.message.providerId))
                             },
+                            onDonePickingText = { pickingTextIn = null },
+                            onResend = { model.resend(item.message) },
+                            lastInRun = runEnds[position],
                         )
-                        if (expanded && item.folder == Folder.SCAM) {
-                            Text(
-                                stringResource(R.string.scam_rescue_hint),
-                                Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
+
+                        is ConversationItem.Hidden -> {
+                            val key = item.messages.first().providerId
+                            val expanded = key in expandedRuns
+                            HiddenRunBar(
+                                folder = item.folder,
+                                count = item.messages.size,
+                                expanded = expanded,
+                                onToggle = {
+                                    expandedRuns =
+                                        if (expanded) expandedRuns - key else expandedRuns + key
+                                },
                             )
-                        }
-                        if (expanded) {
-                            for (hidden in item.messages) {
-                                MessageBubble(
-                                    model = model,
-                                    message = hidden,
-                                    dimmed = true,
-                                    showSender = state.isGroup,
-                                    showSim = multiSim,
-                                    showReason = true,
-                                    showClock = settings.showMessageClock,
-                                    selected = MessageKey(hidden.kind, hidden.providerId) in selected,
-                                    selectionMode = selected.isNotEmpty(),
-                                    pickingText = pickingTextIn == MessageKey(hidden.kind, hidden.providerId),
-                                    showPickHint = showPickHint,
-                                    isDefaultApp = isDefaultApp,
-                                    onWhy = { reasonFor = hidden },
-                                    onDetails = { detailsFor = hidden },
-                                    onPickText = { pickText(MessageKey(hidden.kind, hidden.providerId)) },
-                                    onDonePickingText = { pickingTextIn = null },
-                                    // پیامک مشکوک به کلاهبرداری با یک لمس برنمی‌گردد؛
-                                    // اول باید دلیلش دیده شود (D44).
-                                    onRescue = if (hidden.folder == Folder.PROMO) {
-                                        { model.rescue(hidden) }
-                                    } else {
-                                        null
-                                    },
-                                    onResend = { model.resend(hidden) },
+                            if (expanded && item.folder == Folder.SCAM) {
+                                Text(
+                                    stringResource(R.string.scam_rescue_hint),
+                                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
                                 )
+                            }
+                            if (expanded) {
+                                for (hidden in item.messages) {
+                                    MessageBubble(
+                                        model = model,
+                                        message = hidden,
+                                        dimmed = true,
+                                        showSender = state.isGroup,
+                                        showSim = multiSim,
+                                        showReason = true,
+                                        showClock = settings.showMessageClock,
+                                        selected = MessageKey(hidden.kind, hidden.providerId) in selected,
+                                        selectionMode = selected.isNotEmpty(),
+                                        pickingText = pickingTextIn == MessageKey(hidden.kind, hidden.providerId),
+                                        showPickHint = showPickHint,
+                                        isDefaultApp = isDefaultApp,
+                                        onWhy = { reasonFor = hidden },
+                                        onDetails = { detailsFor = hidden },
+                                        onPickText = { pickText(MessageKey(hidden.kind, hidden.providerId)) },
+                                        onDonePickingText = { pickingTextIn = null },
+                                        // پیامک مشکوک به کلاهبرداری با یک لمس برنمی‌گردد؛
+                                        // اول باید دلیلش دیده شود (D44).
+                                        onRescue = if (hidden.folder == Folder.PROMO) {
+                                            { model.rescue(hidden) }
+                                        } else {
+                                            null
+                                        },
+                                        onResend = { model.resend(hidden) },
+                                    )
+                                }
                             }
                         }
                     }
@@ -647,6 +662,59 @@ private fun buildItems(
     return items
 }
 
+/** بخش یک روز در گفتگو: [size] جزء از [start]، با زمان نخستینشان. */
+private data class DaySection(val start: Int, val size: Int, val firstMillis: Long)
+
+private fun ConversationItem.millis(): Long = when (this) {
+    is ConversationItem.Visible -> message.dateReceived
+    is ConversationItem.Hidden -> messages.first().dateReceived
+}
+
+private fun daySections(items: List<ConversationItem>, zone: ZoneId): List<DaySection> {
+    val sections = mutableListOf<DaySection>()
+    var start = 0
+    for (index in 1..items.size) {
+        val dayEnds = index == items.size ||
+            !MessageGrouping.sameDay(items[index - 1].millis(), items[index].millis(), zone)
+        if (dayEnds) {
+            sections += DaySection(start, index - start, items[start].millis())
+            start = index
+        }
+    }
+    return sections
+}
+
+/** برای هر جزء: آیا آخرین حباب دسته‌اش است؟ فقط زیر آخرین حباب ساعت می‌آید. */
+private fun runEnds(items: List<ConversationItem>, zone: ZoneId): List<Boolean> {
+    fun meta(item: ConversationItem): BubbleMeta? = (item as? ConversationItem.Visible)?.message?.let {
+        BubbleMeta(it.dateReceived, it.outgoing, it.address)
+    }
+    return items.indices.map { index ->
+        val current = meta(items[index]) ?: return@map true
+        val next = items.getOrNull(index + 1)?.let(::meta) ?: return@map true
+        !MessageGrouping.sameRun(current, next, zone)
+    }
+}
+
+/** جداکنندهٔ «امروز / دیروز / ۳ مهر» که بالای فهرست می‌چسبد (ROADMAP D3). */
+@Composable
+private fun DayHeader(millis: Long) {
+    val label = when (MessageGrouping.label(millis, System.currentTimeMillis(), ZoneId.systemDefault())) {
+        DayLabel.TODAY -> stringResource(R.string.day_today)
+        DayLabel.YESTERDAY -> stringResource(R.string.day_yesterday)
+        DayLabel.DATE -> Texts.dayDate(millis)
+    }
+    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+        Text(
+            label,
+            Modifier
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium,
+        )
+    }
+}
+
 @Composable
 private fun HiddenRunBar(folder: Folder, count: Int, expanded: Boolean, onToggle: () -> Unit) {
     // نوار یک‌خطی با رنگ خنثی (D43)؛ کلاهبرداری با رنگ هشدار.
@@ -706,6 +774,7 @@ private fun MessageBubble(
     onDonePickingText: () -> Unit,
     onResend: () -> Unit,
     onRescue: (() -> Unit)? = null,
+    lastInRun: Boolean = true,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -733,7 +802,8 @@ private fun MessageBubble(
             .background(
                 if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background,
             )
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            // حباب‌های یک دسته به هم نزدیک‌ترند (ROADMAP D3).
+            .padding(horizontal = 12.dp, vertical = if (lastInRun) 6.dp else 1.dp),
         horizontalAlignment = if (message.outgoing) Alignment.End else Alignment.Start,
     ) {
         if (message.risk) {
@@ -859,7 +929,12 @@ private fun MessageBubble(
         if (showReason && !message.outgoing) {
             Text(Texts.reason(message), style = MaterialTheme.typography.labelSmall)
         }
-        Row(
+        // در میانهٔ یک دسته ساعت و تیک نمی‌آید، مگر چیزی باشد که نباید پنهان بماند:
+        // ارسال ناموفق یا در حال ارسال، سیم یا «این تبلیغ نیست».
+        val quietStatus = message.sendStatus == SendStatus.NONE || message.sendStatus == SendStatus.SENT ||
+            message.sendStatus == SendStatus.DELIVERED
+        val mustShow = !quietStatus || showSim || onRescue != null
+        if (lastInRun || mustShow) Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
