@@ -28,6 +28,39 @@ Gradle لازم نیست نصب باشد؛ wrapper آن را خودش می‌آ�
 **بدون Android SDK** هم ساخته و آزموده می‌شوند. برای همین، Android Gradle Plugin
 عمداً روی classpath پروژهٔ ریشه نیست و هر ماژول اندرویدی خودش آن را اعلام می‌کند.
 
+## امضای release
+
+کلید امضای واقعی (D65) و رمزهایش **هرگز در مخزن نیستند**. `app/build.gradle.kts`
+این چهار مقدار را از `~/.gradle/gradle.properties` (بیرون از مخزن) یا از متغیر
+محیطی همنام می‌خواند:
+
+| نام | چیست |
+|---|---|
+| `ASUDEH_KEYSTORE` | مسیر مطلق فایل keystore |
+| `ASUDEH_KEYSTORE_PASSWORD` | رمز keystore |
+| `ASUDEH_KEY_ALIAS` | نام کلید داخل keystore |
+| `ASUDEH_KEY_PASSWORD` | رمز کلید |
+
+```properties
+# ~/.gradle/gradle.properties
+ASUDEH_KEYSTORE=/path/to/asudeh-release.jks
+ASUDEH_KEYSTORE_PASSWORD=...
+ASUDEH_KEY_ALIAS=asudeh
+ASUDEH_KEY_PASSWORD=...
+```
+
+بعد `./gradlew :app:signingReport` باید برای نسخهٔ `release` همین keystore و
+alias را نشان دهد، و `./gradlew :app:assembleRelease` فایل
+`app/build/outputs/apk/release/app-release.apk` امضاشده می‌سازد.
+
+بدون `ASUDEH_KEYSTORE` ساخت مثل قبل است: release بدون امضا ساخته می‌شود
+(`app-release-unsigned.apk`)، و CI و بنچمارک همین را می‌خواهند. اگر
+`ASUDEH_KEYSTORE` باشد ولی یکی از سه مقدار دیگر نباشد، ساخت با پیام روشن متوقف
+می‌شود. فایل‌های `*.jks` و `*.keystore` در `.gitignore` هستند.
+
+کلید یک بار ساخته می‌شود و گم شدنش یعنی پایان آپدیت برای همهٔ کاربران؛ دو نسخهٔ
+پشتیبان آفلاین از آن نگه دارید (ROADMAP U1).
+
 ## ماژول‌ها
 
 | ماژول | چیست |

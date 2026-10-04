@@ -7,6 +7,18 @@ plugins {
     alias(libs.plugins.androidx.baselineprofile)
 }
 
+/**
+ * D65 (ROADMAP A3): کلید امضای release بیرون از مخزن است. مقدارها از
+ * `~/.gradle/gradle.properties` یا متغیر محیطی همنام خوانده می‌شوند؛ هیچ کلید یا
+ * رمزی در مخزن نیست. بدون `ASUDEH_KEYSTORE` ساخت release مثل قبل است (بدون
+ * signingConfig، پس `app-release-unsigned.apk`) و CI و بنچمارک نمی‌شکنند.
+ * جزئیات در docs/BUILD.md، بخش «امضای release».
+ */
+fun signingValue(name: String): String? =
+    providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orNull?.takeIf { it.isNotBlank() }
+
+val releaseKeystore: String? = signingValue("ASUDEH_KEYSTORE")
+
 android {
     namespace = "ir.asudehapp.sms"
     compileSdk = 35
@@ -26,9 +38,23 @@ android {
         testInstrumentationRunner = "ir.asudehapp.sms.app.AsudehTestRunner"
     }
 
+    signingConfigs {
+        if (releaseKeystore != null) {
+            fun required(name: String): String = signingValue(name)
+                ?: throw GradleException("ASUDEH_KEYSTORE تنظیم شده ولی $name نه (docs/BUILD.md)")
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = required("ASUDEH_KEYSTORE_PASSWORD")
+                keyAlias = required("ASUDEH_KEY_ALIAS")
+                keyPassword = required("ASUDEH_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
 

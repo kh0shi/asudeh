@@ -18,3 +18,7 @@ captures/
 
 # Kotlin
 .kotlin/
+
+# کلید امضا هرگز در مخزن نیست (D65، docs/BUILD.md)
+*.jks
+*.keystore
