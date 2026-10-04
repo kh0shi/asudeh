@@ -86,6 +86,13 @@
         <item quantity="one">%d جدید</item>
         <item quantity="other">%d جدید</item>
     </plurals>
+    <plurals name="promo_sender_count">
+        <item quantity="one">%d پیامک</item>
+        <item quantity="other">%d پیامک</item>
+    </plurals>
+    <string name="promo_by_thread">گفتگوها</string>
+    <string name="promo_by_sender">فرستنده‌ها</string>
+    <string name="promo_block">مسدود</string>
     <plurals name="hidden_promo_run">
         <item quantity="one">%d پیامک تبلیغاتی</item>
         <item quantity="other">%d پیامک تبلیغاتی</item>

@@ -76,6 +76,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -1186,6 +1187,15 @@ private fun LazyListScope.pagedThreadItems(
     }
 }
 
+/** کارت‌های بالای پوشهٔ تبلیغات: پیشنهاد جابه‌جایی (اصل ۸) و امتیاز (D67). */
+@Composable
+private fun PromoCards(model: AsudehViewModel) {
+    val suggestions by model.suggestions.collectAsState()
+    val ratingCard by model.ratingCard.collectAsState()
+    if (suggestions.messages > 0) SuggestionCard(model, suggestions)
+    if (ratingCard) RatingCard(model)
+}
+
 @Composable
 private fun FolderScreen(
     model: AsudehViewModel,
@@ -1200,36 +1210,22 @@ private fun FolderScreen(
     }.collectAsState()
     val lazyThreads = model.pagedThreadsIn(folder).collectAsLazyPagingItems()
     val selectedThreads by model.selectedThreads.collectAsState()
-    val suggestions by model.suggestions.collectAsState()
-    val ratingCard by model.ratingCard.collectAsState()
+    // نمای دوم پوشهٔ تبلیغات: هر فرستنده یک ردیف (E5).
+    var bySender by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(folder) {
         if (folder == Folder.PROMO) model.checkRatingMoment()
     }
 
     Column(Modifier.fillMaxSize()) {
-        if (folder == Folder.PROMO && suggestions.messages > 0) {
-            SuggestionCard(model, suggestions)
-        }
-        if (folder == Folder.PROMO && ratingCard) {
-            RatingCard(model)
-        }
+        if (folder == Folder.PROMO) PromoCards(model)
         // «همه خوانده شد» و «خالی کردن پوشه» فقط در `PromoFolder` است (D45)، و
         // حذف از provider فقط برای اپ پیش‌فرض ممکن است.
         if (folder == Folder.PROMO && threads.isNotEmpty()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(onClick = { model.markFolderRead(folder) }) {
-                    Text(stringResource(R.string.mark_all_read))
-                }
-                if (isDefaultApp) {
-                    TextButton(onClick = { model.requestEmptyFolder(folder) }) {
-                        Text(stringResource(R.string.empty_folder))
-                    }
-                }
-            }
-            HorizontalDivider()
+            PromoHeader(model, isDefaultApp, bySender) { bySender = it }
+        }
+        if (folder == Folder.PROMO && bySender) {
+            PromoSenderList(model, onOpenThread)
+            return@Column
         }
         val listState = rememberTopAnchoredListState(lazyThreads)
     LazyColumn(Modifier.fillMaxSize(), listState) {

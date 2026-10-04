@@ -85,6 +85,13 @@
         <item quantity="one">%d new</item>
         <item quantity="other">%d new</item>
     </plurals>
+    <plurals name="promo_sender_count">
+        <item quantity="one">%d message</item>
+        <item quantity="other">%d messages</item>
+    </plurals>
+    <string name="promo_by_thread">Conversations</string>
+    <string name="promo_by_sender">Senders</string>
+    <string name="promo_block">Block</string>
     <plurals name="hidden_promo_run">
         <item quantity="one">%d promotional message</item>
         <item quantity="other">%d promotional messages</item>
