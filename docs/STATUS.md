@@ -14,6 +14,7 @@
 - CI با بررسی `NoNet` روی manifest ادغام‌شدهٔ **debug و release** (ADR-0002، D62)
 - فایل `LICENSE` با متن کامل GPL-3.0 در ریشهٔ مخزن (ROADMAP A1)
 - امضای release از متغیرهای `ASUDEH_KEYSTORE*` بیرون از مخزن؛ بدون آن‌ها release مثل قبل بدون امضا ساخته می‌شود (D65، ROADMAP A3، docs/BUILD.md). کلید واقعی هنوز ساخته نشده (⚑ U1)
+- پیش‌نویس سیاست حریم خصوصی و متن فروشگاه، فارسی و انگلیسی، در `docs/store/` (ROADMAP A4)؛ انتشارش با صاحب پروژه است (⚑ U4)
 - نسخه‌گذاری SemVer: `versionName` برابر `1.0.0-beta1`، `versionCode` شمارندهٔ یکنواخت (D66، ROADMAP A2)
 - `rulepack.json` با JSON Schema (`core/classifier/src/test/resources/rulepack.schema.json`) در `RulePackSchemaTest` سنجیده می‌شود: کلید ناشناخته، نوع اشتباه، regex خراب و نسخهٔ بدون قالب `1405.07` (D62، ROADMAP B3)
 - فهرست ثابت مجوزها؛ هر مجوز تازه CI را متوقف می‌کند (D62)
