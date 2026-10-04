@@ -218,6 +218,11 @@
     <string name="settings_send_enter_hint">The Enter key sends the message; Shift+Enter adds a new line.</string>
     <string name="send_delayed">Sending in %d s</string>
     <string name="send_cancel">Cancel</string>
+    <string name="settings_notification_content">Show in notifications</string>
+    <string name="notification_content_full">Name and message</string>
+    <string name="notification_content_name">Name only</string>
+    <string name="notification_content_none">Neither</string>
+    <string name="thread_sound">Notification sound for this conversation</string>
     <string name="settings_sending">Sending</string>
     <string name="settings_delivery">Delivery reports</string>
     <string name="settings_delivery_hint">Show \"Delivered\" once a message reaches its recipient.</string>

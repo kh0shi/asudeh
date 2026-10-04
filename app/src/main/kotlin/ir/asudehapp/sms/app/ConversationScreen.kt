@@ -119,6 +119,7 @@ import ir.asudehapp.sms.persian.SmsLength
 import ir.asudehapp.sms.telephony.DelayedSend
 import ir.asudehapp.sms.telephony.SimCard
 import ir.asudehapp.sms.telephony.SimCards
+import ir.asudehapp.sms.telephony.ThreadChannels
 import java.time.ZoneId
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -167,6 +168,21 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
                     if (!state.archived) model.back()
                 },
             )
+            // صدای جدا برای همین گفتگو (E4): کانالش همین حالا ساخته می‌شود و
+            // تنظیم صدا در صفحهٔ خود اندروید است.
+            if (ThreadChannels.supported) {
+                val context = LocalContext.current
+                val name = Texts.participants(state.participants)
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.thread_sound)) },
+                    onClick = {
+                        menu = false
+                        ThreadChannels.settingsIntent(context, state.threadId, name)?.let { intent ->
+                            runCatching { context.startActivity(intent) }
+                        }
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.mark_unread)) },
                 onClick = {

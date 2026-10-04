@@ -16,6 +16,7 @@ import ir.asudehapp.sms.data.DateStyle
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.KeywordRuleEntity
 import ir.asudehapp.sms.data.MessageEntity
+import ir.asudehapp.sms.data.NotificationContent
 import ir.asudehapp.sms.data.MmsPartInfo
 import ir.asudehapp.sms.data.MessageKey
 import ir.asudehapp.sms.data.MoveSuggestion
@@ -39,6 +40,7 @@ import ir.asudehapp.sms.telephony.ActiveConversation
 import ir.asudehapp.sms.telephony.ContactPhone
 import ir.asudehapp.sms.telephony.Contacts
 import ir.asudehapp.sms.telephony.DelayedSend
+import ir.asudehapp.sms.telephony.ThreadChannels
 import ir.asudehapp.sms.telephony.DigestScheduler
 import ir.asudehapp.sms.telephony.MmsDownloader
 import ir.asudehapp.sms.telephony.MmsAttachments
@@ -180,6 +182,8 @@ data class SettingsState(
     /** تأخیر پیش از ارسال بر حسب ثانیه؛ صفر یعنی خاموش (ROADMAP D8). */
     val sendDelaySeconds: Int = 0,
     val sendWithEnter: Boolean = false,
+    /** «نمایش در اعلان» (ROADMAP E4). */
+    val notificationContent: NotificationContent = NotificationContent.FULL,
     /** ضریب اندازهٔ متن گفتگو (ROADMAP D7). */
     val conversationTextScale: Float = 1f,
     val mmsAutoDownload: Boolean = true,
@@ -491,6 +495,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         conversationTextScale = settingsStore.conversationTextScale,
         sendDelaySeconds = settingsStore.sendDelaySeconds,
         sendWithEnter = settingsStore.sendWithEnter,
+        notificationContent = settingsStore.notificationContent,
         mmsAutoDownload = settingsStore.mmsAutoDownload,
         mmsSending = settingsStore.mmsSending,
         mmsReadReports = settingsStore.mmsReadReports,
@@ -1254,6 +1259,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             // گفتگویی که خالی شد، میان‌برش هم پاک می‌شود (E3).
             val emptied = request.messages.map { it.threadId }.distinct().filter { repository.threadMessageCount(it) == 0 }
             ConversationShortcuts.remove(getApplication(), emptied)
+            ThreadChannels.delete(getApplication(), emptied)
         }
     }
 
@@ -1428,6 +1434,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setSendDelaySeconds(seconds: Int) {
         settingsStore.sendDelaySeconds = seconds
+    }
+
+    fun setNotificationContent(content: NotificationContent) {
+        settingsStore.notificationContent = content
     }
 
     fun setSendWithEnter(enabled: Boolean) {

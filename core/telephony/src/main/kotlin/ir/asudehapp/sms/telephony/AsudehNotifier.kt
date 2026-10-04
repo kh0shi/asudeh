@@ -25,6 +25,7 @@ import ir.asudehapp.sms.classifier.receive.Notifier
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.HiddenCount
 import ir.asudehapp.sms.data.MessageEntity
+import ir.asudehapp.sms.data.NotificationContent
 import ir.asudehapp.sms.data.ScheduledMessageEntity
 import ir.asudehapp.sms.data.TelephonyProviderStore
 import ir.asudehapp.sms.model.Addresses
@@ -85,6 +86,8 @@ class AsudehNotifier(
      * پیامک شخصی در بخش «گفتگوها»ی اندروید ۱۱ به بالا برود.
      */
     private val conversationShortcut: (threadId: Long, name: String) -> String? = { _, _ -> null },
+    /** «نمایش در اعلان» (ROADMAP E4). */
+    private val content: () -> NotificationContent = { NotificationContent.FULL },
 ) : Notifier {
 
     @SuppressLint("MissingPermission")
@@ -111,12 +114,13 @@ class AsudehNotifier(
         val category = message.verdict.category
         val raw = message.raw
 
-        val title = when {
+        val shown = content()
+        val fullTitle = when {
             message.placement.showWarning -> context.getString(R.string.notify_suspect_title)
             raw.isMms -> context.getString(R.string.notify_mms_title, sender(raw.address))
             else -> sender(raw.address)
         }
-        val text = when {
+        val fullText = when {
             category == Category.OTP -> context.getString(R.string.notify_otp_text)
             message.placement.showWarning -> context.getString(R.string.notify_suspect_text)
             raw.isMms && raw.body.isBlank() -> context.getString(
@@ -125,6 +129,10 @@ class AsudehNotifier(
             else -> raw.body.take(MAX_PREVIEW)
         }
 
+        // «فقط نام» متن را برمی‌دارد و «هیچ» نام را هم (E4).
+        val title = if (shown == NotificationContent.NONE) context.getString(R.string.notify_new_message) else fullTitle
+        val text = if (shown == NotificationContent.FULL) fullText else context.getString(R.string.notify_hidden_text)
+
         val id = threadNotificationId(message.threadId)
         val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_stat_asudeh)
@@ -132,7 +140,7 @@ class AsudehNotifier(
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setWhen(raw.receivedAt)
-        if (isConversation(message)) {
+        if (isConversation(message) && shown != NotificationContent.NONE) {
             val name = sender(raw.address)
             conversationShortcut(message.threadId, name)?.let { shortcutId ->
                 val person = Person.Builder().setName(name).setKey(shortcutId).build()
@@ -155,7 +163,7 @@ class AsudehNotifier(
             builder.setPublicVersion(
                 NotificationCompat.Builder(context, channel)
                     .setSmallIcon(R.drawable.ic_stat_asudeh)
-                    .setContentTitle(sender(raw.address))
+                    .setContentTitle(title)
                     .setContentText(context.getString(R.string.notify_otp_text).takeIf { category == Category.OTP })
                     .build(),
             )
@@ -166,7 +174,12 @@ class AsudehNotifier(
             OtpCode.extract(raw.body)?.let { code ->
                 builder.addAction(
                     0,
-                    context.getString(R.string.action_copy_code, code),
+                    // برچسب دکمه خودش رمز را نشان می‌داد؛ با «فقط نام» یا «هیچ» نه.
+                    if (shown == NotificationContent.FULL) {
+                        context.getString(R.string.action_copy_code, code)
+                    } else {
+                        context.getString(R.string.action_copy_code_hidden)
+                    },
                     actionIntent(NotificationActionReceiver.ACTION_COPY_CODE, id, message) {
                         putExtra(NotificationActionReceiver.EXTRA_CODE, code)
                     },
@@ -427,7 +440,12 @@ class AsudehNotifier(
         return personal && !message.placement.showWarning && !message.raw.isGroup && canReplyTo(message.raw.address)
     }
 
-    private fun channelFor(message: ClassifiedMessage): String = when {
+    private fun channelFor(message: ClassifiedMessage): String = baseChannelFor(message).let { base ->
+        // کانال خود گفتگو (E4)، فقط جای «شخصی» و فقط اگر کاربر ساخته باشد.
+        if (base == NotificationChannels.PERSONAL) ThreadChannels.existing(context, message.threadId) ?: base else base
+    }
+
+    private fun baseChannelFor(message: ClassifiedMessage): String = when {
         message.placement.showWarning -> NotificationChannels.SUSPECT
         message.verdict.category == Category.OTP -> NotificationChannels.OTP
         message.verdict.category == Category.BANK -> NotificationChannels.BANK

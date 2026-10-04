@@ -51,6 +51,7 @@ import ir.asudehapp.sms.data.BackupFormat
 import ir.asudehapp.sms.data.DateStyle
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.KeywordRuleEntity
+import ir.asudehapp.sms.data.NotificationContent
 import ir.asudehapp.sms.data.SenderRuleEntity
 import ir.asudehapp.sms.data.SenderRuleKind
 import ir.asudehapp.sms.data.ThemeMode
@@ -126,6 +127,16 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             model::setShowMessageClock,
         )
         TextScaleSlider(settings.conversationTextScale, model::setConversationTextScale)
+
+        // «نمایش در اعلان» (ROADMAP E4).
+        Section(stringResource(R.string.settings_notification_content))
+        for ((value, label) in listOf(
+            NotificationContent.FULL to R.string.notification_content_full,
+            NotificationContent.NAME_ONLY to R.string.notification_content_name,
+            NotificationContent.NONE to R.string.notification_content_none,
+        )) {
+            Choice(stringResource(label), settings.notificationContent == value) { model.setNotificationContent(value) }
+        }
 
         Section(stringResource(R.string.settings_sending))
         Toggle(
