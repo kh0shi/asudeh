@@ -221,6 +221,7 @@
     <string name="theme_system">مثل گوشی</string>
     <string name="theme_light">روشن</string>
     <string name="theme_dark">تیره</string>
+    <string name="theme_black">تیرهٔ کامل (سیاه)</string>
     <string name="settings_rules">قواعد من</string>
     <string name="settings_rules_hint">شماره‌ها و واژه‌هایی که همیشه در صندوق یا همیشه در تبلیغات‌اند</string>
     <string name="settings_message_clock">ساعت پیامک</string>

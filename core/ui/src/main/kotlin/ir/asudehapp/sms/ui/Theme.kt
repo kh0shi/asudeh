@@ -2,6 +2,7 @@ package ir.asudehapp.sms.ui
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -93,6 +94,28 @@ private val DarkScheme = darkColorScheme(
 )
 
 /**
+ * تیرهٔ کامل (ROADMAP E8): سطح‌ها سیاه خالص‌اند تا پیکسل‌های AMOLED خاموش
+ * بمانند؛ ظرف‌ها کمی روشن‌تر می‌مانند تا حباب و کارت از زمینه جدا دیده شوند.
+ */
+@Suppress("MagicNumber")
+private object BlackContainers {
+    val Low = Color(0xFF0B0B0B)
+    val Mid = Color(0xFF121212)
+    val High = Color(0xFF1C1C1C)
+    val Highest = Color(0xFF262626)
+}
+
+private fun ColorScheme.pureBlack(): ColorScheme = copy(
+    background = Color.Black,
+    surface = Color.Black,
+    surfaceContainerLowest = Color.Black,
+    surfaceContainerLow = BlackContainers.Low,
+    surfaceContainer = BlackContainers.Mid,
+    surfaceContainerHigh = BlackContainers.High,
+    surfaceContainerHighest = BlackContainers.Highest,
+)
+
+/**
  * وزیرمتن متغیر (D51)، برای فارسی و لاتین. یک فایل همهٔ وزن‌ها را دارد؛ هر وزنی
  * که تم به کار می‌برد اینجا با محور `wght` اعلام می‌شود.
  * مجوز: SIL Open Font License 1.1 (`core/ui/src/main/VAZIRMATN-OFL.txt`).
@@ -142,9 +165,10 @@ val LocalUiIsPersian = staticCompositionLocalOf { true }
 fun AsudehTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
+    pureBlack: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
+    val baseScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -153,6 +177,7 @@ fun AsudehTheme(
         darkTheme -> DarkScheme
         else -> LightScheme
     }
+    val colorScheme = if (darkTheme && pureBlack) baseScheme.pureBlack() else baseScheme
 
     // جهت رابط از زبان رابط می‌آید، نه از زبان گوشی: روی گوشی انگلیسی هم رابط
     // فارسی راست‌به‌چپ است. جهت متن هر پیامک جدا از روی اولین حرف قوی‌اش
