@@ -197,7 +197,7 @@ class MmsResultReceiver : BroadcastReceiver() {
             store = alreadyStored,
             index = repository.index,
             notifier = host.notifier,
-            classify = { input -> repository.classifier.classify(input) },
+            classify = { input -> host.classify(input) },
             isKnownContact = { address -> Contacts.isKnown(context, address) },
             userRules = { repository.currentUserRules() },
             onError = { stage, error -> Log.w(TAG, "مرحلهٔ $stage شکست خورد", error) },
