@@ -55,8 +55,16 @@ object Router {
         // می‌گذرد، تا پیکربندی متناقض کاربر را در بن‌بست نگذارد.
         val blockedSender = userRules.isBlocked(input.address) && !allowedSender
 
-        val allowed = allowedSender || (allowKeyword != null && !blockedSender)
-        val blocked = blockedSender || (blockKeyword != null && !personalLock)
+        // الگوی فرستنده، مثل `5000*` (ADR-0016)، فقط وقتی که خود این سرشماره
+        // قاعدهٔ صریحی ندارد: `Allowlist` صریحِ ۵۰۰۰۱۲۳۴ از `Block` الگوی
+        // `5000*` برتر است. الگوی سفید مثل سرشمارهٔ سفید است؛ الگوی سیاه مثل
+        // کلیدواژهٔ سیاه، که قفل ایمنی را نمی‌شکند و رمز یکبار را پنهان نمی‌کند.
+        val pattern = if (allowedSender || blockedSender) null else userRules.senderPatternFor(input.address)
+        val allowPattern = pattern?.takeIf { it.allow }?.pattern
+        val blockPattern = pattern?.takeUnless { it.allow }?.pattern?.takeUnless { personalLock }
+
+        val allowed = allowedSender || allowPattern != null || (allowKeyword != null && !blockedSender)
+        val blocked = blockedSender || blockPattern != null || (blockKeyword != null && !personalLock)
         val hasEvidence = verdict.evidence != null
 
         // ۱. فیشینگ با شاهد قطعی، از سرشماره‌ای که در فهرست سفید نیست.
@@ -98,23 +106,24 @@ object Router {
             return inbox(verdict)
         }
 
-        // ۴. فهرست سفید کاربر: سرشماره یا کلیدواژه.
+        // ۴. فهرست سفید کاربر: سرشماره، الگوی فرستنده یا کلیدواژه.
         if (allowed) {
-            val reason = if (allowedSender) {
-                Reason(ReasonCode.ALLOWED_BY_USER)
-            } else {
-                Reason(ReasonCode.ALLOWED_KEYWORD, listOf(allowKeyword.orEmpty()))
+            val reason = when {
+                allowedSender -> Reason(ReasonCode.ALLOWED_BY_USER)
+                allowPattern != null -> Reason(ReasonCode.ALLOWED_PATTERN, listOf(allowPattern))
+                else -> Reason(ReasonCode.ALLOWED_KEYWORD, listOf(allowKeyword.orEmpty()))
             }
             return inbox(verdict, reason)
         }
 
         // ۵. فهرست سیاه کاربر: برای این سرشماره `Block` بر `ShowOnDoubt` برتری
-        //    دارد (ADR-0006 بند ۲).
+        //    دارد (ADR-0006 بند ۲). الگو و کلیدواژه فقط وقتی به اینجا می‌رسند که
+        //    قفل ایمنی نباشد.
         if (blocked) {
-            val reason = if (blockKeyword != null && !blockedSender) {
-                Reason(ReasonCode.BLOCKED_KEYWORD, listOf(blockKeyword))
-            } else {
-                Reason(ReasonCode.BLOCKED_BY_USER)
+            val reason = when {
+                blockedSender -> Reason(ReasonCode.BLOCKED_BY_USER)
+                blockPattern != null -> Reason(ReasonCode.BLOCKED_PATTERN, listOf(blockPattern))
+                else -> Reason(ReasonCode.BLOCKED_KEYWORD, listOf(blockKeyword.orEmpty()))
             }
             if (origin != Origin.LIVE) return suggested(verdict, reason)
             return Placement(

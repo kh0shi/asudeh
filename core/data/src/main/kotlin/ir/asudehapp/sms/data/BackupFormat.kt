@@ -45,6 +45,8 @@ object BackupFormat {
          * شناسهٔ آن، چون شناسهٔ گفتگو در گوشی دیگر فرق دارد.
          */
         val groupNames: List<GroupName> = emptyList(),
+        /** الگوهای فرستندهٔ «قواعد من» (ADR-0016). پشتیبان‌های قدیمی‌تر این را ندارند. */
+        val senderPatterns: List<SenderPatternRule> = emptyList(),
     )
 
     @Serializable
@@ -55,6 +57,10 @@ object BackupFormat {
 
     @Serializable
     data class KeywordRule(val keyword: String, val kind: String, val createdAt: Long)
+
+    /** الگو همان‌طور که کاربر نوشته؛ پیشوند یکسان‌شده هنگام بازگردانی دوباره ساخته می‌شود. */
+    @Serializable
+    data class SenderPatternRule(val pattern: String, val kind: String, val createdAt: Long)
 
     /** یک پیامک یا MMS در پشتیبان؛ برای خواندن یکجای هر دو نوع پشت‌سرهم. */
     sealed interface Message {

@@ -21,6 +21,7 @@ import ir.asudehapp.sms.model.MessageInput
 import ir.asudehapp.sms.model.Origin
 import ir.asudehapp.sms.model.ReasonCode
 import ir.asudehapp.sms.model.SearchScope
+import ir.asudehapp.sms.model.SenderPattern
 import ir.asudehapp.sms.model.UserRules
 import ir.asudehapp.sms.persian.KeywordMatch
 import ir.asudehapp.sms.persian.SearchText
@@ -94,6 +95,7 @@ class AsudehRepository(
     private val scheduleDao: ScheduledMessageDao get() = indexDatabase.scheduled()
     private val ruleDao: SenderRuleDao get() = rulesDatabase.senderRules()
     private val keywordDao: KeywordRuleDao get() = rulesDatabase.keywordRules()
+    private val patternDao: SenderPatternRuleDao get() = rulesDatabase.senderPatternRules()
 
     val index: MessageIndex get() = RoomMessageIndex(dao, rules.pack.version)
 
@@ -142,17 +144,25 @@ class AsudehRepository(
     fun senders(folder: Folder): Flow<List<FolderSender>> = dao.observeSenders(folder)
 
     fun userRules(): Flow<UserRules> =
-        combine(ruleDao.observeAll(), keywordDao.observeAll(), settings.changes()) { senders, keywords, _ ->
-            buildUserRules(senders, keywords)
+        combine(
+            ruleDao.observeAll(),
+            keywordDao.observeAll(),
+            patternDao.observeAll(),
+            settings.changes(),
+        ) { senders, keywords, patterns, _ ->
+            buildUserRules(senders, keywords, patterns)
         }
 
-    suspend fun currentUserRules(): UserRules = buildUserRules(ruleDao.all(), keywordDao.all())
+    suspend fun currentUserRules(): UserRules = buildUserRules(ruleDao.all(), keywordDao.all(), patternDao.all())
 
     /** قواعد کاربر، برای صفحهٔ «قواعد من» (D45، اصل ۵). */
     fun senderRules(): Flow<List<SenderRuleEntity>> = ruleDao.observeAll()
 
     /** کلیدواژه‌های کاربر، برای صفحهٔ «قواعد من» (ADR-0012). */
     fun keywordRules(): Flow<List<KeywordRuleEntity>> = keywordDao.observeAll()
+
+    /** الگوهای فرستندهٔ کاربر، برای صفحهٔ «قواعد من» (ADR-0016). */
+    fun senderPatternRules(): Flow<List<SenderPatternRuleEntity>> = patternDao.observeAll()
 
     /**
      * قواعد کاربر و قاعده‌های پیش‌فرضِ خاموش‌نشده، یک‌جا. `Router` فرقی بین این
@@ -161,6 +171,7 @@ class AsudehRepository(
     private fun buildUserRules(
         senders: List<SenderRuleEntity>,
         keywords: List<KeywordRuleEntity>,
+        patterns: List<SenderPatternRuleEntity>,
     ): UserRules {
         val offKeywords = settings.disabledDefaultKeywords
         val defaultAllow = DefaultRules.ALLOW_KEYWORDS
@@ -177,6 +188,8 @@ class AsudehRepository(
             disabledDefaults = settings.disabledDefaultRules.mapNotNullTo(mutableSetOf()) { name ->
                 runCatching { DefaultRule.valueOf(name) }.getOrNull()
             },
+            allowSenderPatterns = patterns.filter { it.kind == SenderRuleKind.ALLOW }.mapTo(mutableSetOf()) { it.pattern },
+            blockSenderPatterns = patterns.filter { it.kind == SenderRuleKind.BLOCK }.mapTo(mutableSetOf()) { it.pattern },
         )
     }
 
@@ -200,6 +213,28 @@ class AsudehRepository(
 
     suspend fun forgetKeywordRule(normalized: String) {
         keywordDao.remove(normalized)
+    }
+
+    /**
+     * افزودن یک الگوی فرستنده، مثل `5000*` (ADR-0016). خروجی `false` یعنی الگو
+     * پذیرفتنی نیست (`SenderPattern.normalize`). مثل کلیدواژه، فقط روی پیامک‌های
+     * بعدی اثر دارد و هیچ پیامکی را جابه‌جا نمی‌کند.
+     */
+    suspend fun addSenderPatternRule(pattern: String, kind: SenderRuleKind): Boolean {
+        val prefix = SenderPattern.normalize(pattern) ?: return false
+        patternDao.put(
+            SenderPatternRuleEntity(
+                prefix = prefix,
+                pattern = pattern.trim(),
+                kind = kind,
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+        return true
+    }
+
+    suspend fun forgetSenderPatternRule(prefix: String) {
+        patternDao.remove(prefix)
     }
 
     /** افزودن دستی یک سرشماره به فهرست سفید یا سیاه، از صفحهٔ «قواعد من». */

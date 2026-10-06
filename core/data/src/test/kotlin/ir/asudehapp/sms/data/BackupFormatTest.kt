@@ -43,6 +43,26 @@ class BackupFormatTest {
     }
 
     @Test
+    fun `sender patterns round trip and older headers have none`() {
+        val withPatterns = header.copy(
+            senderPatterns = listOf(
+                BackupFormat.SenderPatternRule("5000*", "BLOCK", 7),
+                BackupFormat.SenderPatternRule("+98990*", "ALLOW", 8),
+            ),
+        )
+        val out = StringWriter()
+        BackupFormat.writeHeader(out, withPatterns)
+        assertEquals(withPatterns, BackupFormat.readHeader(StringReader(out.toString()).buffered()))
+
+        // پشتیبانی که پیش از ADR-0016 ساخته شده، کلید `senderPatterns` را ندارد.
+        val old = "{\"format\":\"asudeh-backup\",\"version\":2,\"createdAt\":1,\"appVersion\":\"0.1\"," +
+            "\"rules\":[{\"address\":\"30001234\",\"kind\":\"BLOCK\",\"createdAt\":5}]}\n"
+        val read = BackupFormat.readHeader(StringReader(old).buffered())
+        assertEquals(emptyList<BackupFormat.SenderPatternRule>(), read.senderPatterns)
+        assertEquals(listOf(BackupFormat.Rule("30001234", "BLOCK", 5)), read.rules)
+    }
+
+    @Test
     fun `stars survive a backup and older lines read as unstarred`() {
         val out = StringWriter()
         BackupFormat.writeHeader(out, header)

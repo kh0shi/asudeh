@@ -527,6 +527,23 @@ interface KeywordRuleDao {
     suspend fun remove(normalized: String)
 }
 
+/** الگوهای فرستندهٔ «قواعد من» (ADR-0016). */
+@Dao
+interface SenderPatternRuleDao {
+
+    @Query("SELECT * FROM sender_pattern_rule ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<SenderPatternRuleEntity>>
+
+    @Query("SELECT * FROM sender_pattern_rule")
+    suspend fun all(): List<SenderPatternRuleEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(rule: SenderPatternRuleEntity)
+
+    @Query("DELETE FROM sender_pattern_rule WHERE prefix = :prefix")
+    suspend fun remove(prefix: String)
+}
+
 /**
  * سطل حذف‌شده‌ها (ADR-0010). هیچ کوئری‌ای در این DAO خودکار صدا زده نمی‌شود:
  * هم پر شدن سطل و هم خالی شدنش با اقدام صریح کاربر است.

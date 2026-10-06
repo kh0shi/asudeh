@@ -133,6 +133,8 @@
     <string name="reason_allowed">شما %1$s را به فهرست سفید اضافه کرده‌اید.</string>
     <string name="reason_allowed_keyword">شامل «%1$s» است و این واژه در فهرست سفید شماست.</string>
     <string name="reason_blocked_keyword">شامل «%1$s» است و این واژه در فهرست سیاه شماست.</string>
+    <string name="reason_allowed_pattern">%1$s با الگوی «%2$s» جور است و این الگو در فهرست سفید شماست.</string>
+    <string name="reason_blocked_pattern">%1$s با الگوی «%2$s» جور است و این الگو در فهرست سیاه شماست.</string>
     <string name="reason_otp">رمز یکبار مصرف است، پس همیشه در صندوق می‌ماند.</string>
     <string name="reason_bank">پیامک بانکی است، پس همیشه در صندوق می‌ماند.</string>
     <string name="reason_service">پیامک خدماتی است و بی‌صدا اعلان می‌شود.</string>
@@ -308,6 +310,8 @@
     <string name="rule_block">همیشه تبلیغ</string>
     <string name="rule_keyword_allow">پیامک حاوی این واژه همیشه در صندوق می‌ماند</string>
     <string name="rule_keyword_block">پیامک حاوی این واژه تبلیغ شمرده می‌شود</string>
+    <string name="rule_pattern_allow">فرستنده‌هایی که این‌طور شروع می‌شوند همیشه در صندوق می‌مانند</string>
+    <string name="rule_pattern_block">پیامک فرستنده‌هایی که این‌طور شروع می‌شوند تبلیغ شمرده می‌شود</string>
     <string name="rule_forget">فراموش کن</string>
     <string name="rules_mine">قواعد من</string>
     <string name="rules_defaults">قواعد پیش‌فرض</string>
@@ -317,11 +321,14 @@
     <string name="rules_add_confirm">افزودن</string>
     <string name="rules_kind_keyword">کلیدواژه</string>
     <string name="rules_kind_sender">شماره یا سرشماره</string>
+    <string name="rules_kind_pattern">الگوی فرستنده</string>
     <string name="rules_list_allow">همیشه در صندوق بماند</string>
     <string name="rules_list_block">تبلیغ شمرده شود</string>
     <string name="rules_value_keyword">واژه یا عبارت</string>
     <string name="rules_value_sender">شماره یا سرشماره</string>
+    <string name="rules_value_pattern">الگو، مثل 5000*</string>
     <string name="rules_keyword_hint">حرف بزرگ و کوچک، ارقام فارسی و انگلیسی، فاصله و نیم‌فاصله فرقی نمی‌کنند: «لغو ۱۱» و «لغو11» یکی‌اند. «{لینک}» یعنی یک نشانی اینترنتی، مثل «لغو{لینک}».</string>
+    <string name="rules_pattern_hint">ابتدای سرشماره و بعد یک «*»، مثل «5000*» یا «+98990*». دست‌کم سه رقم یا حرف لازم است و «*» فقط در آخر می‌آید. قاعدهٔ یک شمارهٔ کامل بر الگو برتری دارد، و الگوی تبلیغ هرگز پیامک مخاطب‌ها و شماره‌های موبایل را پنهان نمی‌کند.</string>
     <string name="default_rule_contacts">مخاطب‌ها همیشه در صندوق</string>
     <string name="default_rule_contacts_hint">پیامک کسی که در مخاطب‌های گوشی است هرگز خودکار پنهان نمی‌شود.</string>
     <string name="default_rule_mobile">شماره‌های موبایل همیشه در صندوق</string>

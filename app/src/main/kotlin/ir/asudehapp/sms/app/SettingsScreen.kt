@@ -52,11 +52,13 @@ import ir.asudehapp.sms.data.DateStyle
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.KeywordRuleEntity
 import ir.asudehapp.sms.data.NotificationContent
+import ir.asudehapp.sms.data.SenderPatternRuleEntity
 import ir.asudehapp.sms.data.SenderRuleEntity
 import ir.asudehapp.sms.data.SenderRuleKind
 import ir.asudehapp.sms.data.ThemeMode
 import ir.asudehapp.sms.model.DefaultRule
 import ir.asudehapp.sms.model.DefaultRules
+import ir.asudehapp.sms.model.SenderPattern
 import ir.asudehapp.sms.persian.JalaliDate
 import ir.asudehapp.sms.telephony.DelayedSend
 import ir.asudehapp.sms.ui.LocalUiIsPersian
@@ -389,7 +391,8 @@ private fun Link(label: String, hint: String, onClick: () -> Unit) {
  * «قواعد من» (D45، اصل ۵، ADR-0012).
  *
  * سه چیز اینجاست: قاعده‌هایی که کاربر خودش با «این تبلیغ نیست» و «همیشه تبلیغ»
- * ساخته، قاعده‌هایی که همین‌جا دستی اضافه می‌کند (شماره یا کلیدواژه)، و
+ * ساخته، قاعده‌هایی که همین‌جا دستی اضافه می‌کند (شماره، الگوی فرستنده مثل
+ * `5000*` (ADR-0016)، یا کلیدواژه)، و
  * قاعده‌های پیش‌فرض خود آسوده که تا امروز نادیدنی بودند. همه با یک لمس
  * برگشت‌پذیرند.
  */
@@ -397,6 +400,7 @@ private fun Link(label: String, hint: String, onClick: () -> Unit) {
 fun RulesScreen(model: AsudehViewModel) {
     val senderRules by model.senderRules.collectAsState()
     val keywordRules by model.keywordRules.collectAsState()
+    val patternRules by model.senderPatternRules.collectAsState()
     val settings by model.settings.collectAsState()
     var adding by rememberSaveable { mutableStateOf(false) }
 
@@ -408,7 +412,7 @@ fun RulesScreen(model: AsudehViewModel) {
         }
 
         item { Section(stringResource(R.string.rules_mine), first = true) }
-        if (senderRules.isEmpty() && keywordRules.isEmpty()) {
+        if (senderRules.isEmpty() && patternRules.isEmpty() && keywordRules.isEmpty()) {
             item {
                 Text(
                     stringResource(R.string.rules_empty),
@@ -419,6 +423,10 @@ fun RulesScreen(model: AsudehViewModel) {
         }
         items(senderRules, key = { "sender-" + it.address }) { rule ->
             SenderRuleRow(rule) { model.forgetRule(rule.address) }
+            HorizontalDivider()
+        }
+        items(patternRules, key = { "pattern-" + it.prefix }) { rule ->
+            SenderPatternRuleRow(rule) { model.forgetSenderPatternRule(rule.prefix) }
             HorizontalDivider()
         }
         items(keywordRules, key = { "keyword-" + it.normalized }) { rule ->
@@ -465,9 +473,13 @@ fun RulesScreen(model: AsudehViewModel) {
     if (adding) {
         AddRuleDialog(
             onDismiss = { adding = false },
-            onAdd = { value, kind, isKeyword ->
+            onAdd = { value, kind, target ->
                 adding = false
-                if (isKeyword) model.addKeywordRule(value, kind) else model.addSenderRule(value, kind)
+                when (target) {
+                    RuleTarget.KEYWORD -> model.addKeywordRule(value, kind)
+                    RuleTarget.SENDER -> model.addSenderRule(value, kind)
+                    RuleTarget.PATTERN -> model.addSenderPatternRule(value, kind)
+                }
             },
         )
     }
@@ -479,6 +491,23 @@ private fun SenderRuleRow(rule: SenderRuleEntity, onForget: () -> Unit) {
         title = Texts.sender(rule.address),
         subtitle = stringResource(
             if (rule.kind == SenderRuleKind.ALLOW) R.string.rule_allow else R.string.rule_block,
+        ),
+        allow = rule.kind == SenderRuleKind.ALLOW,
+        onForget = onForget,
+    )
+}
+
+/** یک الگوی فرستنده، همان‌طور که کاربر نوشته (ADR-0016). */
+@Composable
+private fun SenderPatternRuleRow(rule: SenderPatternRuleEntity, onForget: () -> Unit) {
+    RuleRow(
+        title = rule.pattern,
+        subtitle = stringResource(
+            if (rule.kind == SenderRuleKind.ALLOW) {
+                R.string.rule_pattern_allow
+            } else {
+                R.string.rule_pattern_block
+            },
         ),
         allow = rule.kind == SenderRuleKind.ALLOW,
         onForget = onForget,
@@ -561,24 +590,35 @@ private fun defaultRuleHint(rule: DefaultRule): Int = when (rule) {
     DefaultRule.HIDE_SCAM -> R.string.default_rule_scam_hint
 }
 
-/** افزودن دستی یک قاعده: شماره یا کلیدواژه، در فهرست سفید یا سیاه. */
+/** قاعدهٔ تازه روی چه چیزی است، با برچسب و راهنمای هرکدام در پنجرهٔ افزودن. */
+private enum class RuleTarget(val label: Int, val input: Int, val hint: Int?) {
+    KEYWORD(R.string.rules_kind_keyword, R.string.rules_value_keyword, R.string.rules_keyword_hint),
+    SENDER(R.string.rules_kind_sender, R.string.rules_value_sender, null),
+    PATTERN(R.string.rules_kind_pattern, R.string.rules_value_pattern, R.string.rules_pattern_hint),
+}
+
+/** افزودن دستی یک قاعده: کلیدواژه، شماره یا الگوی فرستنده، در فهرست سفید یا سیاه. */
 @Composable
 private fun AddRuleDialog(
     onDismiss: () -> Unit,
-    onAdd: (value: String, kind: SenderRuleKind, isKeyword: Boolean) -> Unit,
+    onAdd: (value: String, kind: SenderRuleKind, target: RuleTarget) -> Unit,
 ) {
     var value by rememberSaveable { mutableStateOf("") }
-    var isKeyword by rememberSaveable { mutableStateOf(true) }
+    var target by rememberSaveable { mutableStateOf(RuleTarget.KEYWORD) }
     var kind by rememberSaveable { mutableStateOf(SenderRuleKind.BLOCK) }
-    val canAdd = remember(value) { value.isNotBlank() }
+    // الگوی نادرست (بدون `*` آخر، یا پیشوند کوتاه) اصلاً افزودنی نیست.
+    val canAdd = remember(value, target) {
+        value.isNotBlank() && (target != RuleTarget.PATTERN || SenderPattern.normalize(value) != null)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.rules_add_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Choice(stringResource(R.string.rules_kind_keyword), isKeyword) { isKeyword = true }
-                Choice(stringResource(R.string.rules_kind_sender), !isKeyword) { isKeyword = false }
+                for (option in RuleTarget.entries) {
+                    Choice(stringResource(option.label), target == option) { target = option }
+                }
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 Choice(stringResource(R.string.rules_list_allow), kind == SenderRuleKind.ALLOW) {
                     kind = SenderRuleKind.ALLOW
@@ -590,22 +630,16 @@ private fun AddRuleDialog(
                     value = value,
                     onValueChange = { value = it },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    label = {
-                        Text(
-                            stringResource(
-                                if (isKeyword) R.string.rules_value_keyword else R.string.rules_value_sender,
-                            ),
-                        )
-                    },
+                    label = { Text(stringResource(target.input)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = if (isKeyword) KeyboardType.Text else KeyboardType.Phone,
+                        keyboardType = if (target == RuleTarget.KEYWORD) KeyboardType.Text else KeyboardType.Phone,
                         imeAction = ImeAction.Done,
                     ),
                 )
-                if (isKeyword) {
+                target.hint?.let { hint ->
                     Text(
-                        stringResource(R.string.rules_keyword_hint),
+                        stringResource(hint),
                         Modifier.padding(top = 8.dp),
                         style = MaterialTheme.typography.labelSmall,
                     )
@@ -613,7 +647,7 @@ private fun AddRuleDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onAdd(value, kind, isKeyword) }, enabled = canAdd) {
+            TextButton(onClick = { onAdd(value, kind, target) }, enabled = canAdd) {
                 Text(stringResource(R.string.rules_add_confirm))
             }
         },
