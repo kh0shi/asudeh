@@ -27,6 +27,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -198,6 +199,8 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
 
         // هر چیزی که به تبلیغ و پیامک پنهان مربوط است، یک‌جا و در پایین صفحه.
         Section(stringResource(R.string.settings_spam))
+        // «آمار آرامش» (ADR-0019): فقط شمارش در لحظه، همین‌جا کنار قواعد.
+        CalmStats(model)
         Link(stringResource(R.string.settings_rules), stringResource(R.string.settings_rules_hint)) {
             model.navigate(Destination.Rules)
         }
@@ -252,6 +255,38 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
                 Modifier.padding(top = 8.dp),
                 style = MaterialTheme.typography.bodySmall,
             )
+        }
+    }
+}
+
+/**
+ * «آمار آرامش» (ADR-0019): تبلیغ‌هایی که این ماه پنهان‌اند، و اگر بود پیامک‌های
+ * مشکوک جداشده. هر بار که تنظیمات باز می‌شود از ایندکس شمرده می‌شود؛ ماه همان
+ * تقویم رابط است. نه نمودار، نه مقایسه؛ فقط یک جملهٔ آرام.
+ */
+@Composable
+private fun CalmStats(model: AsudehViewModel) {
+    val jalali = LocalUseJalali.current
+    LaunchedEffect(jalali) { model.loadCalmStats(jalali) }
+    val stats by model.calmStats.collectAsState()
+    val count = stats
+    if (count != null) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text(
+                if (count.promo == 0) {
+                    stringResource(R.string.calm_stats_none)
+                } else {
+                    Texts.count(R.plurals.calm_stats_promo, count.promo)
+                },
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            if (count.scam > 0) {
+                Text(
+                    Texts.count(R.plurals.calm_stats_scam, count.scam),
+                    Modifier.padding(top = 2.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }

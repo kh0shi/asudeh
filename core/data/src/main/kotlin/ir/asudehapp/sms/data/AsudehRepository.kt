@@ -28,6 +28,7 @@ import ir.asudehapp.sms.model.SearchScope
 import ir.asudehapp.sms.model.SenderPattern
 import ir.asudehapp.sms.model.UserRules
 import ir.asudehapp.sms.persian.KeywordMatch
+import ir.asudehapp.sms.persian.MonthRange
 import ir.asudehapp.sms.persian.SearchText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -405,6 +406,12 @@ class AsudehRepository(
 
     /** شمار پیامک‌های پنهان‌شده از [since]، برای `Digest` (D40). */
     suspend fun hiddenSince(since: Long): HiddenCount = dao.hiddenSince(since)
+
+    /**
+     * «آمار آرامش» (ADR-0019): شمار پیامک‌هایی که همین حالا پنهان‌اند و در
+     * [range] رسیده‌اند. در لحظه شمرده می‌شود و جایی ذخیره نمی‌شود.
+     */
+    suspend fun hiddenIn(range: MonthRange): HiddenCount = dao.hiddenBetween(range.start, range.endExclusive)
 
     /** متن جستجوی پیامک‌هایی که پیش از نسخهٔ ۲ ایندکس شده بودند. */
     private suspend fun backfillSearchText() {
