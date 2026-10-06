@@ -6,6 +6,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -33,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +76,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.TopAppBar
@@ -105,6 +109,7 @@ import ir.asudehapp.sms.data.SyncProgress
 import ir.asudehapp.sms.data.ThreadSummary
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.InboxFilter
+import ir.asudehapp.sms.model.PaneLayout
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -164,6 +169,17 @@ fun AsudehApp(
             selectionCount > 0 -> clearSelection(model, destination)
             !model.back() -> onExit()
         }
+    }
+
+    // چیدمان دوستونی (ADR-0020). روی گوشی همیشه false است.
+    val configuration = LocalConfiguration.current
+    val twoPane = PaneLayout.isTwoPane(configuration.screenWidthDp, configuration.screenHeightDp)
+    val listBeside by model.listBesideConversation.collectAsState()
+    // انتخاب چند گفتگو در فهرست کناری، گفتگوی باز را می‌بندد تا نوار بالا فقط
+    // مال یک انتخاب باشد.
+    val choosingThreads = selectedThreads.isNotEmpty()
+    LaunchedEffect(choosingThreads) {
+        if (choosingThreads && twoPane && listBeside != null) model.back()
     }
 
     // صفحهٔ اصلی نوار بزرگی دارد که با اسکرول جمع می‌شود، و دکمهٔ «گفتگوی
@@ -230,43 +246,28 @@ fun AsudehApp(
         // `imePadding` فقط به اندازهٔ کیبورد بالا بیاید، نه کیبورد به‌علاوهٔ
         // نوار ناوبری.
         Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
-            when (val current = destination) {
-                Destination.Home -> HomeScreen(
-                    model = model,
-                    isDefaultApp = isDefaultApp,
-                    onBecomeDefault = onBecomeDefault,
-                    onOpenThread = {
-                        model.navigate(Destination.Conversation(it, Folder.INBOX))
+            val current = destination
+            // چیدمان دوستونی (ADR-0020): فهرست کنار گفتگو، فقط روی صفحهٔ پهن.
+            val listPane = when {
+                !twoPane -> null
+                current.isThreadList -> current
+                else -> listBeside
+            }
+            if (listPane == null) {
+                DestinationContent(current, model, isDefaultApp, onBecomeDefault, open = model::navigate)
+            } else {
+                TwoPane(
+                    list = { DestinationContent(listPane, model, isDefaultApp, onBecomeDefault, open = model::openBeside) },
+                    detail = {
+                        // مثل گوشی، با عوض شدن گفتگو همین صفحه می‌ماند و حالت هر
+                        // گفتگو را خودش با `state.threadId` از نو می‌سازد.
+                        if (current is Destination.Conversation) {
+                            ConversationScreen(model = model, isDefaultApp = isDefaultApp)
+                        } else {
+                            NoConversationPane()
+                        }
                     },
                 )
-
-                is Destination.FolderView -> FolderScreen(
-                    model = model,
-                    folder = current.folder,
-                    isDefaultApp = isDefaultApp,
-                    onOpenThread = {
-                        model.navigate(Destination.Conversation(it, current.folder))
-                    },
-                )
-
-                is Destination.Conversation -> ConversationScreen(
-                    model = model,
-                    isDefaultApp = isDefaultApp,
-                )
-
-                Destination.Search -> SearchScreen(model)
-                Destination.Settings -> SettingsScreen(model, isDefaultApp)
-                Destination.Rules -> RulesScreen(model)
-                Destination.QuickReplyList -> QuickRepliesScreen(model)
-                Destination.BankSummary -> BankSummaryScreen(model)
-                Destination.NewConversation -> NewConversationScreen(model)
-                Destination.Trash -> TrashScreen(model)
-                Destination.Archive -> ArchiveScreen(
-                    model = model,
-                    isDefaultApp = isDefaultApp,
-                    onOpenThread = { threadId, folder -> model.navigate(Destination.Conversation(threadId, folder)) },
-                )
-                Destination.Starred -> StarredScreen(model)
             }
         }
     }
@@ -284,6 +285,83 @@ fun AsudehApp(
     SuggestionSampleDialog(model)
     CrashReportDialog(model)
 }
+
+/** محتوای یک مقصد؛ [open] گفتگویی را که از فهرست لمس شده باز می‌کند. */
+@Composable
+private fun DestinationContent(
+    destination: Destination,
+    model: AsudehViewModel,
+    isDefaultApp: Boolean,
+    onBecomeDefault: () -> Unit,
+    open: (Destination.Conversation) -> Unit,
+) {
+    when (destination) {
+        Destination.Home -> HomeScreen(
+            model = model,
+            isDefaultApp = isDefaultApp,
+            onBecomeDefault = onBecomeDefault,
+            onOpenThread = {
+                open(Destination.Conversation(it, Folder.INBOX))
+            },
+        )
+
+        is Destination.FolderView -> FolderScreen(
+            model = model,
+            folder = destination.folder,
+            isDefaultApp = isDefaultApp,
+            onOpenThread = {
+                open(Destination.Conversation(it, destination.folder))
+            },
+        )
+
+        is Destination.Conversation -> ConversationScreen(
+            model = model,
+            isDefaultApp = isDefaultApp,
+        )
+
+        Destination.Search -> SearchScreen(model)
+        Destination.Settings -> SettingsScreen(model, isDefaultApp)
+        Destination.Rules -> RulesScreen(model)
+        Destination.QuickReplyList -> QuickRepliesScreen(model)
+        Destination.BankSummary -> BankSummaryScreen(model)
+        Destination.NewConversation -> NewConversationScreen(model)
+        Destination.Trash -> TrashScreen(model)
+        Destination.Archive -> ArchiveScreen(
+            model = model,
+            isDefaultApp = isDefaultApp,
+            onOpenThread = { threadId, folder -> open(Destination.Conversation(threadId, folder)) },
+        )
+        Destination.Starred -> StarredScreen(model)
+    }
+}
+
+/**
+ * فهرست و گفتگو کنار هم (ADR-0020). `Row` در راست‌به‌چپ فهرست را سمت راست
+ * می‌گذارد.
+ */
+@Composable
+private fun TwoPane(list: @Composable () -> Unit, detail: @Composable () -> Unit) {
+    Row(Modifier.fillMaxSize()) {
+        Box(Modifier.width(LIST_PANE_WIDTH).fillMaxHeight()) { list() }
+        VerticalDivider()
+        Box(Modifier.weight(1f).fillMaxHeight()) { detail() }
+    }
+}
+
+/** ستون دوم وقتی هنوز گفتگویی باز نیست. */
+@Composable
+private fun NoConversationPane() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            stringResource(R.string.pick_conversation),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** پهنای ستون فهرست در چیدمان دوستونی. */
+private val LIST_PANE_WIDTH = 360.dp
 
 @Composable
 private fun destinationTitle(destination: Destination, conversation: ConversationUiState): String =

@@ -64,6 +64,7 @@
     <string name="empty_promo">No ads have been hidden</string>
     <string name="empty_scam">No scam messages found</string>
     <string name="empty_archive">No conversations archived</string>
+    <string name="pick_conversation">Pick a conversation</string>
     <string name="unknown_sender">Unknown sender</string>
 
     <string name="why_here">Why is this here?</string>

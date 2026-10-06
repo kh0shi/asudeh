@@ -116,6 +116,10 @@ sealed interface Destination {
     data object Starred : Destination
 }
 
+/** فهرست‌هایی که در چیدمان دوستونی کنار گفتگو می‌آیند (ADR-0020). */
+val Destination.isThreadList: Boolean
+    get() = this == Destination.Home || this is Destination.FolderView || this == Destination.Archive
+
 /** یک `UiState` تغییرناپذیر برای هر صفحه (D56). */
 data class ConversationUiState(
     val threadId: Long = 0,
@@ -263,6 +267,17 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     val canGoBack: StateFlow<Boolean> = _stack
         .map { it.size > 1 }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /**
+     * فهرستی که در چیدمان دوستونی کنار گفتگوی باز می‌آید (ADR-0020): مقصد زیر
+     * گفتگو در پشته، اگر یکی از فهرست‌های گفتگوست؛ وگرنه `null`.
+     */
+    val listBesideConversation: StateFlow<Destination?> = _stack
+        .map { stack ->
+            stack.getOrNull(stack.size - 2)
+                ?.takeIf { stack.last() is Destination.Conversation && it.isThreadList }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /**
      * فهرست کامل گفتگوهای هر پوشه، هنوز به‌عنوان `StateFlow<List<...>>` (نه
@@ -634,6 +649,21 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         }
         _stack.value = base + destination
         enter(destination)
+    }
+
+    /**
+     * باز کردن گفتگو از فهرست کناری در چیدمان دوستونی (ADR-0020): گفتگوی تازه
+     * جای گفتگوی باز را در پشته می‌گیرد، نه روی آن، تا «بازگشت» یک‌باره به
+     * فهرست برگردد. پیش‌نویس گفتگوی قبلی مثل همیشه ذخیره می‌شود.
+     */
+    fun openBeside(target: Destination.Conversation) {
+        val top = _stack.value.last()
+        if (top !is Destination.Conversation) {
+            navigate(target)
+        } else if (top != target) {
+            leaveConversation()
+            replaceTop(target)
+        }
     }
 
     /** خروجی false یعنی به صفحهٔ اصلی رسیده‌ایم و Activity باید بسته شود. */

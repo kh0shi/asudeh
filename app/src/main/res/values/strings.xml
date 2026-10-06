@@ -65,6 +65,7 @@
     <string name="empty_promo">هیچ تبلیغی پنهان نشده است</string>
     <string name="empty_scam">پیامک کلاهبرداری‌ای پیدا نشده است</string>
     <string name="empty_archive">هیچ گفتگویی بایگانی نشده است</string>
+    <string name="pick_conversation">یک گفتگو را انتخاب کنید</string>
     <string name="unknown_sender">فرستندهٔ ناشناس</string>
 
     <string name="why_here">چرا اینجاست؟</string>
