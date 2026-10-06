@@ -499,6 +499,17 @@
     <string name="bank_summary_hint">این خلاصه هر بار فقط روی همین گوشی از پیامک‌های بانکی ساخته می‌شود و جایی ذخیره یا فرستاده نمی‌شود. فقط قالب‌های شناخته‌شدهٔ چند بانک خوانده می‌شوند، پس ممکن است کامل نباشد و جای صورت‌حساب بانک را نمی‌گیرد. هیچ پیامکی با این صفحه عوض نمی‌شود.</string>
     <string name="bank_summary_loading">در حال خواندن پیامک‌های بانکی…</string>
     <string name="bank_summary_empty">هیچ تراکنشی در پیامک‌های بانکی شناخته نشد.</string>
+
+    <!-- آمار آرامش (ADR-0019) -->
+    <plurals name="calm_stats_promo">
+        <item quantity="one">این ماه %d تبلیغ پنهان شد</item>
+        <item quantity="other">این ماه %d تبلیغ پنهان شد</item>
+    </plurals>
+    <plurals name="calm_stats_scam">
+        <item quantity="one">این ماه %d پیامک مشکوک جدا شد</item>
+        <item quantity="other">این ماه %d پیامک مشکوک جدا شد</item>
+    </plurals>
+    <string name="calm_stats_none">این ماه هنوز تبلیغی پنهان نشده است</string>
     <string name="bank_deposits">واریز: %1$s</string>
     <string name="bank_withdrawals">برداشت: %1$s</string>
     <string name="bank_deposit">واریز: %1$s</string>

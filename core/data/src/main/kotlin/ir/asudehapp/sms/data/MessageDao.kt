@@ -350,6 +350,22 @@ interface MessageDao {
     )
     suspend fun hiddenSince(since: Long): HiddenCount
 
+    /**
+     * پیامک‌های دریافتی که **همین حالا** در پوشهٔ تبلیغات یا مشکوک‌اند و در
+     * بازهٔ [start] تا پیش از [end] رسیده‌اند، برای «آمار آرامش» (ADR-0019).
+     * `origin` مهم نیست؛ فقط شمارش، و از روی آن چیزی نوشته نمی‌شود.
+     */
+    @Query(
+        """
+        SELECT COALESCE(SUM(CASE WHEN folder = 'PROMO' THEN 1 ELSE 0 END), 0) AS promo,
+               COALESCE(SUM(CASE WHEN folder = 'SCAM' THEN 1 ELSE 0 END), 0) AS scam
+          FROM message
+         WHERE folder IN ('PROMO', 'SCAM') AND outgoing = 0
+           AND dateReceived >= :start AND dateReceived < :end
+        """,
+    )
+    suspend fun hiddenBetween(start: Long, end: Long): HiddenCount
+
     @Query("UPDATE message SET folder = :folder, suggestMove = 0 WHERE kind = :kind AND providerId = :providerId")
     suspend fun moveMessage(kind: String, providerId: Long, folder: Folder)
 

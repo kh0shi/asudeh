@@ -15,6 +15,7 @@ import ir.asudehapp.sms.data.BackupException
 import ir.asudehapp.sms.data.BankEntry
 import ir.asudehapp.sms.data.DateStyle
 import ir.asudehapp.sms.data.DigestFrequency
+import ir.asudehapp.sms.data.HiddenCount
 import ir.asudehapp.sms.data.KeywordRuleEntity
 import ir.asudehapp.sms.data.FolderSender
 import ir.asudehapp.sms.data.MessageEntity
@@ -40,6 +41,7 @@ import ir.asudehapp.sms.model.RatingPrompt
 import ir.asudehapp.sms.model.RatingSignals
 import ir.asudehapp.sms.model.SearchKind
 import ir.asudehapp.sms.model.SearchScope
+import ir.asudehapp.sms.persian.CalendarMonth
 import ir.asudehapp.sms.persian.ConversationExport
 import ir.asudehapp.sms.persian.ScheduleChoice
 import ir.asudehapp.sms.persian.SendSchedule
@@ -480,6 +482,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
      */
     private val _bankEntries = MutableStateFlow<List<BankEntry>?>(null)
     val bankEntries: StateFlow<List<BankEntry>?> = _bankEntries.asStateFlow()
+
+    /** «آمار آرامش» ماه جاری (ADR-0019)؛ `null` یعنی هنوز شمرده نشده. */
+    private val _calmStats = MutableStateFlow<HiddenCount?>(null)
+    val calmStats: StateFlow<HiddenCount?> = _calmStats.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -1509,6 +1515,17 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun loadBankEntries() {
         viewModelScope.launch { _bankEntries.value = repository.bankTransactions() }
+    }
+
+    /**
+     * شمارش در لحظه، هر بار که تنظیمات باز می‌شود (ADR-0019). ماه همان تقویم
+     * رابط است. عدد جایی ذخیره نمی‌شود.
+     */
+    fun loadCalmStats(jalali: Boolean) {
+        viewModelScope.launch {
+            val month = CalendarMonth.containing(System.currentTimeMillis(), jalali, ZoneId.systemDefault())
+            _calmStats.value = repository.hiddenIn(month)
+        }
     }
 
     /** لمس یک تراکنش: گفتگوی همان پیامک، روی خود پیامک. هیچ چیزی عوض نمی‌شود. */

@@ -498,6 +498,17 @@
     <string name="bank_summary_hint">This summary is built from your bank SMS on this phone each time you open it, and is never stored or sent anywhere. Only known formats of a few banks are read, so it may be incomplete and is not a bank statement. No message is changed by this screen.</string>
     <string name="bank_summary_loading">Reading bank messages…</string>
     <string name="bank_summary_empty">No transactions were recognized in your bank messages.</string>
+
+    <!-- Calm stats (ADR-0019) -->
+    <plurals name="calm_stats_promo">
+        <item quantity="one">%d ad hidden this month</item>
+        <item quantity="other">%d ads hidden this month</item>
+    </plurals>
+    <plurals name="calm_stats_scam">
+        <item quantity="one">%d suspicious message set aside this month</item>
+        <item quantity="other">%d suspicious messages set aside this month</item>
+    </plurals>
+    <string name="calm_stats_none">No ads hidden this month yet</string>
     <string name="bank_deposits">Deposits: %1$s</string>
     <string name="bank_withdrawals">Withdrawals: %1$s</string>
     <string name="bank_deposit">Deposit: %1$s</string>
