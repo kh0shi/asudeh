@@ -128,6 +128,7 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             model::setShowMessageClock,
         )
         TextScaleSlider(settings.conversationTextScale, model::setConversationTextScale)
+        ListDensityToggles(settings, model)
 
         // «نمایش در اعلان» (ROADMAP E4).
         Section(stringResource(R.string.settings_notification_content))
@@ -323,6 +324,18 @@ private fun SendDelayChoices(selected: Int, onSelect: (Int) -> Unit) {
         }
         Choice(label, selected == seconds) { onSelect(seconds) }
     }
+}
+
+/** چگالی فهرست گفتگوها (ROADMAP E8). */
+@Composable
+private fun ListDensityToggles(settings: SettingsState, model: AsudehViewModel) {
+    Toggle(
+        stringResource(R.string.settings_compact_list),
+        stringResource(R.string.settings_compact_list_hint),
+        settings.compactList,
+        model::setCompactList,
+    )
+    Toggle(stringResource(R.string.settings_one_line_preview), null, settings.oneLinePreview, model::setOneLinePreview)
 }
 
 @Composable

@@ -89,6 +89,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ir.asudehapp.sms.R
 import ir.asudehapp.sms.data.MessageEntity
@@ -1385,6 +1386,8 @@ private fun ThreadRowContent(
     onClick: () -> Unit,
 ) {
     val view = LocalView.current
+    val settings by model.settings.collectAsState()
+    val density = RowDensity.of(settings.compactList)
     Row(
         Modifier
             .fillMaxWidth()
@@ -1400,8 +1403,8 @@ private fun ThreadRowContent(
                     model.toggleThread(thread.threadId)
                 },
             )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.Top,
+            .padding(horizontal = 16.dp, vertical = density.padding),
+        verticalAlignment = density.alignment,
     ) {
         if (selectionMode) {
             Checkbox(checked = selected, onCheckedChange = { model.toggleThread(thread.threadId) })
@@ -1410,7 +1413,12 @@ private fun ThreadRowContent(
                 .split(MessageEntity.RECIPIENT_SEPARATOR)
                 .firstOrNull { it.isNotEmpty() }
                 ?: thread.address
-            ThreadAvatar(primaryAddress, Modifier.padding(end = 12.dp), category = thread.category)
+            ThreadAvatar(
+                primaryAddress,
+                Modifier.padding(end = 12.dp),
+                size = density.avatar,
+                category = thread.category,
+            )
         }
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1450,7 +1458,7 @@ private fun ThreadRowContent(
                 snippet(thread),
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (thread.draft.isNotEmpty()) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                maxLines = 2,
+                maxLines = if (settings.oneLinePreview) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
@@ -1473,6 +1481,16 @@ private fun ThreadRowContent(
                 }
             }
         }
+    }
+}
+
+/** «فهرست فشرده» (ROADMAP E8): ردیف و تصویر کوچک‌تر، متن همان اندازه. */
+private class RowDensity(val padding: Dp, val alignment: Alignment.Vertical, val avatar: Dp) {
+    companion object {
+        private val Normal = RowDensity(12.dp, Alignment.Top, 40.dp)
+        private val Compact = RowDensity(6.dp, Alignment.CenterVertically, 32.dp)
+
+        fun of(compact: Boolean): RowDensity = if (compact) Compact else Normal
     }
 }
 

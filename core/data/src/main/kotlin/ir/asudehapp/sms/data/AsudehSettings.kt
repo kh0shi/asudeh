@@ -98,6 +98,16 @@ class AsudehSettings(context: Context) {
         get() = prefs.getBoolean(KEY_SEND_WITH_ENTER, false)
         set(value) = prefs.edit().putBoolean(KEY_SEND_WITH_ENTER, value).apply()
 
+    /** چگالی فهرست گفتگوها (ROADMAP E8): ردیف‌های فشرده‌تر، بی آنکه متنی کوچک شود. */
+    var compactList: Boolean
+        get() = prefs.getBoolean(KEY_COMPACT_LIST, false)
+        set(value) = prefs.edit().putBoolean(KEY_COMPACT_LIST, value).apply()
+
+    /** پیش‌نمایش یک‌خطی به‌جای دوخطی در فهرست گفتگوها (ROADMAP E8). */
+    var oneLinePreview: Boolean
+        get() = prefs.getBoolean(KEY_ONE_LINE_PREVIEW, false)
+        set(value) = prefs.edit().putBoolean(KEY_ONE_LINE_PREVIEW, value).apply()
+
     /**
      * ضریب اندازهٔ متن گفتگو، روی اندازهٔ فونت خود گوشی (ROADMAP D7). فقط فهرست
      * پیامک‌های گفتگو را بزرگ یا کوچک می‌کند، نه بقیهٔ رابط را.
@@ -164,6 +174,8 @@ class AsudehSettings(context: Context) {
         put(KEY_SHOW_REASON, showReasonEverywhere.toString())
         put(KEY_MESSAGE_CLOCK, showMessageClock.toString())
         put(KEY_TEXT_SCALE, conversationTextScale.toString())
+        put(KEY_COMPACT_LIST, compactList.toString())
+        put(KEY_ONE_LINE_PREVIEW, oneLinePreview.toString())
         put(KEY_SEND_DELAY, sendDelaySeconds.toString())
         put(KEY_SEND_WITH_ENTER, sendWithEnter.toString())
         put(KEY_NOTIFICATION_CONTENT, notificationContent.name)
@@ -201,6 +213,8 @@ class AsudehSettings(context: Context) {
         values[KEY_NOTIFICATION_CONTENT]?.let { notificationContent = enumOr(it, notificationContent) }
         values[KEY_SEND_DELAY]?.toIntOrNull()?.let { sendDelaySeconds = it }
         values[KEY_SEND_WITH_ENTER]?.toBooleanStrictOrNull()?.let { sendWithEnter = it }
+        values[KEY_COMPACT_LIST]?.toBooleanStrictOrNull()?.let { compactList = it }
+        values[KEY_ONE_LINE_PREVIEW]?.toBooleanStrictOrNull()?.let { oneLinePreview = it }
     }
 
     private fun importMms(values: Map<String, String>) {
@@ -237,6 +251,8 @@ class AsudehSettings(context: Context) {
         private const val KEY_SHOW_REASON = "show_reason_everywhere"
         private const val KEY_MESSAGE_CLOCK = "show_message_clock"
         private const val KEY_TEXT_SCALE = "conversation_text_scale"
+        private const val KEY_COMPACT_LIST = "compact_list"
+        private const val KEY_ONE_LINE_PREVIEW = "one_line_preview"
         private const val KEY_SEND_DELAY = "send_delay_seconds"
         private const val KEY_SEND_WITH_ENTER = "send_with_enter"
         private const val KEY_NOTIFICATION_CONTENT = "notification_content"
