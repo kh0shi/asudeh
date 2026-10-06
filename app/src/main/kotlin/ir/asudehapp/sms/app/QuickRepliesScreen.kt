@@ -113,11 +113,7 @@ private fun QuickRepliesHeader(count: Int, onAdd: () -> Unit) {
             style = MaterialTheme.typography.bodySmall,
         )
         if (count == 0) {
-            Text(
-                stringResource(R.string.quick_replies_empty),
-                Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            EmptyState(stringResource(R.string.quick_replies_empty))
         }
     }
 }

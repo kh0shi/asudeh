@@ -77,7 +77,7 @@ fun AttachmentGallery(model: AsudehViewModel, messages: List<MessageEntity>, onD
             when {
                 found == null -> Unit
                 found.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.attachments_empty), style = MaterialTheme.typography.bodyMedium)
+                    EmptyState(stringResource(R.string.attachments_empty))
                 }
                 else -> GalleryGrid(model, found, Modifier.padding(padding)) { part ->
                     if (part.isImage) viewing = part else openExternally(context, model.partUri(part.partId), part.contentType)

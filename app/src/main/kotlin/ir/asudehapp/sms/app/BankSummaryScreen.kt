@@ -64,15 +64,14 @@ fun BankSummaryScreen(model: AsudehViewModel) {
                 HorizontalDivider()
             }
         }
-        if (loaded == null || months.isEmpty()) {
+        if (loaded == null) {
             item {
                 Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        stringResource(if (loaded == null) R.string.bank_summary_loading else R.string.bank_summary_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    Text(stringResource(R.string.bank_summary_loading), style = MaterialTheme.typography.bodyMedium)
                 }
             }
+        } else if (months.isEmpty()) {
+            item { EmptyState(stringResource(R.string.bank_summary_empty)) }
         }
         for (month in months) {
             item(key = "month-${month.year}-${month.month}") {

@@ -1650,12 +1650,5 @@ private fun snippet(thread: ThreadSummary): String = when {
     else -> ""
 }
 
-@Composable
-private fun EmptyState(text: String) {
-    Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-        Text(text, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
 /** همگام‌سازی کوچک‌تر از این (چند پیامک تازه) نوار بی‌درصد می‌گیرد؛ درصد فقط برای `HistorySweep` معنی دارد. */
 private const val SYNC_PERCENT_FROM = 200

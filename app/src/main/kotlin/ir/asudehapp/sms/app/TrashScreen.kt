@@ -1,7 +1,6 @@
 package ir.asudehapp.sms.app
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -56,11 +55,7 @@ fun TrashScreen(model: AsudehViewModel) {
         HorizontalDivider()
         LazyColumn(Modifier.fillMaxSize()) {
             if (messages.isEmpty()) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.trash_empty_state), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
+                item { EmptyState(stringResource(R.string.trash_empty_state)) }
             }
             items(messages, key = { it.id }) { message ->
                 Column(

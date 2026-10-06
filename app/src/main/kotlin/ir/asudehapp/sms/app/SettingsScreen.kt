@@ -456,13 +456,7 @@ fun RulesScreen(model: AsudehViewModel) {
 
         item { Section(stringResource(R.string.rules_mine), first = true) }
         if (senderRules.isEmpty() && patternRules.isEmpty() && keywordRules.isEmpty()) {
-            item {
-                Text(
-                    stringResource(R.string.rules_empty),
-                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+            item { EmptyState(stringResource(R.string.rules_empty)) }
         }
         items(senderRules, key = { "sender-" + it.address }) { rule ->
             SenderRuleRow(rule) { model.forgetRule(rule.address) }
