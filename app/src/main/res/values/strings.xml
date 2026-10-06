@@ -223,6 +223,14 @@
     <string name="theme_dark">تیره</string>
     <string name="theme_black">تیرهٔ کامل (سیاه)</string>
     <string name="settings_rules">قواعد من</string>
+    <string name="contact_card_open">نمایش مخاطب</string>
+    <string name="contact_rules">قواعد این فرستنده</string>
+    <string name="contact_rule_none">قاعده‌ای ندارد؛ آسوده خودش تصمیم می‌گیرد.</string>
+    <string name="contact_rule_allowed">همیشه در صندوق می‌آید.</string>
+    <string name="contact_rule_blocked">تبلیغ‌هایش همیشه پنهان می‌شوند.</string>
+    <string name="contact_rule_allow">همیشه در صندوق</string>
+    <string name="contact_rule_block">پنهان کردن تبلیغ‌ها</string>
+    <string name="contact_rule_forget">برداشتن قاعده</string>
     <string name="settings_rules_hint">شماره‌ها و واژه‌هایی که همیشه در صندوق یا همیشه در تبلیغات‌اند</string>
     <string name="settings_message_clock">ساعت پیامک</string>
     <string name="settings_message_clock_hint">زیر هر پیامک، ساعتش هم نوشته شود.</string>

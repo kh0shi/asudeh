@@ -3,6 +3,7 @@ package ir.asudehapp.sms.app
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -168,6 +169,7 @@ fun AsudehApp(
     // صفحهٔ اصلی نوار بزرگی دارد که با اسکرول جمع می‌شود، و دکمهٔ «گفتگوی
     // تازه» هم‌زمان با آن کوچک می‌شود (ROADMAP E8).
     val largeBar = destination == Destination.Home && selectionCount == 0
+    var contactCard by remember(destination) { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = if (largeBar) Modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier,
@@ -176,12 +178,17 @@ fun AsudehApp(
                 large = largeBar,
                 scrollBehavior = scrollBehavior,
                 title = {
+                    // لمس نام گفتگو کارت مخاطب را باز می‌کند (ROADMAP E8).
+                    val cardLabel = stringResource(R.string.contact_card_open)
+                    val opensCard = destination is Destination.Conversation && selectionCount == 0 &&
+                        conversation.participants.isNotEmpty()
                     Text(
                         if (selectionCount > 0) {
                             Texts.count(R.plurals.selected_count, selectionCount)
                         } else {
                             destinationTitle(destination, conversation)
                         },
+                        Modifier.clickable(enabled = opensCard, onClickLabel = cardLabel) { contactCard = true },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -262,6 +269,9 @@ fun AsudehApp(
         }
     }
 
+    if (contactCard && destination is Destination.Conversation) {
+        ContactCard(model, conversation) { contactCard = false }
+    }
     RescueFollowUpDialog(model)
     EmptyFolderDialog(model)
     DeleteDialog(model)

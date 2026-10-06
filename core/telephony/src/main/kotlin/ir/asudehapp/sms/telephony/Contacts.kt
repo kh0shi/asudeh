@@ -99,6 +99,36 @@ object Contacts {
         }
     }
 
+    /**
+     * همهٔ شماره‌های مخاطبی که [address] یکی از شماره‌های اوست، برای کارت مخاطب
+     * در سربرگ گفتگو (ROADMAP E8). مخاطب نبود یا مجوز نبود، فهرست خالی است.
+     */
+    suspend fun numbersOf(context: Context, address: String): List<String> {
+        if (address.isBlank() || !canRead(context)) return emptyList()
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val lookup = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(address))
+                val contactId = context.contentResolver.query(
+                    lookup,
+                    arrayOf(ContactsContract.PhoneLookup._ID),
+                    null,
+                    null,
+                    null,
+                )?.use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else null }
+                    ?: return@runCatching emptyList()
+                context.contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                    "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                    arrayOf(contactId.toString()),
+                    null,
+                )?.use { cursor ->
+                    buildList { while (cursor.moveToNext()) cursor.getString(0)?.let(::add) }
+                }.orEmpty().distinctBy { it.filterNot(Char::isWhitespace) }
+            }.getOrDefault(emptyList())
+        }
+    }
+
     /** نشانی عکس بند‌انگشتی مخاطب، برای فهرست گفتگوها. */
     suspend fun photoThumbnailUri(context: Context, address: String): Uri? {
         if (address.isBlank() || !canRead(context)) return null
