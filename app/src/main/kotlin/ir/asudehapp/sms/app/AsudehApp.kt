@@ -1517,6 +1517,7 @@ private fun ThreadRowContent(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                VerifiedBadge(model, thread.address, thread.recipients.isEmpty())
             }
             Text(
                 snippet(thread),

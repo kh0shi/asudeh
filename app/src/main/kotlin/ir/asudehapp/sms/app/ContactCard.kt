@@ -2,12 +2,17 @@ package ir.asudehapp.sms.app
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -44,7 +49,7 @@ fun ContactCard(model: AsudehViewModel, state: ConversationUiState, onDismiss: (
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             for (address in state.participants) {
-                ContactHeader(address)
+                ContactHeader(model, address, single = !state.isGroup)
             }
             if (!state.isGroup && state.address.isNotBlank()) {
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
@@ -58,13 +63,16 @@ fun ContactCard(model: AsudehViewModel, state: ConversationUiState, onDismiss: (
 }
 
 @Composable
-private fun ContactHeader(address: String) {
+private fun ContactHeader(model: AsudehViewModel, address: String, single: Boolean) {
     val context = LocalContext.current
     var numbers by remember(address) { mutableStateOf(emptyList<String>()) }
     LaunchedEffect(address) { numbers = Contacts.numbersOf(context, address) }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         ThreadAvatar(address, Modifier.padding(bottom = 8.dp), size = 72.dp)
-        Text(Texts.participants(listOf(address)), style = MaterialTheme.typography.titleLarge)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(Texts.participants(listOf(address)), style = MaterialTheme.typography.titleLarge)
+            VerifiedBadge(model, address, single)
+        }
         for (number in numbers.ifEmpty { listOf(address) }) {
             Text(
                 // شماره همیشه چپ‌به‌راست، حتی در رابط فارسی (`+98…`).
@@ -111,4 +119,19 @@ private fun SenderRules(model: AsudehViewModel, address: String, onAllRules: () 
         }
     }
     TextButton(onClick = onAllRules) { Text(stringResource(R.string.settings_rules)) }
+}
+
+/**
+ * نشان «تأییدشده» (ROADMAP E2): فقط برای سرشمارهٔ تکی که **کامل** در فهرست
+ * تأییدشدهٔ `RulePack` است؛ گفتگوی گروهی هیچ‌وقت نشان نمی‌گیرد.
+ */
+@Composable
+fun VerifiedBadge(model: AsudehViewModel, address: String, single: Boolean) {
+    if (!single || !model.isVerifiedSender(address)) return
+    Icon(
+        Icons.Default.CheckCircle,
+        stringResource(R.string.verified_sender),
+        Modifier.padding(start = 4.dp).size(16.dp),
+        tint = MaterialTheme.colorScheme.primary,
+    )
 }

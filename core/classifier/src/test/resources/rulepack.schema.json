@@ -28,6 +28,7 @@
       "items": { "$ref": "#/$defs/host" }
     },
     "promoSenders": { "$ref": "#/$defs/stringList" },
+    "verifiedSenders": { "$ref": "#/$defs/stringList" },
     "trustedSenders": { "$ref": "#/$defs/stringList" },
     "brands": {
       "type": "array",

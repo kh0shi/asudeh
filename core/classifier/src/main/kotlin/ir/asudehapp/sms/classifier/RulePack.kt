@@ -53,6 +53,13 @@ data class RulePack(
      * هشدار نمی‌گیرد؛ خودِ لینکِ جعلی (punycode، نویسهٔ شبیه‌هم) می‌گیرد.
      */
     val trustedSenders: List<String> = emptyList(),
+    /**
+     * سرشماره‌هایی که نشان «تأییدشده» می‌گیرند (ROADMAP E2)، **کامل** و نه
+     * پیشوند: `Brand.senders` پیشوند است و `2000` هم سرشمارهٔ بانک ملت است و هم
+     * پیشوند خطوط تبلیغاتی، پس از آن نمی‌شود نشان ساخت. اشتباه در این فهرست
+     * یعنی نشان «تأییدشده» روی فیشینگ؛ هر ورودی را کاربر تأیید می‌کند (⚑).
+     */
+    val verifiedSenders: List<String> = emptyList(),
     val bayes: BayesModel = BayesModel(),
 ) {
     companion object {
@@ -137,6 +144,12 @@ class CompiledRulePack(val pack: RulePack) {
     private val promoSenders: List<String> = pack.promoSenders.map { Addresses.normalize(it) }.filter { it.isNotEmpty() }
     private val trustedSenders: List<String> =
         pack.trustedSenders.map { Addresses.normalize(it) }.filter { it.isNotEmpty() }
+
+    private val verifiedSenders: Set<String> =
+        pack.verifiedSenders.map { Addresses.normalize(it) }.filter { it.isNotEmpty() }.toSet()
+
+    /** نشان «تأییدشده»: فقط برابری کامل با یک ورودی تأییدشده، نه پیشوند و نه تکه (ROADMAP E2). */
+    fun isVerifiedSender(normalizedAddress: String): Boolean = normalizedAddress in verifiedSenders
 
     /** سرشمارهٔ حرفیِ صرفاً تبلیغاتی، مثل `BaIrancell`. */
     fun isPromoSender(normalizedAddress: String): Boolean =
