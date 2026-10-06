@@ -203,6 +203,22 @@ jobs:
           name: release-${{ matrix.copy }}
           path: app/build/outputs/apk/release/*.apk
 
+      # baseline.prof گاهی بین دو ساخت فرق دارد. فایل‌های میانی ART profile را
+      # نگه می‌داریم تا معلوم شود کدام مرحله (ادغام، بازنویسی R8 یا فشرده‌سازی)
+      # ناهمسان است.
+      - name: جمع کردن فایل‌های میانی profile
+        run: |
+          mkdir -p profiles
+          find app/build/intermediates app/build/outputs -type f -iname '*prof*' 2>/dev/null \
+            | while read -r f; do mkdir -p "profiles/$(dirname "$f")"; cp "$f" "profiles/$f"; done
+          find profiles -type f | sort
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: profiles-${{ matrix.copy }}
+          path: profiles/
+          if-no-files-found: warn
+
   reproducible:
     name: بازتولیدپذیری APK
     needs: reproducible-build
@@ -211,6 +227,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: release-*
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: profiles-*
 
       - name: دو APK یکی‌اند
         run: |
@@ -226,10 +246,18 @@ jobs:
           sudo apt-get install -y -qq --no-install-recommends diffoscope >/dev/null
           diffoscope --text diffoscope.txt --max-report-size 2000000 "$a" "$b" || true
           head -300 diffoscope.txt
+          echo "فایل‌های میانی profile که فرق دارند:"
+          diff -rq profiles-a profiles-b || true
+          (cd profiles-a && find . -type f -name '*.txt') | while read -r f; do
+            [ -f "profiles-b/$f" ] && diff -u "profiles-a/$f" "profiles-b/$f" | head -60
+          done
           exit 1
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: diffoscope
-          path: diffoscope.txt
+          path: |
+            diffoscope.txt
+            profiles-a/
+            profiles-b/
