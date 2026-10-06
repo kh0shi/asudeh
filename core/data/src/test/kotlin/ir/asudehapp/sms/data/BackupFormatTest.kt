@@ -63,6 +63,21 @@ class BackupFormatTest {
     }
 
     @Test
+    fun `quick replies round trip in order and older headers have none`() {
+        val withReplies = header.copy(quickReplies = listOf("رسیدم", "سر جلسه‌ام\nبعداً زنگ می‌زنم"))
+        val out = StringWriter()
+        BackupFormat.writeHeader(out, withReplies)
+        assertEquals(withReplies, BackupFormat.readHeader(StringReader(out.toString()).buffered()))
+
+        // پشتیبانی که پیش از ADR-0017 ساخته شده، کلید `quickReplies` را ندارد.
+        val old = "{\"format\":\"asudeh-backup\",\"version\":2,\"createdAt\":1,\"appVersion\":\"0.1\"," +
+            "\"senderPatterns\":[{\"pattern\":\"5000*\",\"kind\":\"BLOCK\",\"createdAt\":7}]}\n"
+        val read = BackupFormat.readHeader(StringReader(old).buffered())
+        assertEquals(emptyList<String>(), read.quickReplies)
+        assertEquals(listOf(BackupFormat.SenderPatternRule("5000*", "BLOCK", 7)), read.senderPatterns)
+    }
+
+    @Test
     fun `stars survive a backup and older lines read as unstarred`() {
         val out = StringWriter()
         BackupFormat.writeHeader(out, header)

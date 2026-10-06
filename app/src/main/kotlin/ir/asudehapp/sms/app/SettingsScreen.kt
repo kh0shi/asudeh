@@ -150,6 +150,10 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             settings.deliveryReports,
             model::setDeliveryReports,
         )
+        // «پاسخ‌های آماده»: فقط متن خود کاربر (ADR-0017).
+        Link(stringResource(R.string.quick_replies), stringResource(R.string.quick_replies_settings_hint)) {
+            model.navigate(Destination.QuickReplyList)
+        }
 
         // پیام چندرسانه‌ای همیشه ذخیره می‌شود؛ این‌ها فقط دریافت خودکار و
         // فرستادن را خاموش می‌کنند، پس هیچ پیامی گم نمی‌شود.

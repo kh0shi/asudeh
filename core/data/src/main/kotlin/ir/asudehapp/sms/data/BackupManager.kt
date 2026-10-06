@@ -6,6 +6,7 @@ import android.content.Context
 import android.provider.Telephony
 import ir.asudehapp.sms.mms.MmsPart
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.model.QuickReplies
 import ir.asudehapp.sms.model.SenderPattern
 import ir.asudehapp.sms.persian.KeywordMatch
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +29,7 @@ data class ImportResult(
 )
 
 /**
- * پشتیبان دستی به فایل با SAF (D57): پیامک‌ها، «قواعد من» و تنظیمات. پشتیبان
+ * پشتیبان دستی به فایل با SAF (D57): پیامک‌ها، «قواعد من»، پاسخ‌های آماده و تنظیمات. پشتیبان
  * ابری عمداً خاموش است؛ این فایل فقط جایی می‌رود که خود کاربر انتخاب کند.
  */
 class BackupManager(
@@ -90,7 +91,7 @@ class BackupManager(
             ExportResult(count, header.rules.size + header.keywordRules.size + header.senderPatterns.size)
         }
 
-    /** سرایند پشتیبان: تنظیمات، همهٔ «قواعد من» و نام گفتگوهای گروهی. */
+    /** سرایند پشتیبان: تنظیمات، همهٔ «قواعد من»، نام گفتگوهای گروهی و پاسخ‌های آماده. */
     private suspend fun buildHeader(appVersion: String, settings: AsudehSettings): BackupFormat.Header =
         BackupFormat.Header(
             createdAt = System.currentTimeMillis(),
@@ -104,6 +105,7 @@ class BackupManager(
             senderPatterns = rulesDatabase.senderPatternRules().all().map {
                 BackupFormat.SenderPatternRule(it.pattern, it.kind.name, it.createdAt)
             },
+            quickReplies = repository.currentQuickReplies(),
         )
 
     /**
@@ -190,6 +192,12 @@ class BackupManager(
                     val kind = runCatching { SenderRuleKind.valueOf(rule.kind) }.getOrNull() ?: continue
                     patternDao.put(SenderPatternRuleEntity(prefix, rule.pattern, kind, rule.createdAt))
                     rules++
+                }
+
+                // پاسخ‌های آماده (ADR-0017)، با همان ادغام: پاسخ‌های همین گوشی سر
+                // جایشان می‌مانند و تازه‌های فایل، تا سقف، به آخر اضافه می‌شوند.
+                if (header.quickReplies.isNotEmpty()) {
+                    repository.updateQuickReplies { QuickReplies.merge(it, header.quickReplies) }
                 }
 
                 // پیامک و MMS پشت‌سرهم و یکجا خوانده می‌شوند (فایل یک‌بار و

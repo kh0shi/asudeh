@@ -329,6 +329,23 @@
     <string name="rules_value_pattern">الگو، مثل 5000*</string>
     <string name="rules_keyword_hint">حرف بزرگ و کوچک، ارقام فارسی و انگلیسی، فاصله و نیم‌فاصله فرقی نمی‌کنند: «لغو ۱۱» و «لغو11» یکی‌اند. «{لینک}» یعنی یک نشانی اینترنتی، مثل «لغو{لینک}».</string>
     <string name="rules_pattern_hint">ابتدای سرشماره و بعد یک «*»، مثل «5000*» یا «+98990*». دست‌کم سه رقم یا حرف لازم است و «*» فقط در آخر می‌آید. قاعدهٔ یک شمارهٔ کامل بر الگو برتری دارد، و الگوی تبلیغ هرگز پیامک مخاطب‌ها و شماره‌های موبایل را پنهان نمی‌کند.</string>
+    <!-- پاسخ‌های آماده (ADR-0017): فقط متن خود کاربر. هیچ متن نمونه‌ای اینجا نیاید. -->
+    <string name="quick_replies">پاسخ‌های آماده</string>
+    <string name="quick_replies_settings_hint">جمله‌هایی که خودتان می‌نویسید تا با یک لمس در کادر پیامک بنشینند</string>
+    <string name="quick_replies_hint">آسوده هیچ پاسخ آماده‌ای از پیش ندارد؛ هرچه اینجاست را خودتان نوشته‌اید. لمس یک پاسخ در گفتگو فقط آن را در کادر پیامک می‌گذارد و تا «ارسال» را نزنید چیزی فرستاده نمی‌شود.</string>
+    <string name="quick_replies_empty">هنوز پاسخ آماده‌ای ننوشته‌اید.</string>
+    <string name="quick_replies_menu_empty">هنوز پاسخ آماده‌ای ننوشته‌اید. پاسخ‌هایتان را خودتان در تنظیمات می‌نویسید.</string>
+    <string name="quick_replies_manage">نوشتن و ویرایش پاسخ‌های آماده</string>
+    <string name="quick_reply_add">افزودن پاسخ</string>
+    <string name="quick_reply_new">پاسخ آمادهٔ تازه</string>
+    <string name="quick_reply_edit">ویرایش پاسخ آماده</string>
+    <string name="quick_reply_text">متن پاسخ</string>
+    <string name="quick_reply_delete_title">این پاسخ آماده حذف شود؟</string>
+    <string name="quick_reply_move_up">بالاتر</string>
+    <string name="quick_reply_move_down">پایین‌تر</string>
+    <string name="quick_reply_duplicate">این پاسخ را از قبل دارید.</string>
+    <string name="quick_reply_too_long">پاسخ آماده حداکثر %1$d نویسه است.</string>
+    <string name="quick_reply_full">حداکثر %1$d پاسخ آماده نگه داشته می‌شود. اول یکی را حذف کنید.</string>
     <string name="default_rule_contacts">مخاطب‌ها همیشه در صندوق</string>
     <string name="default_rule_contacts_hint">پیامک کسی که در مخاطب‌های گوشی است هرگز خودکار پنهان نمی‌شود.</string>
     <string name="default_rule_mobile">شماره‌های موبایل همیشه در صندوق</string>

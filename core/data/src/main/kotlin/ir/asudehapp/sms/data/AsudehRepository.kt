@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.room.withTransaction
 import ir.asudehapp.sms.classifier.Classifier
 import ir.asudehapp.sms.classifier.CompiledRulePack
 import ir.asudehapp.sms.classifier.Router
@@ -19,6 +20,7 @@ import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.InboxFilter
 import ir.asudehapp.sms.model.MessageInput
 import ir.asudehapp.sms.model.Origin
+import ir.asudehapp.sms.model.QuickReplies
 import ir.asudehapp.sms.model.ReasonCode
 import ir.asudehapp.sms.model.SearchScope
 import ir.asudehapp.sms.model.SenderPattern
@@ -96,6 +98,7 @@ class AsudehRepository(
     private val ruleDao: SenderRuleDao get() = rulesDatabase.senderRules()
     private val keywordDao: KeywordRuleDao get() = rulesDatabase.keywordRules()
     private val patternDao: SenderPatternRuleDao get() = rulesDatabase.senderPatternRules()
+    private val quickReplyDao: QuickReplyDao get() = rulesDatabase.quickReplies()
 
     val index: MessageIndex get() = RoomMessageIndex(dao, rules.pack.version)
 
@@ -235,6 +238,26 @@ class AsudehRepository(
 
     suspend fun forgetSenderPatternRule(prefix: String) {
         patternDao.remove(prefix)
+    }
+
+    /** پاسخ‌های آماده‌ای که خود کاربر نوشته، به ترتیب خودش (ADR-0017). */
+    fun quickReplies(): Flow<List<String>> = quickReplyDao.observeAll().map { rows -> rows.map { it.body } }
+
+    suspend fun currentQuickReplies(): List<String> = quickReplyDao.all().map { it.body }
+
+    /**
+     * عوض کردن فهرست پاسخ‌های آماده با [change] (یکی از توابع `QuickReplies`).
+     * خواندن و نوشتن در یک تراکنش است، تا دو لمس پشت‌سرهم همدیگر را پاک نکنند؛
+     * و خروجی پیش از نوشتن دوباره تمیز و محدود می‌شود (`QuickReplies.sanitize`).
+     */
+    suspend fun updateQuickReplies(change: (List<String>) -> List<String>) {
+        rulesDatabase.withTransaction {
+            val current = quickReplyDao.all().map { it.body }
+            val next = QuickReplies.sanitize(change(current))
+            if (next == current) return@withTransaction
+            quickReplyDao.clear()
+            quickReplyDao.putAll(next.mapIndexed { index, body -> QuickReplyEntity(body, index) })
+        }
     }
 
     /** افزودن دستی یک سرشماره به فهرست سفید یا سیاه، از صفحهٔ «قواعد من». */

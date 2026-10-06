@@ -34,6 +34,7 @@ import ir.asudehapp.sms.model.Addresses
 import ir.asudehapp.sms.model.DefaultRule
 import ir.asudehapp.sms.model.Folder
 import ir.asudehapp.sms.model.InboxFilter
+import ir.asudehapp.sms.model.QuickReplies
 import ir.asudehapp.sms.model.RatingPrompt
 import ir.asudehapp.sms.model.RatingSignals
 import ir.asudehapp.sms.model.SearchKind
@@ -94,6 +95,9 @@ sealed interface Destination {
     data object Search : Destination
     data object Settings : Destination
     data object Rules : Destination
+
+    /** «پاسخ‌های آماده» (ADR-0017). */
+    data object QuickReplyList : Destination
     data object NewConversation : Destination
 
     /** «حذف‌شده‌ها» (ADR-0010). */
@@ -460,6 +464,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     /** الگوهای فرستندهٔ «قواعد من»، مثل `5000*` (ADR-0016). */
     val senderPatternRules: StateFlow<List<SenderPatternRuleEntity>> = repository.senderPatternRules()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
+
+    /** پاسخ‌های آماده‌ای که خود کاربر نوشته (ADR-0017)؛ در اولین اجرا خالی. */
+    val quickReplies: StateFlow<List<String>> = repository.quickReplies()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
 
     private val _searchQuery = MutableStateFlow("")
@@ -1119,6 +1127,27 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun forgetSenderPatternRule(prefix: String) {
         viewModelScope.launch { repository.forgetSenderPatternRule(prefix) }
+    }
+
+    /**
+     * پاسخ‌های آماده (ADR-0017). متن نادرست یا تکراری را خود پنجرهٔ نوشتن
+     * نمی‌پذیرد؛ `QuickReplies` اینجا هم دوباره بررسی می‌کند و چیزی را خراب
+     * نمی‌کند. هیچ‌کدام از این‌ها چیزی نمی‌فرستد.
+     */
+    fun addQuickReply(text: String) {
+        viewModelScope.launch { repository.updateQuickReplies { QuickReplies.add(it, text) } }
+    }
+
+    fun editQuickReply(old: String, text: String) {
+        viewModelScope.launch { repository.updateQuickReplies { QuickReplies.edit(it, old, text) } }
+    }
+
+    fun removeQuickReply(text: String) {
+        viewModelScope.launch { repository.updateQuickReplies { QuickReplies.remove(it, text) } }
+    }
+
+    fun moveQuickReply(text: String, offset: Int) {
+        viewModelScope.launch { repository.updateQuickReplies { QuickReplies.move(it, text, offset) } }
     }
 
     /** خاموش و روشن کردن یک قاعدهٔ پیش‌فرض. هیچ پیامکی با این کار جابه‌جا نمی‌شود. */

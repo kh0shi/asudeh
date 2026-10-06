@@ -328,6 +328,23 @@
     <string name="rules_value_pattern">Pattern, like 5000*</string>
     <string name="rules_keyword_hint">Case, Persian vs. Latin digits, and spaces don\'t matter: \"لغو ۱۱\" and \"لغو11\" are the same. \"{لینک}\" means a URL is present, as in \"لغو{لینک}\" — type it exactly, including the curly braces.</string>
     <string name="rules_pattern_hint">The start of a sender ID followed by \"*\", like \"5000*\" or \"+98990*\". At least three digits or letters, and \"*\" only at the end. A rule for one exact number beats a pattern, and an ad pattern never hides messages from contacts or mobile numbers.</string>
+    <!-- Quick replies (ADR-0017): only the user's own text. Never put sample replies here. -->
+    <string name="quick_replies">Quick replies</string>
+    <string name="quick_replies_settings_hint">Sentences you write yourself, to drop into the message box with one tap</string>
+    <string name="quick_replies_hint">Asudeh comes with no ready-made replies; everything here was written by you. Tapping one in a conversation only puts it in the message box. Nothing is sent until you tap Send.</string>
+    <string name="quick_replies_empty">You have not written any quick replies yet.</string>
+    <string name="quick_replies_menu_empty">You have not written any quick replies yet. You write your own in Settings.</string>
+    <string name="quick_replies_manage">Write and edit quick replies</string>
+    <string name="quick_reply_add">Add reply</string>
+    <string name="quick_reply_new">New quick reply</string>
+    <string name="quick_reply_edit">Edit quick reply</string>
+    <string name="quick_reply_text">Reply text</string>
+    <string name="quick_reply_delete_title">Delete this quick reply?</string>
+    <string name="quick_reply_move_up">Move up</string>
+    <string name="quick_reply_move_down">Move down</string>
+    <string name="quick_reply_duplicate">You already have this reply.</string>
+    <string name="quick_reply_too_long">A quick reply can be at most %1$d characters.</string>
+    <string name="quick_reply_full">You can keep at most %1$d quick replies. Delete one first.</string>
     <string name="default_rule_contacts">Contacts always in Inbox</string>
     <string name="default_rule_contacts_hint">Messages from someone in your phone\'s contacts are never hidden automatically.</string>
     <string name="default_rule_mobile">Mobile numbers always in Inbox</string>
