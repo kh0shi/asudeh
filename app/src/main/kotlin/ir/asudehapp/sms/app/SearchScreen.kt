@@ -3,7 +3,6 @@ package ir.asudehapp.sms.app
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,11 +68,7 @@ fun SearchScreen(model: AsudehViewModel) {
         SearchScopeChips(scope, model)
         LazyColumn(Modifier.fillMaxSize()) {
             if ((query.isNotBlank() || scope.narrowed) && results.isEmpty()) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.search_empty), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
+                item { EmptyState(stringResource(R.string.search_empty)) }
             }
             items(results, key = { "${it.kind}-${it.providerId}" }) { message ->
                 SearchResult(message) { model.openSearchResult(message) }
@@ -166,11 +161,7 @@ fun StarredScreen(model: AsudehViewModel) {
     val starred by model.starredMessages.collectAsState()
     LazyColumn(Modifier.fillMaxSize()) {
         if (starred.isEmpty()) {
-            item {
-                Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.starred_empty), style = MaterialTheme.typography.bodyMedium)
-                }
-            }
+            item { EmptyState(stringResource(R.string.starred_empty)) }
         }
         items(starred, key = { "${it.kind}-${it.providerId}" }) { message ->
             SearchResult(message) { model.openSearchResult(message) }

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ADR-0021: تصویر حالت خالی؛ پاکت و برگ، تک‌رنگ، هنگام کشیدن رنگ می‌شود. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <path
+        android:pathData="M28,40H92A8,8 0,0 1,100 48V86A8,8 0,0 1,92 94H28A8,8 0,0 1,20 86V48A8,8 0,0 1,28 40Z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="4"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M23,45L60,71L97,45"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M60,33C49,26 49,13 60,5C71,13 71,26 60,33Z"
+        android:fillColor="#FF000000"
+        android:fillAlpha="0.45" />
+    <path
+        android:pathData="M60,31V14"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+</vector>
