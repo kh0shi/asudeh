@@ -258,6 +258,7 @@ fun AsudehApp(
                 Destination.Settings -> SettingsScreen(model, isDefaultApp)
                 Destination.Rules -> RulesScreen(model)
                 Destination.QuickReplyList -> QuickRepliesScreen(model)
+                Destination.BankSummary -> BankSummaryScreen(model)
                 Destination.NewConversation -> NewConversationScreen(model)
                 Destination.Trash -> TrashScreen(model)
                 Destination.Archive -> ArchiveScreen(
@@ -294,6 +295,7 @@ private fun destinationTitle(destination: Destination, conversation: Conversatio
         Destination.Settings -> stringResource(R.string.settings)
         Destination.Rules -> stringResource(R.string.settings_rules)
         Destination.QuickReplyList -> stringResource(R.string.quick_replies)
+        Destination.BankSummary -> stringResource(R.string.bank_summary)
         Destination.NewConversation -> stringResource(R.string.new_conversation)
         Destination.Trash -> stringResource(R.string.trash)
         Destination.Archive -> stringResource(R.string.archive)

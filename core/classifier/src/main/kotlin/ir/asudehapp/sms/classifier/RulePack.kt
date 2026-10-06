@@ -60,6 +60,8 @@ data class RulePack(
      * یعنی نشان «تأییدشده» روی فیشینگ؛ هر ورودی را کاربر تأیید می‌کند (⚑).
      */
     val verifiedSenders: List<String> = emptyList(),
+    /** قالب پیامک تراکنش بانک‌ها، برای «خلاصهٔ تراکنش‌های بانکی» (ADR-0018). */
+    val bankTransactions: BankTransactionRules = BankTransactionRules(),
     val bayes: BayesModel = BayesModel(),
 ) {
     companion object {
@@ -110,6 +112,33 @@ data class Brand(
      * پس برای آن‌ها فقط جعل دامنه شاهد است (اصل ۴).
      */
     val sensitive: Boolean = false,
+)
+
+/**
+ * قالب‌های پیامک تراکنش (ADR-0018). نگهداری قالب هر بانک کار دائمی است، پس
+ * این‌ها داده‌اند و با انتشار ماهانهٔ فقط-داده عوض می‌شوند، نه با کد.
+ */
+@Serializable
+data class BankTransactionRules(
+    /** نام `Brand`هایی که بانک‌اند. فقط سرشمارهٔ رسمی این‌ها تراکنش می‌سازد. */
+    val banks: List<String> = emptyList(),
+    /** به ترتیب امتحان می‌شوند؛ قالب ویژهٔ یک بانک پیش از قالب عمومی. */
+    val templates: List<BankTemplate> = emptyList(),
+)
+
+/**
+ * یک قالب پیامک تراکنش. هر regex روی متن نرمال‌شده (D50) اجرا می‌شود و باید
+ * گروه نام‌دار `amount` داشته باشد؛ گروه نام‌دار اختیاری `toman` اگر جور شود،
+ * مبلغ را به ریال (ده برابر) می‌برد.
+ */
+@Serializable
+data class BankTemplate(
+    val id: String,
+    /** خالی یعنی برای همهٔ `BankTransactionRules.banks`. */
+    val banks: List<String> = emptyList(),
+    val deposit: List<String> = emptyList(),
+    val withdrawal: List<String> = emptyList(),
+    val balance: List<String> = emptyList(),
 )
 
 /** مدل Bayes از پیش آموزش‌دیده. روی گوشی آموزشی انجام نمی‌شود (D32 ب). */

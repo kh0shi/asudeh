@@ -433,6 +433,13 @@ interface MessageDao {
     @Query("SELECT * FROM message WHERE normalizedAddress = :normalizedAddress")
     suspend fun messagesFrom(normalizedAddress: String): List<MessageEntity>
 
+    /**
+     * پیامک‌های دریافتی که `BANK` طبقه‌بندی شده‌اند، برای «خلاصهٔ تراکنش‌های
+     * بانکی» (ADR-0018). فقط خواندن؛ چیزی از روی خروجی این کوئری نوشته نمی‌شود.
+     */
+    @Query("SELECT * FROM message WHERE category = 'BANK' AND outgoing = 0 AND kind = 'SMS' ORDER BY dateReceived DESC")
+    suspend fun bankMessages(): List<MessageEntity>
+
     @Query("SELECT providerId FROM message WHERE kind = :kind AND folder = :folder AND providerId > 0")
     suspend fun providerIdsInFolder(kind: String, folder: Folder): List<Long>
 

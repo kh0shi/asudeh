@@ -231,6 +231,10 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
             settings.sendWithEnter,
             model::setSendWithEnter,
         )
+        // نمای خواندنی، فقط روی همین گوشی (ADR-0018)؛ برای `P-Pro`، پس در «پیشرفته».
+        Link(stringResource(R.string.bank_summary), stringResource(R.string.bank_summary_settings_hint)) {
+            model.navigate(Destination.BankSummary)
+        }
 
         Section(stringResource(R.string.settings_about))
         Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {

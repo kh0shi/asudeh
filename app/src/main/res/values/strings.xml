@@ -493,4 +493,20 @@
     <string name="filter_otp">رمز</string>
     <string name="filter_service">خدمات</string>
     <string name="filter_empty">گفتگویی در این دسته نیست.</string>
+    <!-- خلاصهٔ تراکنش‌های بانکی (ADR-0018) -->
+    <string name="bank_summary">خلاصهٔ تراکنش‌های بانکی</string>
+    <string name="bank_summary_settings_hint">جمع ماهانهٔ واریز و برداشت از پیامک‌های بانک، فقط روی همین گوشی</string>
+    <string name="bank_summary_hint">این خلاصه هر بار فقط روی همین گوشی از پیامک‌های بانکی ساخته می‌شود و جایی ذخیره یا فرستاده نمی‌شود. فقط قالب‌های شناخته‌شدهٔ چند بانک خوانده می‌شوند، پس ممکن است کامل نباشد و جای صورت‌حساب بانک را نمی‌گیرد. هیچ پیامکی با این صفحه عوض نمی‌شود.</string>
+    <string name="bank_summary_loading">در حال خواندن پیامک‌های بانکی…</string>
+    <string name="bank_summary_empty">هیچ تراکنشی در پیامک‌های بانکی شناخته نشد.</string>
+    <string name="bank_deposits">واریز: %1$s</string>
+    <string name="bank_withdrawals">برداشت: %1$s</string>
+    <string name="bank_deposit">واریز: %1$s</string>
+    <string name="bank_withdrawal">برداشت: %1$s</string>
+    <string name="bank_balance">مانده: %1$s</string>
+    <string name="bank_amount_rials">%1$s ریال</string>
+    <plurals name="bank_transaction_count">
+        <item quantity="one">%d تراکنش</item>
+        <item quantity="other">%d تراکنش</item>
+    </plurals>
 </resources>
