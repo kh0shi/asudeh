@@ -6,6 +6,7 @@ import android.content.Context
 import android.provider.Telephony
 import ir.asudehapp.sms.mms.MmsPart
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.model.SenderPattern
 import ir.asudehapp.sms.persian.KeywordMatch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,27 +44,14 @@ class BackupManager(
      */
     suspend fun export(output: OutputStream, appVersion: String, settings: AsudehSettings): ExportResult =
         withContext(Dispatchers.IO) {
-            val rules = rulesDatabase.senderRules().all()
-            val keywords = rulesDatabase.keywordRules().all()
+            val header = buildHeader(appVersion, settings)
             val smsFolders = repository.foldersByProviderId(MessageEntity.KIND_SMS)
             val mmsFolders = repository.foldersByProviderId(MessageEntity.KIND_MMS)
             val smsStars = repository.starredIds(MessageEntity.KIND_SMS)
             val mmsStars = repository.starredIds(MessageEntity.KIND_MMS)
             var count = 0
             output.bufferedWriter(Charsets.UTF_8).use { writer ->
-                BackupFormat.writeHeader(
-                    writer,
-                    BackupFormat.Header(
-                        createdAt = System.currentTimeMillis(),
-                        appVersion = appVersion,
-                        settings = settings.export(),
-                        rules = rules.map { BackupFormat.Rule(it.address, it.kind.name, it.createdAt) },
-                        keywordRules = keywords.map {
-                            BackupFormat.KeywordRule(it.keyword, it.kind.name, it.createdAt)
-                        },
-                        groupNames = repository.titledThreads().map { (who, name) -> BackupFormat.GroupName(who, name) },
-                    ),
-                )
+                BackupFormat.writeHeader(writer, header)
                 context.contentResolver.query(
                     Telephony.Sms.CONTENT_URI,
                     PROJECTION,
@@ -99,8 +87,24 @@ class BackupManager(
                 } ?: error("Telephony Provider در دسترس نیست")
                 count += exportMms(writer, mmsFolders, mmsStars)
             }
-            ExportResult(count, rules.size + keywords.size)
+            ExportResult(count, header.rules.size + header.keywordRules.size + header.senderPatterns.size)
         }
+
+    /** سرایند پشتیبان: تنظیمات، همهٔ «قواعد من» و نام گفتگوهای گروهی. */
+    private suspend fun buildHeader(appVersion: String, settings: AsudehSettings): BackupFormat.Header =
+        BackupFormat.Header(
+            createdAt = System.currentTimeMillis(),
+            appVersion = appVersion,
+            settings = settings.export(),
+            rules = rulesDatabase.senderRules().all().map { BackupFormat.Rule(it.address, it.kind.name, it.createdAt) },
+            keywordRules = rulesDatabase.keywordRules().all().map {
+                BackupFormat.KeywordRule(it.keyword, it.kind.name, it.createdAt)
+            },
+            groupNames = repository.titledThreads().map { (who, name) -> BackupFormat.GroupName(who, name) },
+            senderPatterns = rulesDatabase.senderPatternRules().all().map {
+                BackupFormat.SenderPatternRule(it.pattern, it.kind.name, it.createdAt)
+            },
+        )
 
     /**
      * MMSها، partهاشان با [MmsProviderStore.allParts] و base64. اعلان‌هایی که
@@ -173,6 +177,18 @@ class BackupManager(
                     if (normalized.isEmpty() || normalized in existingKeywords) continue
                     val kind = runCatching { SenderRuleKind.valueOf(rule.kind) }.getOrNull() ?: continue
                     keywordDao.put(KeywordRuleEntity(normalized, rule.keyword, kind, rule.createdAt))
+                    rules++
+                }
+
+                // الگوهای فرستنده (ADR-0016)، با همان ادغام: الگویی که روی همین
+                // گوشی هست، جایش را به فایل نمی‌دهد.
+                val patternDao = rulesDatabase.senderPatternRules()
+                val existingPatterns = patternDao.all().map { it.prefix }.toSet()
+                for (rule in header.senderPatterns) {
+                    val prefix = SenderPattern.normalize(rule.pattern) ?: continue
+                    if (prefix in existingPatterns) continue
+                    val kind = runCatching { SenderRuleKind.valueOf(rule.kind) }.getOrNull() ?: continue
+                    patternDao.put(SenderPatternRuleEntity(prefix, rule.pattern, kind, rule.createdAt))
                     rules++
                 }
 

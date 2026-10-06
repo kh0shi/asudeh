@@ -36,6 +36,12 @@ enum class ReasonCode {
 
     /** کلیدواژهٔ فهرست سیاه کاربر یا پیش‌فرض (ADR-0012). */
     BLOCKED_KEYWORD,
+
+    /** الگوی فرستندهٔ فهرست سفید کاربر، مثل `5000*` (ADR-0016). */
+    ALLOWED_PATTERN,
+
+    /** الگوی فرستندهٔ فهرست سیاه کاربر (ADR-0016). */
+    BLOCKED_PATTERN,
     OTP_PATTERN,
     BANK_PATTERN,
     SERVICE_PATTERN,

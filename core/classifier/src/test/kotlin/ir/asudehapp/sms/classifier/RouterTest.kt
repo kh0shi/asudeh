@@ -289,4 +289,89 @@ class RouterTest {
         )
         assertEquals(Folder.PROMO, Router.route(verdict(Category.OTP), adLine, rules).folder)
     }
+
+    // ——— الگوی فرستنده (ADR-0016) ———
+
+    private val unsure = verdict(Category.UNKNOWN, Confidence.LOW)
+    private val bulk = MessageInput("50001234", "…")
+
+    @Test
+    fun `a blocked sender pattern hides a message from a matching line`() {
+        val rules = UserRules(blockSenderPatterns = setOf("5000*"))
+        val placement = Router.route(unsure, bulk, rules)
+        assertEquals(Folder.PROMO, placement.folder)
+        assertEquals(ReasonCode.BLOCKED_PATTERN, placement.reason.code)
+        assertEquals("5000*", placement.reason.args.single())
+        assertEquals(Folder.INBOX, Router.route(unsure, MessageInput("30001234", "…"), rules).folder)
+    }
+
+    @Test
+    fun `an allowed sender pattern keeps confident advertising in the inbox`() {
+        val rules = UserRules(allowSenderPatterns = setOf("5000*"))
+        val placement = Router.route(verdict(Category.PROMO), bulk, rules)
+        assertEquals(Folder.INBOX, placement.folder)
+        assertEquals(ReasonCode.ALLOWED_PATTERN, placement.reason.code)
+    }
+
+    @Test
+    fun `an exact allow beats a blocked pattern`() {
+        val rules = UserRules(allowlist = setOf("50001234"), blockSenderPatterns = setOf("5000*"))
+        val placement = Router.route(verdict(Category.PROMO), bulk, rules)
+        assertEquals(Folder.INBOX, placement.folder)
+        assertEquals(ReasonCode.ALLOWED_BY_USER, placement.reason.code)
+    }
+
+    @Test
+    fun `an exact block beats an allowed pattern`() {
+        val rules = UserRules(blocklist = setOf("50001234"), allowSenderPatterns = setOf("5000*"))
+        val placement = Router.route(unsure, bulk, rules)
+        assertEquals(Folder.PROMO, placement.folder)
+        assertEquals(ReasonCode.BLOCKED_BY_USER, placement.reason.code)
+    }
+
+    @Test
+    fun `the longest pattern wins and a tie goes to the allowlist`() {
+        val longer = UserRules(allowSenderPatterns = setOf("5000*"), blockSenderPatterns = setOf("50001*"))
+        assertEquals(Folder.PROMO, Router.route(unsure, bulk, longer).folder)
+        val tie = UserRules(allowSenderPatterns = setOf("5000*"), blockSenderPatterns = setOf("۵۰۰۰*"))
+        assertEquals(Folder.INBOX, Router.route(unsure, bulk, tie).folder)
+    }
+
+    @Test
+    fun `a blocked pattern never hides a mobile number or a contact`() {
+        val rules = UserRules(blockSenderPatterns = setOf("+98912*"))
+        assertEquals(Folder.INBOX, Router.route(unsure, mobile, rules).folder)
+        val contact = MessageInput("50001234", "…", isKnownContact = true)
+        val lines = UserRules(blockSenderPatterns = setOf("5000*"))
+        assertEquals(Folder.INBOX, Router.route(unsure, contact, lines).folder)
+    }
+
+    @Test
+    fun `a blocked pattern never hides a confident one time password`() {
+        val rules = UserRules(blockSenderPatterns = setOf("5000*"))
+        assertEquals(Folder.INBOX, Router.route(verdict(Category.OTP), bulk, rules).folder)
+    }
+
+    @Test
+    fun `an allowlisted keyword beats a blocked pattern`() {
+        val rules = UserRules(blockSenderPatterns = setOf("5000*"), allowKeywords = setOf("کد ورود"))
+        val message = MessageInput("50001234", "کد ورود شما")
+        assertEquals(Folder.INBOX, Router.route(unsure, message, rules).folder)
+    }
+
+    @Test
+    fun `an international pattern matches a local number`() {
+        val rules = UserRules(blockSenderPatterns = setOf("+98990*"))
+        val line = MessageInput("09901234567", "…")
+        val off = rules.copy(disabledDefaults = setOf(DefaultRule.MOBILE_NEVER_HIDDEN))
+        assertEquals(Folder.PROMO, Router.route(unsure, line, off).folder)
+    }
+
+    @Test
+    fun `an old message caught by a pattern is only suggested`() {
+        val rules = UserRules(blockSenderPatterns = setOf("5000*"))
+        val placement = Router.route(unsure, bulk, rules, Origin.SWEEP)
+        assertEquals(Folder.INBOX, placement.folder)
+        assertTrue(placement.suggestMove)
+    }
 }

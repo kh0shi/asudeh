@@ -132,6 +132,8 @@
     <string name="reason_allowed">You added %1$s to your allow list.</string>
     <string name="reason_allowed_keyword">Contains \"%1$s\", and that word is on your allow list.</string>
     <string name="reason_blocked_keyword">Contains \"%1$s\", and that word is on your block list.</string>
+    <string name="reason_allowed_pattern">%1$s matches \"%2$s\", and that pattern is on your allow list.</string>
+    <string name="reason_blocked_pattern">%1$s matches \"%2$s\", and that pattern is on your block list.</string>
     <string name="reason_otp">It\'s a one-time code, so it always stays in the Inbox.</string>
     <string name="reason_bank">It\'s a bank message, so it always stays in the Inbox.</string>
     <string name="reason_service">It\'s a service message and is notified silently.</string>
@@ -307,6 +309,8 @@
     <string name="rule_block">Always an ad</string>
     <string name="rule_keyword_allow">Messages containing this word always stay in the Inbox</string>
     <string name="rule_keyword_block">Messages containing this word count as ads</string>
+    <string name="rule_pattern_allow">Senders starting like this always stay in the Inbox</string>
+    <string name="rule_pattern_block">Messages from senders starting like this count as ads</string>
     <string name="rule_forget">Forget it</string>
     <string name="rules_mine">My rules</string>
     <string name="rules_defaults">Default rules</string>
@@ -316,11 +320,14 @@
     <string name="rules_add_confirm">Add</string>
     <string name="rules_kind_keyword">Keyword</string>
     <string name="rules_kind_sender">Number or sender ID</string>
+    <string name="rules_kind_pattern">Sender pattern</string>
     <string name="rules_list_allow">Always stay in Inbox</string>
     <string name="rules_list_block">Count as an ad</string>
     <string name="rules_value_keyword">Word or phrase</string>
     <string name="rules_value_sender">Number or sender ID</string>
+    <string name="rules_value_pattern">Pattern, like 5000*</string>
     <string name="rules_keyword_hint">Case, Persian vs. Latin digits, and spaces don\'t matter: \"لغو ۱۱\" and \"لغو11\" are the same. \"{لینک}\" means a URL is present, as in \"لغو{لینک}\" — type it exactly, including the curly braces.</string>
+    <string name="rules_pattern_hint">The start of a sender ID followed by \"*\", like \"5000*\" or \"+98990*\". At least three digits or letters, and \"*\" only at the end. A rule for one exact number beats a pattern, and an ad pattern never hides messages from contacts or mobile numbers.</string>
     <string name="default_rule_contacts">Contacts always in Inbox</string>
     <string name="default_rule_contacts_hint">Messages from someone in your phone\'s contacts are never hidden automatically.</string>
     <string name="default_rule_mobile">Mobile numbers always in Inbox</string>

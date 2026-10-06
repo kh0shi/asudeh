@@ -58,7 +58,8 @@ object DefaultRules {
 }
 
 /**
- * قواعد کاربر: فرستنده‌ها، کلیدواژه‌ها، و قاعده‌های پیش‌فرضی که خاموش شده‌اند.
+ * قواعد کاربر: فرستنده‌ها، الگوهای فرستنده، کلیدواژه‌ها، و قاعده‌های پیش‌فرضی
+ * که خاموش شده‌اند.
  *
  * کلیدواژه‌های پیش‌فرضِ خاموش‌نشده پیش از ساختن این شیء به [allowKeywords] و
  * [blockKeywords] اضافه می‌شوند، تا `Router` فرقی بین قاعدهٔ پیش‌فرض و قاعدهٔ
@@ -73,6 +74,10 @@ data class UserRules(
     /** کلیدواژه‌هایی که پیامک حاویشان تبلیغ شمرده می‌شود. */
     val blockKeywords: Set<String> = emptySet(),
     val disabledDefaults: Set<DefaultRule> = emptySet(),
+    /** الگوهای فرستنده‌ای مثل `5000*` که همیشه در صندوق می‌مانند (ADR-0016). */
+    val allowSenderPatterns: Set<String> = emptySet(),
+    /** الگوهای فرستنده‌ای که پیامکشان تبلیغ شمرده می‌شود (ADR-0016). */
+    val blockSenderPatterns: Set<String> = emptySet(),
 ) {
     private val normalizedAllow: Set<String> = allowlist.mapTo(mutableSetOf(), Addresses::normalize)
     private val normalizedBlock: Set<String> = blocklist.mapTo(mutableSetOf(), Addresses::normalize)
@@ -81,11 +86,21 @@ data class UserRules(
     private val allowPatterns: List<Pair<Regex, String>> = compile(allowKeywords)
     private val blockPatterns: List<Pair<Regex, String>> = compile(blockKeywords)
 
+    /** الگوهای فرستنده، با پیشوند یکسان‌شده؛ الگوی نادرست کنار گذاشته می‌شود. */
+    private val senderPatterns: List<SenderPattern.Rule> =
+        compilePatterns(allowSenderPatterns, allow = true) + compilePatterns(blockSenderPatterns, allow = false)
+
     /** بدون کلیدواژه، `Router` اصلاً متن را آماده نمی‌کند. */
     val hasKeywords: Boolean = allowPatterns.isNotEmpty() || blockPatterns.isNotEmpty()
 
     fun isAllowed(address: String): Boolean = Addresses.normalize(address) in normalizedAllow
     fun isBlocked(address: String): Boolean = Addresses.normalize(address) in normalizedBlock
+
+    /**
+     * الگوی فرستنده‌ای که روی این سرشماره اجرا می‌شود، یا `null`. بلندترین
+     * پیشوند برنده است و در تساوی، فهرست سفید (ADR-0016).
+     */
+    fun senderPatternFor(address: String): SenderPattern.Rule? = SenderPattern.bestMatch(senderPatterns, address)
 
     /** قاعدهٔ پیش‌فرضی که کاربر خاموشش نکرده است. */
     fun isOn(rule: DefaultRule): Boolean = rule !in disabledDefaults
@@ -109,6 +124,11 @@ data class UserRules(
 
         private fun compile(keywords: Set<String>): List<Pair<Regex, String>> =
             keywords.mapNotNull { keyword -> KeywordMatch.compile(keyword)?.let { it to keyword } }
+
+        private fun compilePatterns(patterns: Set<String>, allow: Boolean): List<SenderPattern.Rule> =
+            patterns.mapNotNull { pattern ->
+                SenderPattern.normalize(pattern)?.let { SenderPattern.Rule(it, pattern.trim(), allow) }
+            }
     }
 }
 

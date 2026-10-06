@@ -121,6 +121,8 @@ object Texts {
             ReasonCode.ALLOWED_BY_USER -> text(R.string.reason_allowed, sender)
             ReasonCode.ALLOWED_KEYWORD -> text(R.string.reason_allowed_keyword, arg(0))
             ReasonCode.BLOCKED_KEYWORD -> text(R.string.reason_blocked_keyword, arg(0))
+            ReasonCode.ALLOWED_PATTERN -> text(R.string.reason_allowed_pattern, sender, arg(0))
+            ReasonCode.BLOCKED_PATTERN -> text(R.string.reason_blocked_pattern, sender, arg(0))
             ReasonCode.OTP_PATTERN -> text(R.string.reason_otp)
             ReasonCode.BANK_PATTERN -> text(R.string.reason_bank)
             ReasonCode.SERVICE_PATTERN -> text(R.string.reason_service)

@@ -22,6 +22,7 @@ import ir.asudehapp.sms.data.MmsPartInfo
 import ir.asudehapp.sms.data.MessageKey
 import ir.asudehapp.sms.data.MoveSuggestion
 import ir.asudehapp.sms.data.ScheduledMessageEntity
+import ir.asudehapp.sms.data.SenderPatternRuleEntity
 import ir.asudehapp.sms.data.SenderRuleEntity
 import ir.asudehapp.sms.data.SenderRuleKind
 import ir.asudehapp.sms.data.SyncProgress
@@ -455,6 +456,10 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     /** کلیدواژه‌های «قواعد من» (ADR-0012). */
     val keywordRules: StateFlow<List<KeywordRuleEntity>> = repository.keywordRules()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
+
+    /** الگوهای فرستندهٔ «قواعد من»، مثل `5000*` (ADR-0016). */
+    val senderPatternRules: StateFlow<List<SenderPatternRuleEntity>> = repository.senderPatternRules()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
 
     private val _searchQuery = MutableStateFlow("")
@@ -1104,6 +1109,16 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun forgetKeywordRule(normalized: String) {
         viewModelScope.launch { repository.forgetKeywordRule(normalized) }
+    }
+
+    /** الگوی نادرست را خود پنجرهٔ افزودن نمی‌پذیرد؛ اینجا فقط دوباره بررسی می‌شود. */
+    fun addSenderPatternRule(pattern: String, kind: SenderRuleKind) {
+        if (pattern.isBlank()) return
+        viewModelScope.launch { repository.addSenderPatternRule(pattern, kind) }
+    }
+
+    fun forgetSenderPatternRule(prefix: String) {
+        viewModelScope.launch { repository.forgetSenderPatternRule(prefix) }
     }
 
     /** خاموش و روشن کردن یک قاعدهٔ پیش‌فرض. هیچ پیامکی با این کار جابه‌جا نمی‌شود. */

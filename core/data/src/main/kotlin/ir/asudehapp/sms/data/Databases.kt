@@ -115,8 +115,8 @@ abstract class IndexDatabase : RoomDatabase() {
  * انتقال گوشی‌به‌گوشی منتقل می‌شوند (D57).
  */
 @Database(
-    entities = [SenderRuleEntity::class, KeywordRuleEntity::class],
-    version = 2,
+    entities = [SenderRuleEntity::class, KeywordRuleEntity::class, SenderPatternRuleEntity::class],
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
@@ -125,6 +125,8 @@ abstract class RulesDatabase : RoomDatabase() {
     abstract fun senderRules(): SenderRuleDao
 
     abstract fun keywordRules(): KeywordRuleDao
+
+    abstract fun senderPatternRules(): SenderPatternRuleDao
 
     companion object {
         const val NAME = "rules.db"
@@ -137,7 +139,7 @@ abstract class RulesDatabase : RoomDatabase() {
                 context.applicationContext,
                 RulesDatabase::class.java,
                 NAME,
-            ).addMigrations(RulesMigrations.V1_V2).build().also { instance = it }
+            ).addMigrations(RulesMigrations.V1_V2, RulesMigrations.V2_V3).build().also { instance = it }
         }
     }
 }
@@ -155,6 +157,18 @@ object RulesMigrations {
     internal val V1_V2_SQL: List<String> = listOf(
         "CREATE TABLE IF NOT EXISTS `keyword_rule` (`normalized` TEXT NOT NULL, `keyword` TEXT NOT NULL, " +
             "`kind` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`normalized`))",
+    )
+
+    /** نسخهٔ ۳: الگوهای فرستنده، مثل `5000*` (ADR-0016). یک جدول تازه، بدون تغییر در جدول‌های قبلی. */
+    val V2_V3: Migration = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V2_V3_SQL) db.execSQL(statement)
+        }
+    }
+
+    internal val V2_V3_SQL: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `sender_pattern_rule` (`prefix` TEXT NOT NULL, `pattern` TEXT NOT NULL, " +
+            "`kind` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`prefix`))",
     )
 }
 

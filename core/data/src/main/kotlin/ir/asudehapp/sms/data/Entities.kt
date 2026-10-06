@@ -191,6 +191,22 @@ data class KeywordRuleEntity(
 )
 
 /**
+ * الگوی فرستندهٔ `Allowlist` یا `Blocklist` کاربر (ADR-0016)، مثل `5000*` یا
+ * `+98990*`: یک پیشوند با یک `*` در انتها.
+ *
+ * کلید اصلی، پیشوند یکسان‌شده است (`SenderPattern.normalize`)، تا `+98990*` و
+ * `0990*` دو قاعدهٔ جدا نشوند. الگو آن‌طور که کاربر نوشته در [pattern] می‌ماند
+ * و همان نشان داده می‌شود.
+ */
+@Entity(tableName = "sender_pattern_rule")
+data class SenderPatternRuleEntity(
+    @PrimaryKey val prefix: String,
+    val pattern: String,
+    val kind: SenderRuleKind,
+    val createdAt: Long,
+)
+
+/**
  * نسخهٔ محاسبه‌شده (materialized) و ذخیره‌شدهٔ خلاصهٔ هر گفتگو **در یک پوشه**
  * (نسخهٔ ۶ ایندکس، PARITY/STATUS: صفحه‌بندی فهرست گفتگوها). پیش از این نسخه،
  * `observeThreads` این ستون‌ها را با چند subquery همبسته روی جدول `message`
