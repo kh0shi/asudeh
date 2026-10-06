@@ -37,6 +37,7 @@ import ir.asudehapp.sms.model.RatingPrompt
 import ir.asudehapp.sms.model.RatingSignals
 import ir.asudehapp.sms.model.SearchKind
 import ir.asudehapp.sms.model.SearchScope
+import ir.asudehapp.sms.persian.ConversationExport
 import ir.asudehapp.sms.persian.ScheduleChoice
 import ir.asudehapp.sms.persian.SendSchedule
 import ir.asudehapp.sms.telephony.ActiveConversation
@@ -53,6 +54,7 @@ import ir.asudehapp.sms.telephony.ScheduledSend
 import ir.asudehapp.sms.telephony.ScheduledSendScheduler
 import ir.asudehapp.sms.telephony.SimCard
 import ir.asudehapp.sms.telephony.SimCards
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -67,6 +69,7 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.ZoneId
 
 /**
@@ -222,6 +225,8 @@ sealed interface UiNotice {
     data object ScheduleSending : UiNotice
     data object ReminderSet : UiNotice
     data class BackupExported(val messages: Int) : UiNotice
+    data object ConversationExported : UiNotice
+    data object ConversationExportFailed : UiNotice
     data class BackupImported(val added: Int, val duplicates: Int, val corrupt: Int) : UiNotice
     data class BackupFailed(val reason: BackupException.Reason?) : UiNotice
     data class MarkedSpam(val senders: Int) : UiNotice
@@ -1582,6 +1587,31 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
                 val result = container.backup.export(output, BuildConfigInfo.versionName(app), settingsStore)
                 UiNotice.BackupExported(result.messages)
             }.getOrElse { UiNotice.BackupFailed((it as? BackupException)?.reason) }
+        }
+    }
+
+    /** متن‌های رابط برای خروجی گفتگو؛ تقویم و زبان از رابط می‌آیند، نه از VM. */
+    data class ExportLabels(val title: String, val me: String, val attachment: String, val jalali: Boolean)
+
+    /** خروجی متنی همین گفتگو در فایلی که کاربر با SAF انتخاب کرده (PARITY §ب-۹). */
+    fun exportConversation(uri: Uri, labels: ExportLabels) {
+        val app = getApplication<Application>()
+        val messages = _conversation.value.messages
+        val names = _contactNames.value
+        viewModelScope.launch {
+            _notice.value = runCatching {
+                val lines = messages.map { message ->
+                    val sender = if (message.outgoing) labels.me else names[message.address] ?: message.address
+                    val attachment = if (message.attachments > 0) " [📎 ${labels.attachment}]" else ""
+                    ConversationExport.Line(message.date, sender, message.body + attachment)
+                }
+                val text = ConversationExport.format(labels.title, lines, labels.jalali)
+                withContext(Dispatchers.IO) {
+                    val output = app.contentResolver.openOutputStream(uri, "wt") ?: error("فایل باز نشد")
+                    output.bufferedWriter(Charsets.UTF_8).use { it.write(text) }
+                }
+                UiNotice.ConversationExported
+            }.getOrElse { UiNotice.ConversationExportFailed }
         }
     }
 

@@ -34,6 +34,11 @@
     <string name="sweep_not_now">Not now</string>
     <string name="sweep_keep">Keep in Inbox</string>
     <string name="close">Close</string>
+    <string name="export_conversation">Export as text</string>
+    <string name="export_me">Me</string>
+    <string name="export_attachment">attachment</string>
+    <string name="notice_conversation_exported">Conversation saved as a text file.</string>
+    <string name="notice_conversation_export_failed">The file could not be written.</string>
     <string name="group_name">Group name</string>
     <string name="save">Save</string>
     <string name="group_name_hint">Leave empty to show the members\' names</string>
