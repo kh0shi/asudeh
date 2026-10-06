@@ -129,6 +129,7 @@ fun SettingsScreen(model: AsudehViewModel, isDefaultApp: Boolean) {
         )
         TextScaleSlider(settings.conversationTextScale, model::setConversationTextScale)
         ListDensityToggles(settings, model)
+        BubbleColorSetting(settings.bubbleColor, model::setBubbleColor)
 
         // «نمایش در اعلان» (ROADMAP E4).
         Section(stringResource(R.string.settings_notification_content))
@@ -323,6 +324,20 @@ private fun SendDelayChoices(selected: Int, onSelect: (Int) -> Unit) {
             Texts.digits(stringResource(R.string.send_delay_seconds, seconds))
         }
         Choice(label, selected == seconds) { onSelect(seconds) }
+    }
+}
+
+/** رنگ سراسری حباب پیامک‌های فرستاده (ROADMAP E8). */
+@Composable
+private fun BubbleColorSetting(selected: Int, onPick: (Int) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(stringResource(R.string.bubble_color), style = MaterialTheme.typography.bodyLarge)
+        BubbleSwatches(
+            selected = selected,
+            defaultColor = MaterialTheme.colorScheme.primaryContainer,
+            onPick = onPick,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }
 

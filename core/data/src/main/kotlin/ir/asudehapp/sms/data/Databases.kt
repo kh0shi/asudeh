@@ -62,7 +62,7 @@ class AsudehConverters {
         StarredMessageEntity::class,
         ReminderEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
@@ -100,6 +100,7 @@ abstract class IndexDatabase : RoomDatabase() {
                 IndexMigrations.V6_V7,
                 IndexMigrations.V7_V8,
                 IndexMigrations.V8_V9,
+                IndexMigrations.V9_V10,
             ).addCallback(object : RoomCallback() {
                 override fun onOpen(db: SupportSQLiteDatabase) = IndexMigrations.ensureThreadSummary(db)
             }).build().also { instance = it }
@@ -305,6 +306,17 @@ object IndexMigrations {
 
     internal val V8_V9_SQL: List<String> = listOf(
         "ALTER TABLE `thread_pref` ADD COLUMN `subId` INTEGER NOT NULL DEFAULT -1",
+    )
+
+    /** نسخهٔ ۱۰: رنگ حباب هر گفتگو (ROADMAP E8). فقط یک ستون با پیش‌فرض اضافه می‌شود. */
+    val V9_V10: Migration = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V9_V10_SQL) db.execSQL(statement)
+        }
+    }
+
+    internal val V9_V10_SQL: List<String> = listOf(
+        "ALTER TABLE `thread_pref` ADD COLUMN `bubbleColor` INTEGER NOT NULL DEFAULT -1",
     )
 
     /** ستون‌های خروجی مشترک بین triggerها و پر کردن اولیهٔ `thread_summary`. */
