@@ -237,6 +237,11 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         .map { it.last() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, Destination.Home)
 
+    /** صفحه‌ای پشت صفحهٔ فعلی هست؛ وگرنه «بازگشت» با خود سیستم است (predictive back). */
+    val canGoBack: StateFlow<Boolean> = _stack
+        .map { it.size > 1 }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     /**
      * فهرست کامل گفتگوهای هر پوشه، هنوز به‌عنوان `StateFlow<List<...>>` (نه
      * صفحه‌بندی‌شده). این‌ها برای دو مصرف‌کنندهٔ زیر لازم‌اند که با

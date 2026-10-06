@@ -155,7 +155,10 @@ fun AsudehApp(
     } else {
         selectedThreads.size
     }
-    BackHandler {
+    // در صفحهٔ اصلی «بازگشت» به خود سیستم می‌رسد تا پویانمایی predictive back
+    // اندروید ۱۴ به بالا (بازگشت به صفحهٔ خانه) دیده شود (ROADMAP E8).
+    val canGoBack by model.canGoBack.collectAsState()
+    BackHandler(enabled = selectionCount > 0 || canGoBack) {
         when {
             selectionCount > 0 -> clearSelection(model, destination)
             !model.back() -> onExit()
