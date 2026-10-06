@@ -257,6 +257,7 @@ fun AsudehApp(
                 Destination.Search -> SearchScreen(model)
                 Destination.Settings -> SettingsScreen(model, isDefaultApp)
                 Destination.Rules -> RulesScreen(model)
+                Destination.QuickReplyList -> QuickRepliesScreen(model)
                 Destination.NewConversation -> NewConversationScreen(model)
                 Destination.Trash -> TrashScreen(model)
                 Destination.Archive -> ArchiveScreen(
@@ -292,6 +293,7 @@ private fun destinationTitle(destination: Destination, conversation: Conversatio
         Destination.Search -> stringResource(R.string.search)
         Destination.Settings -> stringResource(R.string.settings)
         Destination.Rules -> stringResource(R.string.settings_rules)
+        Destination.QuickReplyList -> stringResource(R.string.quick_replies)
         Destination.NewConversation -> stringResource(R.string.new_conversation)
         Destination.Trash -> stringResource(R.string.trash)
         Destination.Archive -> stringResource(R.string.archive)

@@ -207,6 +207,19 @@ data class SenderPatternRuleEntity(
 )
 
 /**
+ * یک پاسخ آماده که خود کاربر نوشته (ADR-0017). آسوده هیچ ردیفی در این جدول
+ * نمی‌گذارد؛ فهرست در اولین اجرا خالی است.
+ *
+ * کلید اصلی خود متن است، تا یک پاسخ دو بار ذخیره نشود؛ [position] ترتیبی است
+ * که کاربر چیده.
+ */
+@Entity(tableName = "quick_reply")
+data class QuickReplyEntity(
+    @PrimaryKey val body: String,
+    val position: Int,
+)
+
+/**
  * نسخهٔ محاسبه‌شده (materialized) و ذخیره‌شدهٔ خلاصهٔ هر گفتگو **در یک پوشه**
  * (نسخهٔ ۶ ایندکس، PARITY/STATUS: صفحه‌بندی فهرست گفتگوها). پیش از این نسخه،
  * `observeThreads` این ستون‌ها را با چند subquery همبسته روی جدول `message`

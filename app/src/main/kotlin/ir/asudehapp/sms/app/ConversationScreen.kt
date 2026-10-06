@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -36,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -62,6 +64,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -95,10 +98,12 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextDirection
@@ -117,6 +122,7 @@ import ir.asudehapp.sms.data.ScheduleState
 import ir.asudehapp.sms.data.ScheduledMessageEntity
 import ir.asudehapp.sms.data.SendStatus
 import ir.asudehapp.sms.model.Folder
+import ir.asudehapp.sms.model.QuickReplies
 import ir.asudehapp.sms.persian.CopyKind
 import ir.asudehapp.sms.persian.BubbleMeta
 import ir.asudehapp.sms.persian.CopyableNumbers
@@ -664,6 +670,21 @@ private fun Composer(
     }
     var simMenu by remember { mutableStateOf(false) }
     var sendMenu by remember { mutableStateOf(false) }
+    val quickReplies by model.quickReplies.collectAsState()
+    // متن کادر همان پیش‌نویس ViewModel است؛ فقط جای مکان‌نما اینجا نگه داشته
+    // می‌شود تا پاسخ آماده همان‌جا بنشیند (ADR-0017). عیناً کاری است که نسخهٔ
+    // `String` خود `BasicTextField` در درونش می‌کند.
+    var field by remember(state.threadId) { mutableStateOf(TextFieldValue(draft, TextRange(draft.length))) }
+    val fieldValue = field.copy(text = draft)
+    SideEffect {
+        if (fieldValue.selection != field.selection || fieldValue.composition != field.composition) {
+            field = fieldValue
+        }
+    }
+    var lastText by remember(draft) { mutableStateOf(draft) }
+    // تا کاربر خودش در کادر جایی را انتخاب نکرده، پاسخ به آخر متن می‌رود، نه به
+    // ابتدای پیش‌نویسی که تازه بازگردانده شده.
+    var placedCursor by remember(state.threadId) { mutableStateOf(false) }
     val phonePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             model.refreshSims()
@@ -811,9 +832,29 @@ private fun Composer(
                     Text("📎", Modifier.semantics { contentDescription = attachFileLabel })
                 }
             }
+            QuickReplyButton(
+                replies = quickReplies,
+                enabled = enabled,
+                onPick = { reply ->
+                    val at = if (placedCursor) fieldValue.selection else TextRange(draft.length)
+                    val inserted = QuickReplies.insert(draft, at.start, at.end, reply)
+                    field = TextFieldValue(inserted.text, TextRange(inserted.cursor))
+                    lastText = inserted.text
+                    placedCursor = true
+                    // فقط کادر پر می‌شود؛ فرستادن همچنان با دکمهٔ «ارسال» است.
+                    model.updateDraft(inserted.text)
+                },
+                onManage = { model.navigate(Destination.QuickReplyList) },
+            )
             OutlinedTextField(
-                value = draft,
-                onValueChange = model::updateDraft,
+                value = fieldValue,
+                onValueChange = { next ->
+                    field = next
+                    placedCursor = true
+                    val changed = lastText != next.text
+                    lastText = next.text
+                    if (changed) model.updateDraft(next.text)
+                },
                 // «ارسال با Enter» (D8): کلید صفحه‌کلید و Enter صفحه‌کلید سخت‌افزاری؛
                 // Shift+Enter همچنان خط تازه است.
                 modifier = Modifier
@@ -852,6 +893,61 @@ private fun Composer(
         }
     }
 }
+
+/**
+ * دکمهٔ «پاسخ‌های آماده» کنار کادر نوشتن (ADR-0017). لمس یک پاسخ فقط آن را در
+ * کادر می‌گذارد و هرگز چیزی نمی‌فرستد. فهرست خالی فقط یک جملهٔ کوتاه و پیوند
+ * تنظیمات را نشان می‌دهد، بدون هیچ متن نمونه.
+ */
+@Composable
+private fun QuickReplyButton(
+    replies: List<String>,
+    enabled: Boolean,
+    onPick: (String) -> Unit,
+    onManage: () -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, enabled = enabled) {
+            Icon(Icons.AutoMirrored.Filled.List, stringResource(R.string.quick_replies))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (replies.isEmpty()) {
+                Text(
+                    stringResource(R.string.quick_replies_menu_empty),
+                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp).widthIn(max = QUICK_REPLY_MENU_WIDTH),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            for (reply in replies) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            reply,
+                            Modifier.widthIn(max = QUICK_REPLY_MENU_WIDTH),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    onClick = {
+                        open = false
+                        onPick(reply)
+                    },
+                )
+            }
+            if (replies.isNotEmpty()) HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.quick_replies_manage)) },
+                onClick = {
+                    open = false
+                    onManage()
+                },
+            )
+        }
+    }
+}
+
+private val QUICK_REPLY_MENU_WIDTH = 280.dp
 
 /**
  * پیامکی که منتظر «تأخیر پیش از ارسال» است، با شمارش معکوس و «لغو» (D8). تا

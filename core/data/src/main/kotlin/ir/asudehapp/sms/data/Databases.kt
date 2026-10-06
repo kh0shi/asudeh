@@ -110,13 +110,19 @@ abstract class IndexDatabase : RoomDatabase() {
 }
 
 /**
- * قواعد کاربر (`Allowlist` و `Blocklist`). این‌ها از هیچ جای دیگری قابل بازسازی
+ * قواعد کاربر (`Allowlist` و `Blocklist`) و از نسخهٔ ۴ پاسخ‌های آماده‌ای که خودش
+ * نوشته (ADR-0017). این‌ها از هیچ جای دیگری قابل بازسازی
  * نیستند، پس جدا از ایندکس نگه داشته می‌شوند: هرگز migration مخرب ندارند و در
  * انتقال گوشی‌به‌گوشی منتقل می‌شوند (D57).
  */
 @Database(
-    entities = [SenderRuleEntity::class, KeywordRuleEntity::class, SenderPatternRuleEntity::class],
-    version = 3,
+    entities = [
+        SenderRuleEntity::class,
+        KeywordRuleEntity::class,
+        SenderPatternRuleEntity::class,
+        QuickReplyEntity::class,
+    ],
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(AsudehConverters::class)
@@ -127,6 +133,8 @@ abstract class RulesDatabase : RoomDatabase() {
     abstract fun keywordRules(): KeywordRuleDao
 
     abstract fun senderPatternRules(): SenderPatternRuleDao
+
+    abstract fun quickReplies(): QuickReplyDao
 
     companion object {
         const val NAME = "rules.db"
@@ -139,7 +147,11 @@ abstract class RulesDatabase : RoomDatabase() {
                 context.applicationContext,
                 RulesDatabase::class.java,
                 NAME,
-            ).addMigrations(RulesMigrations.V1_V2, RulesMigrations.V2_V3).build().also { instance = it }
+            ).addMigrations(
+                RulesMigrations.V1_V2,
+                RulesMigrations.V2_V3,
+                RulesMigrations.V3_V4,
+            ).build().also { instance = it }
         }
     }
 }
@@ -169,6 +181,21 @@ object RulesMigrations {
     internal val V2_V3_SQL: List<String> = listOf(
         "CREATE TABLE IF NOT EXISTS `sender_pattern_rule` (`prefix` TEXT NOT NULL, `pattern` TEXT NOT NULL, " +
             "`kind` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`prefix`))",
+    )
+
+    /**
+     * نسخهٔ ۴: پاسخ‌های آماده‌ای که خود کاربر می‌نویسد (ADR-0017). یک جدول تازه
+     * و خالی، بدون تغییر در جدول‌های قبلی.
+     */
+    val V3_V4: Migration = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (statement in V3_V4_SQL) db.execSQL(statement)
+        }
+    }
+
+    internal val V3_V4_SQL: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `quick_reply` (`body` TEXT NOT NULL, `position` INTEGER NOT NULL, " +
+            "PRIMARY KEY(`body`))",
     )
 }
 

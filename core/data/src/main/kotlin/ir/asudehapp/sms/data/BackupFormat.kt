@@ -47,6 +47,11 @@ object BackupFormat {
         val groupNames: List<GroupName> = emptyList(),
         /** الگوهای فرستندهٔ «قواعد من» (ADR-0016). پشتیبان‌های قدیمی‌تر این را ندارند. */
         val senderPatterns: List<SenderPatternRule> = emptyList(),
+        /**
+         * پاسخ‌های آماده‌ای که خود کاربر نوشته، به ترتیب خودش (ADR-0017).
+         * پشتیبان‌های قدیمی‌تر این را ندارند.
+         */
+        val quickReplies: List<String> = emptyList(),
     )
 
     @Serializable

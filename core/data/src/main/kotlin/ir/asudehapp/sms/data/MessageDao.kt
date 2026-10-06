@@ -545,6 +545,27 @@ interface SenderPatternRuleDao {
 }
 
 /**
+ * پاسخ‌های آمادهٔ کاربر (ADR-0017). فهرست همیشه یک‌جا و در یک تراکنش عوض
+ * می‌شود (`AsudehRepository.updateQuickReplies`)، چون بیست ردیف بیشتر نیست و
+ * ترتیبش هم جزو داده است.
+ */
+@Dao
+interface QuickReplyDao {
+
+    @Query("SELECT * FROM quick_reply ORDER BY position")
+    fun observeAll(): Flow<List<QuickReplyEntity>>
+
+    @Query("SELECT * FROM quick_reply ORDER BY position")
+    suspend fun all(): List<QuickReplyEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun putAll(replies: List<QuickReplyEntity>)
+
+    @Query("DELETE FROM quick_reply")
+    suspend fun clear()
+}
+
+/**
  * سطل حذف‌شده‌ها (ADR-0010). هیچ کوئری‌ای در این DAO خودکار صدا زده نمی‌شود:
  * هم پر شدن سطل و هم خالی شدنش با اقدام صریح کاربر است.
  */
