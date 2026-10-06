@@ -5,6 +5,8 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.room.withTransaction
+import ir.asudehapp.sms.classifier.BankTransaction
+import ir.asudehapp.sms.classifier.BankTransactionParser
 import ir.asudehapp.sms.classifier.Classifier
 import ir.asudehapp.sms.classifier.CompiledRulePack
 import ir.asudehapp.sms.classifier.Router
@@ -238,6 +240,20 @@ class AsudehRepository(
 
     suspend fun forgetSenderPatternRule(prefix: String) {
         patternDao.remove(prefix)
+    }
+
+    /**
+     * تراکنش‌هایی که از پیامک‌های بانکی همین ایندکس خوانده می‌شوند (ADR-0018).
+     * هر بار از نو و فقط در حافظه محاسبه می‌شود؛ هیچ پیامکی عوض یا جابه‌جا
+     * نمی‌شود و نتیجه جایی ذخیره نمی‌شود. پیامکی که قالبش را نمی‌شناسیم فقط
+     * در فهرست نیست.
+     */
+    suspend fun bankTransactions(): List<BankEntry> = withContext(Dispatchers.Default) {
+        val parser = BankTransactionParser(rules)
+        dao.bankMessages().mapNotNull { message ->
+            parser.parse(message.address, message.body, message.dateReceived, message.providerId)
+                ?.let { BankEntry(it, message.threadId, message.folder) }
+        }
     }
 
     /** پاسخ‌های آماده‌ای که خود کاربر نوشته، به ترتیب خودش (ADR-0017). */
@@ -1094,4 +1110,5 @@ private fun MessageEntity.toTrashed(deletedAt: Long): TrashedMessageEntity = Tra
     deletedAt = deletedAt,
 )
 
-
+/** یک تراکنش، با گفتگویی که پیامکش در آن است؛ برای باز کردن گفتگو از خلاصه (ADR-0018). */
+data class BankEntry(val transaction: BankTransaction, val threadId: Long, val folder: Folder)

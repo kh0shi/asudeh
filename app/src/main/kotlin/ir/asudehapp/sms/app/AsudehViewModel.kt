@@ -12,6 +12,7 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import ir.asudehapp.sms.data.AppLanguage
 import ir.asudehapp.sms.data.BackupException
+import ir.asudehapp.sms.data.BankEntry
 import ir.asudehapp.sms.data.DateStyle
 import ir.asudehapp.sms.data.DigestFrequency
 import ir.asudehapp.sms.data.KeywordRuleEntity
@@ -98,6 +99,9 @@ sealed interface Destination {
 
     /** «پاسخ‌های آماده» (ADR-0017). */
     data object QuickReplyList : Destination
+
+    /** «خلاصهٔ تراکنش‌های بانکی» (ADR-0018). */
+    data object BankSummary : Destination
     data object NewConversation : Destination
 
     /** «حذف‌شده‌ها» (ADR-0010). */
@@ -469,6 +473,13 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
     /** پاسخ‌های آماده‌ای که خود کاربر نوشته (ADR-0017)؛ در اولین اجرا خالی. */
     val quickReplies: StateFlow<List<String>> = repository.quickReplies()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
+
+    /**
+     * تراکنش‌های خوانده‌شده از پیامک‌های بانکی (ADR-0018)؛ `null` یعنی هنوز در
+     * حال خواندن. فقط در حافظه است و با هر بار باز شدن صفحه از نو ساخته می‌شود.
+     */
+    private val _bankEntries = MutableStateFlow<List<BankEntry>?>(null)
+    val bankEntries: StateFlow<List<BankEntry>?> = _bankEntries.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -1494,6 +1505,16 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
 
     fun updateSearch(query: String) {
         _searchQuery.value = query
+    }
+
+    fun loadBankEntries() {
+        viewModelScope.launch { _bankEntries.value = repository.bankTransactions() }
+    }
+
+    /** لمس یک تراکنش: گفتگوی همان پیامک، روی خود پیامک. هیچ چیزی عوض نمی‌شود. */
+    fun openBankEntry(entry: BankEntry) {
+        navigate(Destination.Conversation(entry.threadId, entry.folder))
+        _jumpTo.value = entry.transaction.timestamp
     }
 
     fun openSearchResult(message: MessageEntity) {

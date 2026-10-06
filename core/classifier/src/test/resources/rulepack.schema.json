@@ -34,6 +34,21 @@
       "type": "array",
       "items": { "$ref": "#/$defs/brand" }
     },
+    "bankTransactions": {
+      "description": "قالب پیامک تراکنش بانک‌ها برای خلاصهٔ تراکنش‌ها (ADR-0018).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "banks": {
+          "description": "نام Brandهایی که بانک‌اند؛ هر نام باید در brands باشد (RulePackTest).",
+          "$ref": "#/$defs/stringList"
+        },
+        "templates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/bankTemplate" }
+        }
+      }
+    },
     "bayes": {
       "type": "object",
       "additionalProperties": false,
@@ -74,6 +89,27 @@
           "description": "هر الگو در RulePackSchemaTest با Regex خود Kotlin کامپایل می‌شود، همان موتوری که طبقه‌بند به کار می‌برد.",
           "items": { "type": "string", "minLength": 1 }
         }
+      }
+    },
+    "amountRegex": {
+      "description": "روی متن نرمال‌شده؛ گروه نام‌دار amount لازم است و toman اختیاری. کامپایل با Regex خود Kotlin در BankTransactionParserTest.",
+      "type": "string",
+      "pattern": "\\(\\?<amount>"
+    },
+    "amountRegexList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/amountRegex" }
+    },
+    "bankTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "banks": { "$ref": "#/$defs/stringList" },
+        "deposit": { "$ref": "#/$defs/amountRegexList" },
+        "withdrawal": { "$ref": "#/$defs/amountRegexList" },
+        "balance": { "$ref": "#/$defs/amountRegexList" }
       }
     },
     "brand": {

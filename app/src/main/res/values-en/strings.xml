@@ -492,4 +492,20 @@
     <string name="filter_otp">Codes</string>
     <string name="filter_service">Services</string>
     <string name="filter_empty">No conversations in this category.</string>
+    <!-- Bank transaction summary (ADR-0018) -->
+    <string name="bank_summary">Bank transaction summary</string>
+    <string name="bank_summary_settings_hint">Monthly deposits and withdrawals from bank SMS, on this phone only</string>
+    <string name="bank_summary_hint">This summary is built from your bank SMS on this phone each time you open it, and is never stored or sent anywhere. Only known formats of a few banks are read, so it may be incomplete and is not a bank statement. No message is changed by this screen.</string>
+    <string name="bank_summary_loading">Reading bank messages…</string>
+    <string name="bank_summary_empty">No transactions were recognized in your bank messages.</string>
+    <string name="bank_deposits">Deposits: %1$s</string>
+    <string name="bank_withdrawals">Withdrawals: %1$s</string>
+    <string name="bank_deposit">Deposit: %1$s</string>
+    <string name="bank_withdrawal">Withdrawal: %1$s</string>
+    <string name="bank_balance">Balance: %1$s</string>
+    <string name="bank_amount_rials">%1$s rials</string>
+    <plurals name="bank_transaction_count">
+        <item quantity="one">%d transaction</item>
+        <item quantity="other">%d transactions</item>
+    </plurals>
 </resources>

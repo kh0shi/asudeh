@@ -87,4 +87,19 @@ class RulePackSchemaTest {
         (pack["adLinePrefixes"] as ArrayNode).add("50x0")
         assertTrue(problems(pack).isNotEmpty())
     }
+
+    @Test
+    fun `bank template regex without an amount group is rejected`() {
+        val pack = bundled()
+        val template = pack["bankTransactions"]["templates"][0] as ObjectNode
+        (template["deposit"] as ArrayNode).add("واریز\\s*(\\d+)")
+        assertTrue(problems(pack).isNotEmpty())
+    }
+
+    @Test
+    fun `unknown key inside a bank template is rejected`() {
+        val pack = bundled()
+        (pack["bankTransactions"]["templates"][0] as ObjectNode).put("unit", "toman")
+        assertTrue(problems(pack).isNotEmpty())
+    }
 }
