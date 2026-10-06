@@ -141,9 +141,12 @@ data class ThreadPrefEntity(
     /** رنگ حباب همین گفتگو از پالت ثابت (ROADMAP E8)؛ منفی یعنی رنگ سراسری. */
     @ColumnInfo(defaultValue = "-1")
     val bubbleColor: Int = -1,
+    /** نامی که کاربر روی گفتگوی گروهی گذاشته (PARITY §ب-۸، ROADMAP E9)؛ خالی یعنی نام طرف‌ها. */
+    @ColumnInfo(defaultValue = "")
+    val title: String = "",
 ) {
     val isDefault: Boolean
-        get() = !pinned && draft.isEmpty() && !muted && !archived && subId < 0 && bubbleColor < 0
+        get() = !pinned && draft.isEmpty() && !muted && !archived && subId < 0 && bubbleColor < 0 && title.isEmpty()
 }
 
 enum class SendStatus {
@@ -245,6 +248,8 @@ data class ThreadSummary(
     val archived: Boolean = false,
     /** دستهٔ آخرین پیامک همان پوشه؛ برای آیکون گفتگوی بی‌مخاطب (ROADMAP D7). */
     val category: Category = Category.UNKNOWN,
+    /** نام گفتگوی گروهی که کاربر گذاشته؛ خالی یعنی نام طرف‌ها (ROADMAP E9). */
+    val title: String = "",
 )
 
 /** خلاصهٔ پیشنهاد جابه‌جایی پیامک‌های قدیمی (اصل ۸). */

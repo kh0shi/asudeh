@@ -141,6 +141,7 @@ private val LocalOutgoingBubble = staticCompositionLocalOf<Color?> { null }
 private fun ThreadExtrasDialogs(model: AsudehViewModel, state: ConversationUiState, extra: ThreadExtra?, onClose: () -> Unit) {
     when (extra) {
         ThreadExtra.GALLERY -> AttachmentGallery(model, state.messages, onClose)
+        ThreadExtra.RENAME -> GroupNameDialog(state.title, onSave = { model.setThreadTitle(state.threadId, it) }, onDismiss = onClose)
         ThreadExtra.BUBBLE_COLOR -> ThreadBubbleColorDialog(
             selected = state.bubbleColor,
             globalColor = model.settings.collectAsState().value.bubbleColor,
@@ -151,7 +152,48 @@ private fun ThreadExtrasDialogs(model: AsudehViewModel, state: ConversationUiSta
     }
 }
 
-private enum class ThreadExtra { GALLERY, BUBBLE_COLOR }
+private enum class ThreadExtra { GALLERY, BUBBLE_COLOR, RENAME }
+
+/** نام گروه (PARITY §ب-۸) و گالری پیوست‌ها (§ب-۶)، فقط وقتی معنی دارند. */
+@Composable
+private fun ExtrasMenuItems(state: ConversationUiState, onPick: (ThreadExtra) -> Unit) {
+    if (state.isGroup) {
+        DropdownMenuItem(text = { Text(stringResource(R.string.group_name)) }, onClick = { onPick(ThreadExtra.RENAME) })
+    }
+    if (state.messages.any { it.kind == MessageEntity.KIND_MMS && it.attachments > 0 }) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.attachments_gallery)) },
+            onClick = { onPick(ThreadExtra.GALLERY) },
+        )
+    }
+}
+
+/** نام گفتگوی گروهی؛ خالی کردنش نام طرف‌ها را برمی‌گرداند. */
+@Composable
+private fun GroupNameDialog(current: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.group_name)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                placeholder = { Text(stringResource(R.string.group_name_hint)) },
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(name)
+                    onDismiss()
+                },
+            ) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
 
 /** یک تکه از گفتگو: یا یک پیامک دیده‌شده، یا نوار جمع‌شدهٔ `HiddenRun`. */
 private sealed interface ConversationItem {
@@ -199,15 +241,9 @@ fun ConversationActions(model: AsudehViewModel, state: ConversationUiState, fold
                     pickDay = true
                 },
             )
-            // گالری پیوست‌ها (PARITY §ب-۶).
-            if (state.messages.any { it.kind == MessageEntity.KIND_MMS && it.attachments > 0 }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.attachments_gallery)) },
-                    onClick = {
-                        menu = false
-                        extra = ThreadExtra.GALLERY
-                    },
-                )
+            ExtrasMenuItems(state) {
+                menu = false
+                extra = it
             }
         }
         if (state.threadId > 0) {

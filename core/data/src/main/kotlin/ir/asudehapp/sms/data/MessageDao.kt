@@ -53,6 +53,7 @@ interface MessageDao {
                ts.attachments AS attachments,
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
+               COALESCE(p.title, '') AS title,
                COALESCE(p.muted, 0) AS muted,
                COALESCE(p.archived, 0) AS archived,
                COALESCE(
@@ -89,6 +90,7 @@ interface MessageDao {
                ts.attachments AS attachments,
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
+               COALESCE(p.title, '') AS title,
                COALESCE(p.muted, 0) AS muted,
                COALESCE(p.archived, 0) AS archived,
                COALESCE(
@@ -126,6 +128,7 @@ interface MessageDao {
                ts.attachments AS attachments,
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
+               COALESCE(p.title, '') AS title,
                COALESCE(p.muted, 0) AS muted,
                COALESCE(p.archived, 0) AS archived,
                COALESCE(
@@ -169,6 +172,7 @@ interface MessageDao {
                ts.attachments AS attachments,
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
+               COALESCE(p.title, '') AS title,
                COALESCE(p.muted, 0) AS muted,
                p.archived AS archived,
                COALESCE(
@@ -202,6 +206,7 @@ interface MessageDao {
                ts.attachments AS attachments,
                COALESCE(p.pinned, 0) AS pinned,
                COALESCE(p.draft, '') AS draft,
+               COALESCE(p.title, '') AS title,
                COALESCE(p.muted, 0) AS muted,
                p.archived AS archived,
                COALESCE(
@@ -279,6 +284,9 @@ interface MessageDao {
         """,
     )
     suspend fun lastIncoming(threadId: Long, folder: Folder): MessageEntity?
+
+    @Query("SELECT * FROM message WHERE threadId = :threadId ORDER BY dateReceived DESC LIMIT 1")
+    suspend fun latestInThread(threadId: Long): MessageEntity?
 
     @Query("UPDATE message SET read = :read WHERE kind = :kind AND providerId = :providerId")
     suspend fun setRead(kind: String, providerId: Long, read: Boolean)
@@ -480,6 +488,10 @@ interface ThreadPrefDao {
 
     @Query("DELETE FROM thread_pref WHERE threadId = :threadId")
     suspend fun remove(threadId: Long)
+
+    /** گفتگوهای نام‌دار، برای پشتیبان (ROADMAP E9). */
+    @Query("SELECT * FROM thread_pref WHERE title != ''")
+    suspend fun titled(): List<ThreadPrefEntity>
 }
 
 @Dao

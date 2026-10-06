@@ -118,6 +118,8 @@ data class ConversationUiState(
     val archived: Boolean = false,
     /** رنگ حباب همین گفتگو؛ منفی یعنی رنگ سراسری (ROADMAP E8). */
     val bubbleColor: Int = -1,
+    /** نام گفتگوی گروهی که کاربر گذاشته؛ خالی یعنی نام طرف‌ها (ROADMAP E9). */
+    val title: String = "",
     /** پاسخ از سیم‌کارتی می‌رود که پیامک آخر به آن رسیده است، مگر کاربر عوضش کند (D27). */
     val subscriptionId: Int = -1,
 ) {
@@ -757,6 +759,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
             val archived = repository.isArchived(target.threadId)
             val lastSim = repository.lastSendSim(target.threadId).takeIf { it >= 0 }
             val bubbleColor = repository.bubbleColor(target.threadId)
+            val title = repository.threadTitle(target.threadId)
             repository.conversation(target.threadId).collect { messages ->
                 val last = messages.lastOrNull()
                 val participants = when {
@@ -780,6 +783,7 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
                     muted = if (previous.threadId == target.threadId) previous.muted else muted,
                     archived = if (previous.threadId == target.threadId) previous.archived else archived,
                     bubbleColor = if (previous.threadId == target.threadId) previous.bubbleColor else bubbleColor,
+                    title = if (previous.threadId == target.threadId) previous.title else title,
                     subscriptionId = previous.subscriptionId.takeIf { it >= 0 && previous.threadId == target.threadId }
                         ?: lastSim
                         ?: lastIncoming?.subId
@@ -1537,6 +1541,14 @@ class AsudehViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { repository.setBubbleColor(threadId, index) }
         if (_conversation.value.threadId == threadId) {
             _conversation.value = _conversation.value.copy(bubbleColor = index)
+        }
+    }
+
+    /** نام گفتگوی گروهی (PARITY §ب-۸)؛ متن خالی نام را برمی‌دارد. */
+    fun setThreadTitle(threadId: Long, title: String) {
+        viewModelScope.launch { repository.setThreadTitle(threadId, title) }
+        if (_conversation.value.threadId == threadId) {
+            _conversation.value = _conversation.value.copy(title = title.trim())
         }
     }
 

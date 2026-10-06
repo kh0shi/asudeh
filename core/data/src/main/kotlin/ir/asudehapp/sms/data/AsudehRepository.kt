@@ -278,6 +278,20 @@ class AsudehRepository(
         updatePref(threadId) { it.copy(bubbleColor = index.coerceAtLeast(-1)) }
     }
 
+    /** نام گفتگوی گروهی (PARITY §ب-۸)؛ خالی یعنی نام طرف‌ها. */
+    suspend fun threadTitle(threadId: Long): String = prefDao.get(threadId)?.title.orEmpty()
+
+    suspend fun setThreadTitle(threadId: Long, title: String) {
+        if (threadId <= 0) return
+        updatePref(threadId) { it.copy(title = title.trim().take(MAX_TITLE)) }
+    }
+
+    /** گفتگوهای نام‌دار با طرف‌هایشان، برای پشتیبان؛ شناسهٔ گفتگو در گوشی دیگر فرق دارد. */
+    suspend fun titledThreads(): List<Pair<List<String>, String>> = prefDao.titled().mapNotNull { pref ->
+        val last = dao.latestInThread(pref.threadId) ?: return@mapNotNull null
+        last.participants to pref.title
+    }
+
     /** ردیفی که همه‌اش پیش‌فرض است نگه داشته نمی‌شود. */
     private suspend fun updatePref(threadId: Long, change: (ThreadPrefEntity) -> ThreadPrefEntity) {
         val current = prefDao.get(threadId) ?: ThreadPrefEntity(threadId, pinned = false, draft = "", updatedAt = 0)
@@ -999,6 +1013,9 @@ class AsudehRepository(
         const val SYNC_CHUNK = 500
         const val SEARCH_LIMIT = 200
         const val PAGE_SIZE = 30
+
+        /** نام گفتگو کوتاه است؛ متن بلندتر بریده می‌شود، نه رد. */
+        const val MAX_TITLE = 60
     }
 }
 

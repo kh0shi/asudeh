@@ -35,6 +35,9 @@
     <string name="sweep_not_now">فعلاً نه</string>
     <string name="sweep_keep">در صندوق بماند</string>
     <string name="close">بستن</string>
+    <string name="group_name">نام گروه</string>
+    <string name="save">ذخیره</string>
+    <string name="group_name_hint">خالی بماند، نام اعضا نشان داده می‌شود</string>
     <string name="attachments_gallery">پیوست‌ها</string>
     <string name="attachments_empty">پیوستی در این گفتگو نیست.</string>
     <string name="bubble_color">رنگ حباب</string>

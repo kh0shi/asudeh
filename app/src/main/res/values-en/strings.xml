@@ -34,6 +34,9 @@
     <string name="sweep_not_now">Not now</string>
     <string name="sweep_keep">Keep in Inbox</string>
     <string name="close">Close</string>
+    <string name="group_name">Group name</string>
+    <string name="save">Save</string>
+    <string name="group_name_hint">Leave empty to show the members\' names</string>
     <string name="attachments_gallery">Attachments</string>
     <string name="attachments_empty">No attachments in this conversation.</string>
     <string name="bubble_color">Bubble color</string>

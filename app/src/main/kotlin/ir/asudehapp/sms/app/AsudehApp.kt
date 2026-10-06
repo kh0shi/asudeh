@@ -288,7 +288,7 @@ private fun destinationTitle(destination: Destination, conversation: Conversatio
     when (destination) {
         Destination.Home -> stringResource(R.string.app_name)
         is Destination.FolderView -> Texts.folderName(destination.folder)
-        is Destination.Conversation -> Texts.participants(conversation.participants)
+        is Destination.Conversation -> conversation.title.ifEmpty { Texts.participants(conversation.participants) }
         Destination.Search -> stringResource(R.string.search)
         Destination.Settings -> stringResource(R.string.settings)
         Destination.Rules -> stringResource(R.string.settings_rules)
@@ -1509,7 +1509,7 @@ private fun ThreadRowContent(
                     )
                 }
                 Text(
-                    Texts.thread(thread.address, thread.recipients),
+                    thread.title.ifEmpty { Texts.thread(thread.address, thread.recipients) },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = if (thread.unread > 0) FontWeight.Bold else null,
                     maxLines = 1,

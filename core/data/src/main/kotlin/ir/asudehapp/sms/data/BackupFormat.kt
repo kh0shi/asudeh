@@ -40,7 +40,15 @@ object BackupFormat {
         val rules: List<Rule> = emptyList(),
         /** کلیدواژه‌های «قواعد من» (ADR-0012). پشتیبان‌های قدیمی‌تر این را ندارند. */
         val keywordRules: List<KeywordRule> = emptyList(),
+        /**
+         * نام گفتگوهای گروهی (ROADMAP E9). با طرف‌های گفتگو نگه داشته می‌شود، نه
+         * شناسهٔ آن، چون شناسهٔ گفتگو در گوشی دیگر فرق دارد.
+         */
+        val groupNames: List<GroupName> = emptyList(),
     )
+
+    @Serializable
+    data class GroupName(val participants: List<String>, val name: String)
 
     @Serializable
     data class Rule(val address: String, val kind: String, val createdAt: Long)
